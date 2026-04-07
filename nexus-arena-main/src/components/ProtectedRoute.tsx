@@ -47,10 +47,10 @@ export function ProtectedRoute({
                 <ShieldAlert className="w-6 h-6 text-red-400" />
                 Role restricted
               </CardTitle>
-            <CardDescription>
-              This area is limited to {allowedRoles.join(" or ")} accounts. Your current role is {user.role}.
-            </CardDescription>
-          </CardHeader>
+              <CardDescription>
+                This area is limited to {allowedRoles.join(" or ")} accounts. Your current role is {user.role}.
+              </CardDescription>
+            </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               Sign in with an organizer or admin account to continue.
             </CardContent>

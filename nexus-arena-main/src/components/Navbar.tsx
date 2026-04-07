@@ -23,6 +23,7 @@ const navItems = [
 export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const canManageTournaments = user?.role === "ORGANIZER" || user?.role === "ADMIN";
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-white/10">
@@ -58,7 +59,7 @@ export function Navbar() {
               </Link>
             );
           })}
-          {user?.role === "ORGANIZER" && (
+          {canManageTournaments && (
             <Link
               to="/admin/tournaments"
               className={cn(
@@ -69,21 +70,7 @@ export function Navbar() {
               )}
             >
               <Shield className="w-4 h-4 text-primary" />
-              Organizer
-            </Link>
-          )}
-          {user?.role === "ADMIN" && (
-            <Link
-              to="/admin/tournaments"
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                location.pathname === "/admin/tournaments"
-                  ? "bg-primary/10 text-primary neon-glow-blue"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-              )}
-            >
-              <Shield className="w-4 h-4 text-primary" />
-              Admin
+              Tournament Control
             </Link>
           )}
         </div>

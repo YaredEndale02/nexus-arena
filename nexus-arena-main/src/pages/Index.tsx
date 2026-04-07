@@ -13,18 +13,34 @@ const fallbackStatusMap: Record<string, Tournament["status"]> = {
   Completed: "COMPLETED",
 };
 
+const fallbackDisplayStatusMap: Record<string, NonNullable<Tournament["displayStatus"]>> = {
+  "Registration Open": "Registration Open",
+  Upcoming: "Registration Closed",
+  Live: "Live",
+  Completed: "Completed",
+};
+
 const fallbackTournaments: Tournament[] = mockTournaments.map((tournament) => ({
   id: tournament.id,
   title: tournament.title,
   gameTitle: tournament.gameTitle,
+  format: "TEAM",
+  tournamentType: "ONLINE",
+  rules: null,
   startDate: tournament.startDate,
+  registrationOpenAt: null,
+  registrationCloseAt: null,
   maxTeams: tournament.maxTeams,
+  minPlayersPerTeam: 5,
+  maxPlayersPerTeam: 5,
   entryFee: tournament.entryFee,
   prizePool: tournament.prizePool,
+  waitlistEnabled: false,
+  visibility: "PUBLIC",
   status: fallbackStatusMap[tournament.status] ?? "DRAFT",
   registeredTeams: tournament.registeredTeams,
   gradient: tournament.gradient,
-  displayStatus: tournament.status,
+  displayStatus: fallbackDisplayStatusMap[tournament.status] ?? "Draft",
 }));
 
 const Index = () => {

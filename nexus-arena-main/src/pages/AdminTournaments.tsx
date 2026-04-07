@@ -12,10 +12,19 @@ import { CalendarIcon, Trophy, Users, DollarSign, Target, Shield, Loader2, Penci
 type TournamentFormState = {
   title: string;
   gameTitle: string;
+  format: Tournament["format"];
+  tournamentType: Tournament["tournamentType"];
+  rules: string;
   startDate: string;
+  registrationOpenAt: string;
+  registrationCloseAt: string;
   maxTeams: number;
+  minPlayersPerTeam: number;
+  maxPlayersPerTeam: number;
   entryFee: number;
   prizePool: number;
+  waitlistEnabled: boolean;
+  visibility: Tournament["visibility"];
 };
 
 type MatchFormState = {
@@ -28,10 +37,19 @@ type MatchFormState = {
 const createTournamentForm = (): TournamentFormState => ({
   title: "",
   gameTitle: "",
+  format: "TEAM",
+  tournamentType: "ONLINE",
+  rules: "",
   startDate: "",
+  registrationOpenAt: "",
+  registrationCloseAt: "",
   maxTeams: 16,
+  minPlayersPerTeam: 5,
+  maxPlayersPerTeam: 5,
   entryFee: 0,
   prizePool: 0,
+  waitlistEnabled: false,
+  visibility: "PUBLIC",
 });
 
 const createMatchForm = (): MatchFormState => ({
@@ -43,11 +61,44 @@ const createMatchForm = (): MatchFormState => ({
 
 const statusActions: Array<{ label: string; status: ApiTournamentStatus }> = [
   { label: "Save Draft", status: "DRAFT" },
+  { label: "Publish", status: "PUBLISHED" },
   { label: "Open Registration", status: "REGISTRATION_OPEN" },
   { label: "Close Registration", status: "REGISTRATION_CLOSED" },
   { label: "Go Live", status: "LIVE" },
   { label: "Complete", status: "COMPLETED" },
+  { label: "Cancel", status: "CANCELLED" },
 ];
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+function normalizeOptionalDate(value: string) {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function toTournamentPayload(form: TournamentFormState) {
+  return {
+    title: form.title,
+    gameTitle: form.gameTitle,
+    format: form.format,
+    tournamentType: form.tournamentType,
+    rules: form.rules.trim() || null,
+    startDate: new Date(form.startDate).toISOString(),
+    registrationOpenAt: normalizeOptionalDate(form.registrationOpenAt),
+    registrationCloseAt: normalizeOptionalDate(form.registrationCloseAt),
+    maxTeams: form.maxTeams,
+    minPlayersPerTeam: form.minPlayersPerTeam,
+    maxPlayersPerTeam: form.maxPlayersPerTeam,
+    entryFee: form.entryFee,
+    prizePool: form.prizePool,
+    waitlistEnabled: form.waitlistEnabled,
+    visibility: form.visibility,
+  };
+}
 
 export default function AdminTournaments() {
   const { user } = useAuth();
@@ -72,7 +123,7 @@ export default function AdminTournaments() {
       const nextReports: Record<string, MatchReport[]> = {};
       await Promise.all(
         tournaments.map(async (tournament) => {
-          nextMatchForms[tournament.id] = matchForms[tournament.id] ?? createMatchForm();
+          nextMatchForms[tournament.id] = createMatchForm();
           try {
             nextReports[tournament.id] = await api.getTournamentMatches(tournament.id);
           } catch {
@@ -91,7 +142,7 @@ export default function AdminTournaments() {
     } finally {
       setIsLoading(false);
     }
-  }, [matchForms, toast, user]);
+  }, [toast, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -104,7 +155,7 @@ export default function AdminTournaments() {
     setIsSubmitting(true);
     try {
       await api.createTournament({
-        ...formData,
+        ...toTournamentPayload(formData),
         creator: user,
       });
       toast({
@@ -129,10 +180,19 @@ export default function AdminTournaments() {
     setEditingForm({
       title: tournament.title,
       gameTitle: tournament.gameTitle,
-      startDate: tournament.startDate.slice(0, 10),
+      format: tournament.format,
+      tournamentType: tournament.tournamentType,
+      rules: tournament.rules ?? "",
+      startDate: toDateTimeLocal(tournament.startDate),
+      registrationOpenAt: toDateTimeLocal(tournament.registrationOpenAt),
+      registrationCloseAt: toDateTimeLocal(tournament.registrationCloseAt),
       maxTeams: tournament.maxTeams,
+      minPlayersPerTeam: tournament.minPlayersPerTeam,
+      maxPlayersPerTeam: tournament.maxPlayersPerTeam ?? tournament.minPlayersPerTeam,
       entryFee: tournament.entryFee,
       prizePool: tournament.prizePool,
+      waitlistEnabled: tournament.waitlistEnabled,
+      visibility: tournament.visibility,
     });
   };
 
@@ -141,7 +201,7 @@ export default function AdminTournaments() {
     setBusyTournamentId(tournamentId);
     try {
       const updated = await api.updateTournament(tournamentId, {
-        ...editingForm,
+        ...toTournamentPayload(editingForm),
         actor: user,
       });
       setManagedTournaments((current) => current.map((item) => (item.id === tournamentId ? updated : item)));
@@ -190,7 +250,7 @@ export default function AdminTournaments() {
       setManagedTournaments((current) => current.filter((item) => item.id !== tournamentId));
       toast({
         title: "Tournament deleted",
-        description: "The draft tournament was removed.",
+        description: "The tournament was removed permanently.",
       });
     } catch (error) {
       toast({
@@ -264,6 +324,31 @@ export default function AdminTournaments() {
     }
   };
 
+  const generateBracket = async (tournamentId: string) => {
+    if (!user) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      const createdMatches = await api.generateBracket(tournamentId, user);
+      setMatchReports((current) => ({
+        ...current,
+        [tournamentId]: createdMatches,
+      }));
+      toast({
+        title: "Bracket generated",
+        description: "Single-elimination matches were created from the registered teams.",
+      });
+      await loadManagedTournaments();
+    } catch (error) {
+      toast({
+        title: "Bracket generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate bracket",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
   if (!user || (user.role !== "ORGANIZER" && user.role !== "ADMIN")) {
     return (
       <Layout>
@@ -272,9 +357,7 @@ export default function AdminTournaments() {
             <Shield className="w-10 h-10 text-red-500" />
           </div>
           <h2 className="font-heading text-3xl font-bold">Access Denied</h2>
-          <p className="text-muted-foreground italic">
-            Only organizers and admins can manage tournaments.
-          </p>
+          <p className="text-muted-foreground italic">Only organizers and admins can manage tournaments.</p>
         </div>
       </Layout>
     );
@@ -290,7 +373,7 @@ export default function AdminTournaments() {
           <div>
             <h1 className="font-heading text-3xl font-bold text-foreground">Tournament Control Room</h1>
             <p className="text-muted-foreground">
-              Create drafts, publish registrations, edit details, and report live match results.
+              Create drafts, publish registrations, define rules, manage dates, and control tournament settings.
             </p>
           </div>
         </div>
@@ -299,7 +382,7 @@ export default function AdminTournaments() {
           <Card className="glass border-white/10">
             <CardHeader>
               <CardTitle className="font-heading italic">Create Tournament</CardTitle>
-              <CardDescription>New tournaments start as drafts so you can review details before publishing.</CardDescription>
+              <CardDescription>Configure format, rules, registration dates, and entry settings before publishing.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -317,7 +400,7 @@ export default function AdminTournaments() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="gameTitle">Game Title</Label>
                   <div className="relative">
@@ -333,11 +416,53 @@ export default function AdminTournaments() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="format">Format</Label>
+                  <select
+                    id="format"
+                    value={formData.format}
+                    onChange={(e) => setFormData({ ...formData, format: e.target.value as Tournament["format"] })}
+                    className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <option value="TEAM">Team</option>
+                    <option value="SOLO">Solo</option>
+                    <option value="DUO">Duo</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tournamentType">Tournament Type</Label>
+                  <select
+                    id="tournamentType"
+                    value={formData.tournamentType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, tournamentType: e.target.value as Tournament["tournamentType"] })
+                    }
+                    className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <option value="ONLINE">Online</option>
+                    <option value="LAN">LAN</option>
+                    <option value="HYBRID">Hybrid</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="rules">Rules</Label>
+                <textarea
+                  id="rules"
+                  value={formData.rules}
+                  onChange={(e) => setFormData({ ...formData, rules: e.target.value })}
+                  placeholder="Match rules, eligibility requirements, scoring details, and dispute process."
+                  className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
                   <div className="relative">
                     <Input
                       id="startDate"
-                      type="date"
+                      type="datetime-local"
                       className="pl-10 h-12 bg-white/5 border-white/10"
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
@@ -345,6 +470,26 @@ export default function AdminTournaments() {
                     />
                     <CalendarIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="registrationOpenAt">Registration Opens</Label>
+                  <Input
+                    id="registrationOpenAt"
+                    type="datetime-local"
+                    className="h-12 bg-white/5 border-white/10"
+                    value={formData.registrationOpenAt}
+                    onChange={(e) => setFormData({ ...formData, registrationOpenAt: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="registrationCloseAt">Registration Closes</Label>
+                  <Input
+                    id="registrationCloseAt"
+                    type="datetime-local"
+                    className="h-12 bg-white/5 border-white/10"
+                    value={formData.registrationCloseAt}
+                    onChange={(e) => setFormData({ ...formData, registrationCloseAt: e.target.value })}
+                  />
                 </div>
               </div>
 
@@ -363,6 +508,31 @@ export default function AdminTournaments() {
                     <Users className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="minPlayersPerTeam">Min Players Per Team</Label>
+                  <Input
+                    id="minPlayersPerTeam"
+                    type="number"
+                    className="h-12 bg-white/5 border-white/10"
+                    value={formData.minPlayersPerTeam}
+                    onChange={(e) => setFormData({ ...formData, minPlayersPerTeam: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="maxPlayersPerTeam">Max Players Per Team</Label>
+                  <Input
+                    id="maxPlayersPerTeam"
+                    type="number"
+                    className="h-12 bg-white/5 border-white/10"
+                    value={formData.maxPlayersPerTeam}
+                    onChange={(e) => setFormData({ ...formData, maxPlayersPerTeam: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="entryFee">Entry Fee ($)</Label>
                   <div className="relative">
@@ -390,6 +560,31 @@ export default function AdminTournaments() {
                     />
                     <Trophy className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <select
+                    id="visibility"
+                    value={formData.visibility}
+                    onChange={(e) => setFormData({ ...formData, visibility: e.target.value as Tournament["visibility"] })}
+                    className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <option value="PUBLIC">Public</option>
+                    <option value="UNLISTED">Unlisted</option>
+                    <option value="PRIVATE">Private</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="waitlistEnabled">Waitlist</Label>
+                  <select
+                    id="waitlistEnabled"
+                    value={formData.waitlistEnabled ? "enabled" : "disabled"}
+                    onChange={(e) => setFormData({ ...formData, waitlistEnabled: e.target.value === "enabled" })}
+                    className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                  >
+                    <option value="disabled">Disabled</option>
+                    <option value="enabled">Enabled</option>
+                  </select>
                 </div>
               </div>
             </CardContent>
@@ -434,13 +629,21 @@ export default function AdminTournaments() {
                       <div>
                         <CardTitle className="font-heading text-2xl">{tournament.title}</CardTitle>
                         <CardDescription>
-                          {`${tournament.gameTitle} · ${tournament.displayStatus} · ${(tournament._count?.entries ?? 0)}/${tournament.maxTeams} teams`}
+                          {`${tournament.gameTitle} - ${tournament.displayStatus} - ${(tournament._count?.entries ?? 0)}/${tournament.maxTeams} teams`}
                         </CardDescription>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button variant="outline" className="border-white/10" onClick={() => beginEditingTournament(tournament)}>
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-white/10"
+                          disabled={busyTournamentId === tournament.id || matches.length > 0 || (tournament._count?.entries ?? 0) < 2}
+                          onClick={() => void generateBracket(tournament.id)}
+                        >
+                          Generate Bracket
                         </Button>
                         {statusActions.map((action) => (
                           <Button
@@ -469,48 +672,99 @@ export default function AdminTournaments() {
                         <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label>Title</Label>
-                            <Input
-                              value={editingForm.title}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, title: e.target.value }))}
-                            />
+                            <Input value={editingForm.title} onChange={(e) => setEditingForm((current) => ({ ...current, title: e.target.value }))} />
                           </div>
                           <div className="space-y-2">
                             <Label>Game</Label>
-                            <Input
-                              value={editingForm.gameTitle}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, gameTitle: e.target.value }))}
-                            />
+                            <Input value={editingForm.gameTitle} onChange={(e) => setEditingForm((current) => ({ ...current, gameTitle: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Format</Label>
+                            <select
+                              value={editingForm.format}
+                              onChange={(e) => setEditingForm((current) => ({ ...current, format: e.target.value as Tournament["format"] }))}
+                              className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                            >
+                              <option value="TEAM">Team</option>
+                              <option value="SOLO">Solo</option>
+                              <option value="DUO">Duo</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tournament Type</Label>
+                            <select
+                              value={editingForm.tournamentType}
+                              onChange={(e) =>
+                                setEditingForm((current) => ({ ...current, tournamentType: e.target.value as Tournament["tournamentType"] }))
+                              }
+                              className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                            >
+                              <option value="ONLINE">Online</option>
+                              <option value="LAN">LAN</option>
+                              <option value="HYBRID">Hybrid</option>
+                            </select>
                           </div>
                           <div className="space-y-2">
                             <Label>Start Date</Label>
-                            <Input
-                              type="date"
-                              value={editingForm.startDate}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, startDate: e.target.value }))}
-                            />
+                            <Input type="datetime-local" value={editingForm.startDate} onChange={(e) => setEditingForm((current) => ({ ...current, startDate: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Registration Opens</Label>
+                            <Input type="datetime-local" value={editingForm.registrationOpenAt} onChange={(e) => setEditingForm((current) => ({ ...current, registrationOpenAt: e.target.value }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Registration Closes</Label>
+                            <Input type="datetime-local" value={editingForm.registrationCloseAt} onChange={(e) => setEditingForm((current) => ({ ...current, registrationCloseAt: e.target.value }))} />
                           </div>
                           <div className="space-y-2">
                             <Label>Max Teams</Label>
-                            <Input
-                              type="number"
-                              value={editingForm.maxTeams}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, maxTeams: Number(e.target.value) }))}
-                            />
+                            <Input type="number" value={editingForm.maxTeams} onChange={(e) => setEditingForm((current) => ({ ...current, maxTeams: Number(e.target.value) }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Min Players Per Team</Label>
+                            <Input type="number" value={editingForm.minPlayersPerTeam} onChange={(e) => setEditingForm((current) => ({ ...current, minPlayersPerTeam: Number(e.target.value) }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Max Players Per Team</Label>
+                            <Input type="number" value={editingForm.maxPlayersPerTeam} onChange={(e) => setEditingForm((current) => ({ ...current, maxPlayersPerTeam: Number(e.target.value) }))} />
                           </div>
                           <div className="space-y-2">
                             <Label>Entry Fee</Label>
-                            <Input
-                              type="number"
-                              value={editingForm.entryFee}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, entryFee: Number(e.target.value) }))}
-                            />
+                            <Input type="number" value={editingForm.entryFee} onChange={(e) => setEditingForm((current) => ({ ...current, entryFee: Number(e.target.value) }))} />
                           </div>
                           <div className="space-y-2">
                             <Label>Prize Pool</Label>
-                            <Input
-                              type="number"
-                              value={editingForm.prizePool}
-                              onChange={(e) => setEditingForm((current) => ({ ...current, prizePool: Number(e.target.value) }))}
+                            <Input type="number" value={editingForm.prizePool} onChange={(e) => setEditingForm((current) => ({ ...current, prizePool: Number(e.target.value) }))} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Visibility</Label>
+                            <select
+                              value={editingForm.visibility}
+                              onChange={(e) => setEditingForm((current) => ({ ...current, visibility: e.target.value as Tournament["visibility"] }))}
+                              className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                            >
+                              <option value="PUBLIC">Public</option>
+                              <option value="UNLISTED">Unlisted</option>
+                              <option value="PRIVATE">Private</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Waitlist</Label>
+                            <select
+                              value={editingForm.waitlistEnabled ? "enabled" : "disabled"}
+                              onChange={(e) => setEditingForm((current) => ({ ...current, waitlistEnabled: e.target.value === "enabled" }))}
+                              className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                            >
+                              <option value="disabled">Disabled</option>
+                              <option value="enabled">Enabled</option>
+                            </select>
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Rules</Label>
+                            <textarea
+                              value={editingForm.rules}
+                              onChange={(e) => setEditingForm((current) => ({ ...current, rules: e.target.value }))}
+                              className="min-h-24 w-full rounded-md border border-white/10 bg-white/5 px-3 py-3 text-sm"
                             />
                           </div>
                           <div className="md:col-span-2 flex gap-2">
@@ -528,7 +782,27 @@ export default function AdminTournaments() {
                       <div className="grid gap-3 md:grid-cols-4 text-sm">
                         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                           <p className="text-muted-foreground">Start Date</p>
-                          <p className="font-semibold">{new Date(tournament.startDate).toLocaleDateString()}</p>
+                          <p className="font-semibold">{new Date(tournament.startDate).toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <p className="text-muted-foreground">Format</p>
+                          <p className="font-semibold">{tournament.format}</p>
+                        </div>
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <p className="text-muted-foreground">Entry Settings</p>
+                          <p className="font-semibold">{tournament.minPlayersPerTeam}-{tournament.maxPlayersPerTeam ?? tournament.minPlayersPerTeam} players</p>
+                        </div>
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <p className="text-muted-foreground">Match Reports</p>
+                          <p className="font-semibold">{matches.length}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-4 text-sm">
+                        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+                          <p className="text-muted-foreground">Registration Window</p>
+                          <p className="font-semibold">{tournament.registrationOpenAt ? new Date(tournament.registrationOpenAt).toLocaleString() : "Not set"}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{tournament.registrationCloseAt ? new Date(tournament.registrationCloseAt).toLocaleString() : "No close date"}</p>
                         </div>
                         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                           <p className="text-muted-foreground">Entry Fee</p>
@@ -539,10 +813,18 @@ export default function AdminTournaments() {
                           <p className="font-semibold">${tournament.prizePool.toLocaleString()}</p>
                         </div>
                         <div className="rounded-xl bg-white/5 border border-white/10 p-4">
-                          <p className="text-muted-foreground">Match Reports</p>
-                          <p className="font-semibold">{matches.length}</p>
+                          <p className="text-muted-foreground">Visibility / Waitlist</p>
+                          <p className="font-semibold">{tournament.visibility}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{tournament.waitlistEnabled ? "Waitlist enabled" : "Waitlist disabled"}</p>
                         </div>
                       </div>
+
+                      {tournament.rules && (
+                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                          <h3 className="font-heading text-lg mb-2">Rules</h3>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{tournament.rules}</p>
+                        </div>
+                      )}
 
                       <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                         <div>
