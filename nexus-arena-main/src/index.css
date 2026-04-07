@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 216 28% 7%;
+    --foreground: 210 40% 98%;
+
+    --card: 215 25% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 25% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 190 100% 50%;
+    --primary-foreground: 216 28% 7%;
+
+    --secondary: 263 70% 50%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 215 20% 16%;
+    --muted-foreground: 215 15% 55%;
+
+    --accent: 263 70% 50%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 20% 18%;
+    --input: 215 20% 18%;
+    --ring: 190 100% 50%;
+
+    --radius: 0.75rem;
+
+    --gold: 51 100% 50%;
+    --gold-foreground: 216 28% 7%;
+
+    --neon-blue: 190 100% 50%;
+    --neon-purple: 263 70% 50%;
+    --surface: 215 25% 11%;
+    --surface-elevated: 215 22% 14%;
+
+    --sidebar-background: 216 28% 7%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 190 100% 50%;
+    --sidebar-primary-foreground: 216 28% 7%;
+    --sidebar-accent: 215 20% 16%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 215 20% 18%;
+    --sidebar-ring: 190 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl;
+  }
+
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    @apply border-white/20 shadow-lg;
+    box-shadow: 0 0 30px hsl(var(--neon-blue) / 0.15);
+  }
+
+  .neon-glow-blue {
+    box-shadow: 0 0 20px hsl(var(--neon-blue) / 0.3), 0 0 60px hsl(var(--neon-blue) / 0.1);
+  }
+
+  .neon-glow-purple {
+    box-shadow: 0 0 20px hsl(var(--neon-purple) / 0.3), 0 0 60px hsl(var(--neon-purple) / 0.1);
+  }
+
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+}
+
+@layer utilities {
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 10px hsl(var(--neon-blue) / 0.4), 0 0 30px hsl(var(--neon-blue) / 0.2);
+    }
+    50% {
+      box-shadow: 0 0 20px hsl(var(--neon-blue) / 0.6), 0 0 50px hsl(var(--neon-blue) / 0.3);
+    }
+  }
+
+  @keyframes golden-pulse {
+    0%, 100% {
+      box-shadow: 0 0 10px hsl(var(--gold) / 0.3), 0 0 30px hsl(var(--gold) / 0.1);
+      border-color: hsl(var(--gold) / 0.5);
+    }
+    50% {
+      box-shadow: 0 0 25px hsl(var(--gold) / 0.5), 0 0 60px hsl(var(--gold) / 0.2);
+      border-color: hsl(var(--gold) / 0.8);
+    }
+  }
+
+  @keyframes line-glow {
+    0% { stroke-dashoffset: 100; opacity: 0.3; }
+    100% { stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-golden-pulse {
+    animation: golden-pulse 3s ease-in-out infinite;
+  }
+
+  .animate-line-glow {
+    animation: line-glow 1s ease-out forwards;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+  }
+
+  .animate-count-up {
+    animation: count-up 0.6s ease-out forwards;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+}

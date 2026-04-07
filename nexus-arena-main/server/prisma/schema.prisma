@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String       @id @default(uuid())
+  name            String?
+  role            String       @default("PLAYER")
+  riotId          String?
+  teamMemberships TeamMember[]
+  captainOf       Team[]       @relation("TeamCaptain")
+}
+
+model Team {
+  id        String       @id @default(uuid())
+  name      String
+  logoUrl   String?
+  captainId String
+  captain   User         @relation("TeamCaptain", fields: [captainId], references: [id])
+  members   TeamMember[]
+  entries   TournamentEntry[]
+}
+
+model TeamMember {
+  id     String @id @default(uuid())
+  teamId String
+  userId String
+  role   String @default("MEMBER")
+  team   Team   @relation(fields: [teamId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
+model Tournament {
+  id        String   @id @default(uuid())
+  title     String
+  gameTitle String
+  startDate DateTime
+  maxTeams  Int
+  entryFee  Int
+  prizePool Int      @default(0)
+  status    String   @default("DRAFT")
+
+  entries   TournamentEntry[]
+}
+
+model TournamentEntry {
+  id            String     @id @default(uuid())
+  teamId        String
+  tournamentId  String
+  paymentStatus String     @default("PENDING")
+
+  team          Team       @relation(fields: [teamId], references: [id])
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([teamId, tournamentId])
+}
