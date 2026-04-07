@@ -1,6 +1,15 @@
+import 'dotenv/config';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma';
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL ?? process.env.DIRECT_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL or DIRECT_URL must be set before seeding.');
+}
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('Seeding database...');
@@ -22,8 +31,14 @@ async function main() {
   });
 
   // 2. Create a Team for the user
-  const team = await prisma.team.create({
-    data: {
+  await prisma.team.upsert({
+    where: { id: 'team-shadow-wolves' },
+    update: {
+      name: 'Shadow Wolves',
+      captainId: user.id,
+    },
+    create: {
+      id: 'team-shadow-wolves',
       name: 'Shadow Wolves',
       captainId: user.id,
       members: {
@@ -37,6 +52,7 @@ async function main() {
   // 3. Create Sample Tournaments
   const tournaments = [
     {
+      id: 'tournament-valorant-champions-series',
       title: 'Valorant Champions Series',
       gameTitle: 'Valorant',
       startDate: new Date('2026-04-15'),
@@ -46,6 +62,7 @@ async function main() {
       status: 'REGISTRATION_OPEN'
     },
     {
+      id: 'tournament-league-world-cup',
       title: 'League of Legends World Cup',
       gameTitle: 'League of Legends',
       startDate: new Date('2026-04-10'),
@@ -55,6 +72,7 @@ async function main() {
       status: 'REGISTRATION_OPEN'
     },
     {
+      id: 'tournament-cs2-major-qualifier',
       title: 'CS2 Major Qualifier',
       gameTitle: 'Counter-Strike 2',
       startDate: new Date('2026-04-20'),
@@ -66,8 +84,10 @@ async function main() {
   ];
 
   for (const t of tournaments) {
-    await prisma.tournament.create({
-      data: t
+    await prisma.tournament.upsert({
+      where: { id: t.id },
+      update: t,
+      create: t,
     });
   }
 
