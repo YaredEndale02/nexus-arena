@@ -17,6 +17,7 @@ model User {
   riotId          String?
   teamMemberships TeamMember[]
   captainOf       Team[]       @relation("TeamCaptain")
+  organizedTournaments Tournament[] @relation("TournamentOrganizer")
 }
 
 model Team {
@@ -41,16 +42,19 @@ model TeamMember {
 }
 
 model Tournament {
-  id        String   @id @default(uuid())
-  title     String
-  gameTitle String
-  startDate DateTime
-  maxTeams  Int
-  entryFee  Int
-  prizePool Int      @default(0)
-  status    String   @default("DRAFT")
+  id          String   @id @default(uuid())
+  title       String
+  gameTitle   String
+  startDate   DateTime
+  maxTeams    Int
+  entryFee    Int
+  prizePool   Int      @default(0)
+  status      String   @default("DRAFT")
+  organizerId String?
+  organizer   User?    @relation("TournamentOrganizer", fields: [organizerId], references: [id])
 
   entries   TournamentEntry[]
+  matches   Match[]
 }
 
 model TournamentEntry {
@@ -63,4 +67,19 @@ model TournamentEntry {
   tournament    Tournament @relation(fields: [tournamentId], references: [id])
 
   @@unique([teamId, tournamentId])
+}
+
+model Match {
+  id           String     @id @default(uuid())
+  tournamentId String
+  roundLabel   String
+  team1Name    String
+  team2Name    String
+  team1Score   Int        @default(0)
+  team2Score   Int        @default(0)
+  scheduledAt  DateTime?
+  status       String     @default("SCHEDULED")
+  winnerName   String?
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
 }

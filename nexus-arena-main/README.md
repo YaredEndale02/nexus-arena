@@ -1,32 +1,34 @@
 # Nexus Arena
 
-This project uses:
+This project now uses:
 
 - React + Vite for the frontend
-- Express for the API layer
-- Prisma for database access
-- PostgreSQL, now prepared for Supabase
+- Supabase Data API via `@supabase/supabase-js`
+- Supabase Auth for sign-in and sign-up
+- A SQL bootstrap file for the MVP schema, auth trigger, and RLS policies
 
 ## Supabase Setup
 
-The backend has been prepared to use Supabase Postgres without replacing the current Express + Prisma architecture.
-
-1. Open `server/.env.example`.
-2. Copy it to `server/.env` if needed.
-3. Replace `DATABASE_URL` with your Supabase Prisma pooled connection string if you want to keep it for reference.
-4. Replace `DIRECT_URL` with your Supabase direct Postgres connection string. The current Prisma setup prefers `DIRECT_URL`.
-5. Run the database setup commands from the `server` folder:
-
-```powershell
-npm run prisma:generate
-npm run db:push
-npm run db:seed
-```
-
-6. Start the backend:
+1. Create a `.env` file in the repo root from [.env.example](C:\Users\HP\Downloads\nexus-arena-main\nexus-arena-main\.env.example).
+2. Fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from your Supabase project.
+3. In Supabase Authentication, enable Email provider if it is not already enabled.
+4. In Supabase SQL Editor, run [supabase/schema.sql](C:\Users\HP\Downloads\nexus-arena-main\nexus-arena-main\supabase\schema.sql).
+5. Start the frontend:
 
 ```powershell
 npm run dev
 ```
 
-The frontend already talks to the API layer. If your frontend runs separately, set `VITE_API_BASE_URL` to your backend URL.
+## How Auth Works
+
+- Users sign up with email and password through the app.
+- Supabase Auth stores the identity in `auth.users`.
+- The trigger in [supabase/schema.sql](C:\Users\HP\Downloads\nexus-arena-main\nexus-arena-main\supabase\schema.sql) mirrors the auth user into `public.users`.
+- Row-level security policies use the signed-in Supabase user to control team, tournament, and match access.
+
+## Current Scope
+
+- Public users can browse tournaments and matches.
+- Signed-in players can create teams, manage their roster if they are captain, and register for tournaments.
+- Organizers can create and manage their own tournaments and related matches.
+- Admin support still exists in the schema and role model, but admin accounts should be assigned directly in Supabase data for now.

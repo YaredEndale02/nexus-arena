@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { AuthPanel } from "@/components/AuthPanel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +22,7 @@ const navItems = [
 
 export function Navbar() {
   const location = useLocation();
-  const { user, demoUsers, loginAs, logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-white/10">
@@ -107,23 +108,19 @@ export function Navbar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel>{user ? "Switch demo account" : "Choose a demo account"}</DropdownMenuLabel>
-              {demoUsers.map((demoUser) => (
-                <DropdownMenuItem key={demoUser.id} onClick={() => loginAs(demoUser.id)}>
-                  <div className="flex flex-col">
-                    <span>{demoUser.name}</span>
-                    <span className="text-xs text-muted-foreground">{demoUser.role}</span>
-                  </div>
-                </DropdownMenuItem>
-              ))}
-              {user && (
+              {user ? (
                 <>
+                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign out
                   </DropdownMenuItem>
                 </>
+              ) : (
+                <div className="p-2">
+                  <AuthPanel title="Sign in" description="Access your organizer workspace." />
+                </div>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

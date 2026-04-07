@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { AuthPanel } from "@/components/AuthPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { api, Team, Tournament } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,7 @@ interface RegistrationWizardProps {
 }
 
 export function RegistrationWizard({ tournament, isOpen, onClose }: RegistrationWizardProps) {
-  const { user, demoUsers, loginAs } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -91,27 +92,10 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
 
         <div className="p-6">
           {!user ? (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-              <h3 className="font-heading text-lg font-bold">Sign in to register</h3>
-              <p className="text-sm text-muted-foreground">
-                Pick a demo account to continue the Phase 1 tournament registration flow.
-              </p>
-              <div className="grid gap-3">
-                {demoUsers.map((demoUser) => (
-                  <Button
-                    key={demoUser.id}
-                    variant="outline"
-                    className="h-auto justify-start border-white/10 bg-white/5 px-4 py-3"
-                    onClick={() => loginAs(demoUser.id)}
-                  >
-                    <div className="text-left">
-                      <p className="font-semibold">{demoUser.name}</p>
-                      <p className="text-xs text-muted-foreground">{demoUser.role}</p>
-                    </div>
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <AuthPanel
+              title="Sign in to register"
+              description="Use a player or organizer account before entering a tournament."
+            />
           ) : (
             <>
           <div className="flex items-center gap-2 mb-8">

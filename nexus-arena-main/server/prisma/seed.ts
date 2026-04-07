@@ -59,7 +59,8 @@ async function main() {
       maxTeams: 32,
       entryFee: 0,
       prizePool: 50000,
-      status: 'REGISTRATION_OPEN'
+      status: 'REGISTRATION_OPEN',
+      organizerId: user.id,
     },
     {
       id: 'tournament-league-world-cup',
@@ -69,7 +70,8 @@ async function main() {
       maxTeams: 16,
       entryFee: 50,
       prizePool: 100000,
-      status: 'REGISTRATION_OPEN'
+      status: 'REGISTRATION_OPEN',
+      organizerId: user.id,
     },
     {
       id: 'tournament-cs2-major-qualifier',
@@ -79,7 +81,8 @@ async function main() {
       maxTeams: 64,
       entryFee: 25,
       prizePool: 75000,
-      status: 'REGISTRATION_OPEN'
+      status: 'REGISTRATION_OPEN',
+      organizerId: user.id,
     }
   ];
 

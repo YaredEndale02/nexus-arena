@@ -3,20 +3,45 @@ import { Layout } from "@/components/Layout";
 import { StatsBar } from "@/components/StatsBar";
 import { TournamentCard } from "@/components/TournamentCard";
 import { api, Tournament } from "@/lib/api";
+import { tournaments as mockTournaments } from "@/data/mockData";
 import { Trophy, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
+
+const fallbackStatusMap: Record<string, Tournament["status"]> = {
+  "Registration Open": "REGISTRATION_OPEN",
+  Upcoming: "REGISTRATION_CLOSED",
+  Live: "LIVE",
+  Completed: "COMPLETED",
+};
+
+const fallbackTournaments: Tournament[] = mockTournaments.map((tournament) => ({
+  id: tournament.id,
+  title: tournament.title,
+  gameTitle: tournament.gameTitle,
+  startDate: tournament.startDate,
+  maxTeams: tournament.maxTeams,
+  entryFee: tournament.entryFee,
+  prizePool: tournament.prizePool,
+  status: fallbackStatusMap[tournament.status] ?? "DRAFT",
+  registeredTeams: tournament.registeredTeams,
+  gradient: tournament.gradient,
+  displayStatus: tournament.status,
+}));
 
 const Index = () => {
   const [tournamentList, setTournamentList] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUsingFallback, setIsUsingFallback] = useState(false);
 
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
         const data = await api.getTournaments();
-        // Fallback or combine with mock if needed, but here we prioritize server data
         setTournamentList(data);
+        setIsUsingFallback(false);
       } catch (error) {
         console.error("Error fetching tournaments:", error);
+        setTournamentList(fallbackTournaments);
+        setIsUsingFallback(true);
       } finally {
         setIsLoading(false);
       }
@@ -43,6 +68,11 @@ const Index = () => {
           <Flame className="w-6 h-6 text-primary" />
           <h2 className="font-heading text-2xl font-bold text-foreground italic">Active Tournaments</h2>
         </div>
+        {isUsingFallback && (
+          <p className="text-xs text-amber-300">
+            Showing fallback tournament data while the API connection is unavailable.
+          </p>
+        )}
         <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10 w-fit">
           {["All", "Live", "Open", "Upcoming"].map((filter) => (
             <button
