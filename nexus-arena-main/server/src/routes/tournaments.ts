@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 
 const router = Router();
+const isErrorWithMessage = (error: unknown): error is { message: string } =>
+  typeof error === 'object' && error !== null && 'message' in error;
 
 // Get all tournaments
 router.get('/', async (req, res) => {
@@ -43,7 +45,7 @@ router.post('/', async (req, res) => {
       }
     });
     res.status(201).json(tournament);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Tournament creation error", error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -94,7 +96,7 @@ router.post('/:tournamentId/register', async (req, res) => {
     });
 
     res.status(201).json(entry);
-  } catch (error: any) {
+  } catch (error: unknown) {
       console.error(error);
       res.status(500).json({ error: 'Internal Error' });
   }
@@ -115,7 +117,10 @@ router.delete('/:tournamentId', async (req, res) => {
 
     await prisma.tournament.delete({ where: { id: tournamentId } });
     res.status(204).send();
-  } catch (error) {
+  } catch (error: unknown) {
+    if (isErrorWithMessage(error)) {
+      console.error("Tournament delete error:", error.message);
+    }
     res.status(500).json({ error: "Internal Error" });
   }
 });

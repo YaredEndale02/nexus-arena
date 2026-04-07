@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, Trophy, Users, DollarSign, Target } from "lucide-react";
+import { CalendarIcon, Trophy, Users, DollarSign, Target, Shield } from "lucide-react";
 
 export default function AdminTournaments() {
   const { user } = useAuth();
@@ -47,7 +47,7 @@ export default function AdminTournaments() {
         prizePool: 0,
         creatorId: user?.id || "",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "An unexpected error occurred";
       toast({
         title: "Error",

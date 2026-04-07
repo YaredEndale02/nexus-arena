@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +17,6 @@ export default function Teams() {
   const [isCreating, setIsCreating] = useState(false);
   const [newTeamName, setNewTeamName] = useState("");
 
-  useEffect(() => {
-    if (user) {
-      loadTeams();
-    }
-  }, [user]);
-
   const loadTeams = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -36,34 +30,48 @@ export default function Teams() {
     }
   };
 
+  useEffect(() => {
+    const loadTeamsForUser = async () => {
+      if (!user) {
+        setTeams([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const myTeams = await api.getMyTeams(user.id);
+        setTeams(myTeams);
+      } catch (error) {
+        console.error("Failed to load teams", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadTeamsForUser();
+  }, [user]);
+
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !newTeamName) return;
     setIsCreating(true);
     try {
-      // In a real app, we'd have a specific createTeam endpoint
-      // For now, we'll use a fetch directly or add it to api.ts
-      const res = await fetch("http://localhost:3001/api/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newTeamName,
-          captainId: user.id
-        }),
+      await api.createTeam({
+        name: newTeamName,
+        captainId: user.id,
       });
-      
-      if (!res.ok) throw new Error("Failed to create team");
-      
+
       toast({
         title: "Success",
         description: "Team created successfully!",
       });
       setNewTeamName("");
-      loadTeams();
-    } catch (error: any) {
+      await loadTeams();
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Failed to create team",
         variant: "destructive",
       });
     } finally {

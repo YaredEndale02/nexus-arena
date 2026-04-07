@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 
 const router = Router();
+const isPrismaKnownError = (error: unknown): error is { code: string } =>
+  typeof error === 'object' && error !== null && 'code' in error;
 
 // Get teams where user is captain
 router.get('/captain/:userId', async (req, res) => {
@@ -47,7 +49,7 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(team);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Team creation error:", error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -68,7 +70,7 @@ router.get('/:id', async (req, res) => {
     if (!team) return res.status(404).json({ error: 'Team not found' });
     
     res.json(team);
-  } catch (error: any) {
+  } catch (error: unknown) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -92,8 +94,8 @@ router.post('/:id/members', async (req, res) => {
     });
 
     res.status(201).json(newMember);
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (isPrismaKnownError(error) && error.code === 'P2002') {
       return res.status(400).json({ error: 'User is already a member of this team' });
     }
     console.error("Add member error:", error);
@@ -117,7 +119,7 @@ router.delete('/:id/members/:userId', async (req, res) => {
     });
 
     res.status(204).send();
-  } catch (error: any) {
+  } catch (error: unknown) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

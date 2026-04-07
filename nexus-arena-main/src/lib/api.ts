@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:3001/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:3001/api";
 
 export interface Tournament {
   id: string;
@@ -23,6 +24,15 @@ export interface Team {
   members: { user: { id: string; name: string; riotId?: string } }[];
 }
 
+async function getErrorMessage(res: Response, fallback: string) {
+  try {
+    const error = (await res.json()) as { error?: string; message?: string };
+    return error.error || error.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export const api = {
   async getTournaments(): Promise<Tournament[]> {
     const res = await fetch(`${API_BASE_URL}/tournaments`);
@@ -36,7 +46,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to create tournament");
+    if (!res.ok) throw new Error(await getErrorMessage(res, "Failed to create tournament"));
     return res.json();
   },
 
@@ -46,10 +56,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teamId, initiatorUserId }),
     });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "Registration failed");
-    }
+    if (!res.ok) throw new Error(await getErrorMessage(res, "Registration failed"));
     return res.json();
   },
 
@@ -57,5 +64,15 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/teams/captain/${userId}`);
     if (!res.ok) throw new Error("Failed to fetch teams");
     return res.json();
-  }
+  },
+
+  async createTeam(data: { name: string; captainId: string; logoUrl?: string }): Promise<Team> {
+    const res = await fetch(`${API_BASE_URL}/teams`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await getErrorMessage(res, "Failed to create team"));
+    return res.json();
+  },
 };
