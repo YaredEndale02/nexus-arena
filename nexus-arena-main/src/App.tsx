@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,8 +25,26 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/bracket" element={<Bracket />} />
             <Route path="/live" element={<Live />} />
-            <Route path="/teams" element={<Teams />} />
-            <Route path="/admin/tournaments" element={<AdminTournaments />} />
+            <Route
+              path="/teams"
+              element={
+                <ProtectedRoute title="Team management requires sign in">
+                  <Teams />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/tournaments"
+              element={
+                <ProtectedRoute
+                  allowedRoles={["ADMIN", "ORGANIZER"]}
+                  title="Organizer access required"
+                  description="Sign in as an organizer or admin to create and manage tournaments."
+                >
+                  <AdminTournaments />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

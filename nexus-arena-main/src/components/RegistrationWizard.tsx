@@ -21,7 +21,7 @@ interface RegistrationWizardProps {
 }
 
 export function RegistrationWizard({ tournament, isOpen, onClose }: RegistrationWizardProps) {
-  const { user } = useAuth();
+  const { user, demoUsers, loginAs } = useAuth();
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -90,6 +90,30 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
         </div>
 
         <div className="p-6">
+          {!user ? (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="font-heading text-lg font-bold">Sign in to register</h3>
+              <p className="text-sm text-muted-foreground">
+                Pick a demo account to continue the Phase 1 tournament registration flow.
+              </p>
+              <div className="grid gap-3">
+                {demoUsers.map((demoUser) => (
+                  <Button
+                    key={demoUser.id}
+                    variant="outline"
+                    className="h-auto justify-start border-white/10 bg-white/5 px-4 py-3"
+                    onClick={() => loginAs(demoUser.id)}
+                  >
+                    <div className="text-left">
+                      <p className="font-semibold">{demoUser.name}</p>
+                      <p className="text-xs text-muted-foreground">{demoUser.role}</p>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="flex items-center gap-2 mb-8">
             {[1, 2, 3, 4].map((progressStep) => (
               <div
@@ -231,10 +255,16 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
               </p>
             </div>
           )}
+            </>
+          )}
         </div>
 
         <DialogFooter className="p-6 bg-white/5 border-t border-white/10">
-          {step < 4 ? (
+          {!user ? (
+            <Button onClick={onClose} variant="outline" className="w-full border-white/10 bg-transparent">
+              Close
+            </Button>
+          ) : step < 4 ? (
             <div className="flex w-full gap-3">
               {step > 1 && (
                 <Button
