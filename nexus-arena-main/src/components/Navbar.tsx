@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut } from "lucide-react";
+import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthPanel } from "@/components/AuthPanel";
@@ -18,12 +18,13 @@ const navItems = [
   { label: "Bracket", path: "/bracket", icon: Swords },
   { label: "Live", path: "/live", icon: Radio },
   { label: "Teams", path: "/teams", icon: Users },
+  { label: "Registrations", path: "/registrations", icon: ClipboardCheck },
 ];
 
 export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const canManageTournaments = user?.role === "ORGANIZER" || user?.role === "ADMIN";
+  const canManageTournaments = Boolean(user);
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-white/10">
@@ -39,7 +40,10 @@ export function Navbar() {
 
         <div className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path && item.label !== "Tournaments" && item.label !== "Teams";
+            const isActive =
+              location.pathname === item.path &&
+              item.label !== "Tournaments" &&
+              item.label !== "Teams";
             return (
               <Link
                 key={item.label}

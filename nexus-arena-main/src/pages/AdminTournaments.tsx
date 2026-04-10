@@ -1,13 +1,40 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { api, type ApiTournamentStatus, type MatchReport, type Tournament } from "@/lib/api";
+import {
+  api,
+  type ApiTournamentStatus,
+  type MatchReport,
+  type Tournament,
+  type TournamentAdminAssignment,
+  type TournamentAdminRole,
+  type TournamentEntry,
+  type TournamentEntryCheckInStatus,
+} from "@/lib/api";
+import { getAllowedStatusTransitions, getBracketReadiness, validateTournamentConfiguration } from "@/lib/tournamentLifecycle";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarIcon, Trophy, Users, DollarSign, Target, Shield, Loader2, Pencil, Radio, Save, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarIcon,
+  ClipboardCheck,
+  DollarSign,
+  Loader2,
+  Lock,
+  Pencil,
+  Radio,
+  Save,
+  Shield,
+  Target,
+  Trash2,
+  Trophy,
+  UserPlus,
+  UserX,
+  Users,
+} from "lucide-react";
 
 type TournamentFormState = {
   title: string;
@@ -32,6 +59,11 @@ type MatchFormState = {
   team1Name: string;
   team2Name: string;
   scheduledAt: string;
+};
+
+type DelegationFormState = {
+  userId: string;
+  role: Exclude<TournamentAdminRole, "OWNER">;
 };
 
 const createTournamentForm = (): TournamentFormState => ({
@@ -59,11 +91,17 @@ const createMatchForm = (): MatchFormState => ({
   scheduledAt: "",
 });
 
+const createDelegationForm = (): DelegationFormState => ({
+  userId: "",
+  role: "STAFF",
+});
+
 const statusActions: Array<{ label: string; status: ApiTournamentStatus }> = [
   { label: "Save Draft", status: "DRAFT" },
   { label: "Publish", status: "PUBLISHED" },
   { label: "Open Registration", status: "REGISTRATION_OPEN" },
   { label: "Close Registration", status: "REGISTRATION_CLOSED" },
+  { label: "Open Check-In", status: "CHECK_IN" },
   { label: "Go Live", status: "LIVE" },
   { label: "Complete", status: "COMPLETED" },
   { label: "Cancel", status: "CANCELLED" },
@@ -80,14 +118,45 @@ function normalizeOptionalDate(value: string) {
   return value ? new Date(value).toISOString() : null;
 }
 
-function toTournamentPayload(form: TournamentFormState) {
-  return {
+function toIsoOrEmpty(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString();
+}
+
+function validateTournamentForm(form: TournamentFormState) {
+  return validateTournamentConfiguration({
     title: form.title,
     gameTitle: form.gameTitle,
+    startDate: toIsoOrEmpty(form.startDate),
+    registrationOpenAt: toIsoOrEmpty(form.registrationOpenAt) || null,
+    registrationCloseAt: toIsoOrEmpty(form.registrationCloseAt) || null,
+    maxTeams: form.maxTeams,
+    minPlayersPerTeam: form.minPlayersPerTeam,
+    maxPlayersPerTeam: form.maxPlayersPerTeam,
+    entryFee: form.entryFee,
+    prizePool: form.prizePool,
+  });
+}
+
+function isCheckInRequired(status: ApiTournamentStatus) {
+  return status === "REGISTRATION_CLOSED" || status === "CHECK_IN" || status === "LIVE";
+}
+
+function toTournamentPayload(form: TournamentFormState) {
+  const startDate = toIsoOrEmpty(form.startDate);
+  if (!startDate) {
+    throw new Error("Start date is required and must be valid.");
+  }
+
+  return {
+    title: form.title.trim(),
+    gameTitle: form.gameTitle.trim(),
     format: form.format,
     tournamentType: form.tournamentType,
     rules: form.rules.trim() || null,
-    startDate: new Date(form.startDate).toISOString(),
+    startDate,
     registrationOpenAt: normalizeOptionalDate(form.registrationOpenAt),
     registrationCloseAt: normalizeOptionalDate(form.registrationCloseAt),
     maxTeams: form.maxTeams,
@@ -111,28 +180,47 @@ export default function AdminTournaments() {
   const [editingForm, setEditingForm] = useState<TournamentFormState>(createTournamentForm());
   const [matchForms, setMatchForms] = useState<Record<string, MatchFormState>>({});
   const [matchReports, setMatchReports] = useState<Record<string, MatchReport[]>>({});
+  const [tournamentAdmins, setTournamentAdmins] = useState<Record<string, TournamentAdminAssignment[]>>({});
+  const [tournamentEntries, setTournamentEntries] = useState<Record<string, TournamentEntry[]>>({});
+  const [delegationForms, setDelegationForms] = useState<Record<string, DelegationFormState>>({});
   const [busyTournamentId, setBusyTournamentId] = useState<string | null>(null);
 
   const loadManagedTournaments = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const tournaments = await api.getTournaments(user.role === "ADMIN" ? undefined : user.id);
+      const tournaments = await api.getManagedTournaments(user);
       setManagedTournaments(tournaments);
       const nextMatchForms: Record<string, MatchFormState> = {};
       const nextReports: Record<string, MatchReport[]> = {};
+      const nextAdmins: Record<string, TournamentAdminAssignment[]> = {};
+      const nextEntries: Record<string, TournamentEntry[]> = {};
+      const nextDelegationForms: Record<string, DelegationFormState> = {};
       await Promise.all(
         tournaments.map(async (tournament) => {
           nextMatchForms[tournament.id] = createMatchForm();
+          nextDelegationForms[tournament.id] = createDelegationForm();
           try {
-            nextReports[tournament.id] = await api.getTournamentMatches(tournament.id);
+            const [matches, admins, entries] = await Promise.all([
+              api.getTournamentMatches(tournament.id),
+              api.getTournamentAdmins(tournament.id),
+              api.getTournamentEntries(tournament.id),
+            ]);
+            nextReports[tournament.id] = matches;
+            nextAdmins[tournament.id] = admins;
+            nextEntries[tournament.id] = entries;
           } catch {
             nextReports[tournament.id] = [];
+            nextAdmins[tournament.id] = [];
+            nextEntries[tournament.id] = [];
           }
         }),
       );
       setMatchForms(nextMatchForms);
       setMatchReports(nextReports);
+      setTournamentAdmins(nextAdmins);
+      setTournamentEntries(nextEntries);
+      setDelegationForms(nextDelegationForms);
     } catch (error) {
       toast({
         title: "Error",
@@ -144,14 +232,43 @@ export default function AdminTournaments() {
     }
   }, [toast, user]);
 
+  const refreshTournamentOps = useCallback(async (tournamentId: string) => {
+    try {
+      const [matches, admins, entries] = await Promise.all([
+        api.getTournamentMatches(tournamentId),
+        api.getTournamentAdmins(tournamentId),
+        api.getTournamentEntries(tournamentId),
+      ]);
+      setMatchReports((current) => ({ ...current, [tournamentId]: matches }));
+      setTournamentAdmins((current) => ({ ...current, [tournamentId]: admins }));
+      setTournamentEntries((current) => ({ ...current, [tournamentId]: entries }));
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: error instanceof Error ? error.message : "Failed to refresh tournament operations",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!user) return;
     void loadManagedTournaments();
   }, [loadManagedTournaments, user]);
 
+  const createFormErrors = useMemo(() => validateTournamentForm(formData), [formData]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    if (createFormErrors.length > 0) {
+      toast({
+        title: "Validation failed",
+        description: createFormErrors[0],
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       await api.createTournament({
@@ -198,6 +315,15 @@ export default function AdminTournaments() {
 
   const saveTournamentEdits = async (tournamentId: string) => {
     if (!user) return;
+    const editErrors = validateTournamentForm(editingForm);
+    if (editErrors.length > 0) {
+      toast({
+        title: "Validation failed",
+        description: editErrors[0],
+        variant: "destructive",
+      });
+      return;
+    }
     setBusyTournamentId(tournamentId);
     try {
       const updated = await api.updateTournament(tournamentId, {
@@ -227,6 +353,7 @@ export default function AdminTournaments() {
     try {
       const updated = await api.updateTournamentStatus(tournamentId, status, user);
       setManagedTournaments((current) => current.map((item) => (item.id === tournamentId ? updated : item)));
+      await refreshTournamentOps(tournamentId);
       toast({
         title: "Status updated",
         description: `${updated.title} is now ${updated.displayStatus}.`,
@@ -235,6 +362,62 @@ export default function AdminTournaments() {
       toast({
         title: "Status update failed",
         description: error instanceof Error ? error.message : "Failed to update status",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const addDelegatedStaff = async (tournamentId: string) => {
+    if (!user) return;
+    const form = delegationForms[tournamentId] ?? createDelegationForm();
+    if (!form.userId.trim()) {
+      toast({
+        title: "User ID required",
+        description: "Enter a user ID to assign tournament staff.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setBusyTournamentId(tournamentId);
+    try {
+      await api.addTournamentAdmin(tournamentId, form.userId.trim(), form.role, user);
+      setDelegationForms((current) => ({
+        ...current,
+        [tournamentId]: createDelegationForm(),
+      }));
+      await refreshTournamentOps(tournamentId);
+      toast({
+        title: "Staff assigned",
+        description: "Tournament staff access has been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Assignment failed",
+        description: error instanceof Error ? error.message : "Failed to assign tournament staff",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const removeDelegatedStaff = async (tournamentId: string, userId: string) => {
+    if (!user) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      await api.removeTournamentAdmin(tournamentId, userId, user);
+      await refreshTournamentOps(tournamentId);
+      toast({
+        title: "Staff removed",
+        description: "Delegated tournament access was revoked.",
+      });
+    } catch (error) {
+      toast({
+        title: "Removal failed",
+        description: error instanceof Error ? error.message : "Failed to remove tournament staff",
         variant: "destructive",
       });
     } finally {
@@ -263,9 +446,114 @@ export default function AdminTournaments() {
     }
   };
 
+  const updateEntryCheckIn = async (
+    tournamentId: string,
+    entryId: string,
+    status: TournamentEntryCheckInStatus,
+  ) => {
+    setBusyTournamentId(tournamentId);
+    try {
+      const updated = await api.updateTournamentEntryCheckIn(entryId, status);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: (current[tournamentId] ?? []).map((entry) => (entry.id === updated.id ? updated : entry)),
+      }));
+      toast({
+        title: "Check-in updated",
+        description: `${updated.teamName} is now ${updated.checkInStatus}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Check-in failed",
+        description: error instanceof Error ? error.message : "Failed to update check-in",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const saveEntrySeed = async (tournamentId: string, entry: TournamentEntry) => {
+    setBusyTournamentId(tournamentId);
+    try {
+      const updated = await api.updateTournamentEntrySeed(entry.id, entry.seedNumber ?? null);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: (current[tournamentId] ?? []).map((item) => (item.id === updated.id ? updated : item)),
+      }));
+      toast({
+        title: "Seed updated",
+        description: `${updated.teamName} is now ${updated.seedNumber ? `seed ${updated.seedNumber}` : "set to auto seeding"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Seed update failed",
+        description: error instanceof Error ? error.message : "Failed to update seed",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const autoAssignSeeds = async (tournamentId: string) => {
+    if (!user) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      const updatedEntries = await api.autoAssignTournamentSeeds(tournamentId, user);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: updatedEntries,
+      }));
+      toast({
+        title: "Seeds assigned",
+        description: "The app assigned bracket seeds automatically from the current eligible registrations.",
+      });
+    } catch (error) {
+      toast({
+        title: "Auto assignment failed",
+        description: error instanceof Error ? error.message : "Failed to auto assign bracket seeds",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const lockEntryRoster = async (tournamentId: string, entryId: string) => {
+    setBusyTournamentId(tournamentId);
+    try {
+      const updated = await api.lockTournamentEntryRoster(entryId);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: (current[tournamentId] ?? []).map((entry) => (entry.id === updated.id ? updated : entry)),
+      }));
+      toast({
+        title: "Roster locked",
+        description: `${updated.teamName} roster is now locked.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Roster lock failed",
+        description: error instanceof Error ? error.message : "Failed to lock roster",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
   const createMatch = async (tournamentId: string) => {
     if (!user) return;
     const form = matchForms[tournamentId];
+    if (!form?.roundLabel || !form.team1Name || !form.team2Name) {
+      toast({
+        title: "Missing fields",
+        description: "Round label and both team names are required to create a match.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusyTournamentId(tournamentId);
     try {
       const created = await api.createMatchReport(tournamentId, {
@@ -349,7 +637,7 @@ export default function AdminTournaments() {
     }
   };
 
-  if (!user || (user.role !== "ORGANIZER" && user.role !== "ADMIN")) {
+  if (!user) {
     return (
       <Layout>
         <div className="max-w-md mx-auto py-20 text-center space-y-6">
@@ -587,12 +875,18 @@ export default function AdminTournaments() {
                   </select>
                 </div>
               </div>
+
+              {createFormErrors.length > 0 && (
+                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-200">
+                  {createFormErrors[0]}
+                </div>
+              )}
             </CardContent>
             <CardFooter>
               <Button
                 type="submit"
                 className="w-full h-12 text-lg font-heading tracking-wider bg-gradient-to-r from-primary to-neon-purple hover:neon-glow-blue transition-all"
-                disabled={isSubmitting}
+                disabled={isSubmitting || createFormErrors.length > 0}
               >
                 {isSubmitting ? "SAVING..." : "CREATE DRAFT TOURNAMENT"}
               </Button>
@@ -621,7 +915,21 @@ export default function AdminTournaments() {
               {managedTournaments.map((tournament) => {
                 const isEditing = editingTournamentId === tournament.id;
                 const matches = matchReports[tournament.id] ?? [];
+                const admins = tournamentAdmins[tournament.id] ?? [];
+                const entries = tournamentEntries[tournament.id] ?? [];
                 const matchForm = matchForms[tournament.id] ?? createMatchForm();
+                const delegationForm = delegationForms[tournament.id] ?? createDelegationForm();
+                const allowedTransitions = getAllowedStatusTransitions(tournament.status);
+                const readiness = getBracketReadiness(
+                  entries.map((entry) => ({
+                    teamId: entry.teamId,
+                    teamName: entry.teamName,
+                    checkInStatus: entry.checkInStatus,
+                    rosterLockedAt: entry.rosterLockedAt ?? null,
+                  })),
+                  isCheckInRequired(tournament.status),
+                );
+                const canManageDelegation = user.role === "ADMIN" || tournament.organizerId === user.id;
 
                 return (
                   <Card key={tournament.id} className="glass border-white/10">
@@ -640,7 +948,7 @@ export default function AdminTournaments() {
                         <Button
                           variant="outline"
                           className="border-white/10"
-                          disabled={busyTournamentId === tournament.id || matches.length > 0 || (tournament._count?.entries ?? 0) < 2}
+                          disabled={busyTournamentId === tournament.id || matches.length > 0 || !readiness.ready}
                           onClick={() => void generateBracket(tournament.id)}
                         >
                           Generate Bracket
@@ -650,7 +958,10 @@ export default function AdminTournaments() {
                             key={action.status}
                             variant="outline"
                             className="border-white/10"
-                            disabled={busyTournamentId === tournament.id}
+                            disabled={
+                              busyTournamentId === tournament.id ||
+                              (action.status !== tournament.status && !allowedTransitions.includes(action.status))
+                            }
                             onClick={() => void changeTournamentStatus(tournament.id, action.status)}
                           >
                             {action.label}
@@ -819,12 +1130,191 @@ export default function AdminTournaments() {
                         </div>
                       </div>
 
+                      {!readiness.ready && (
+                        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+                          <div className="flex items-center gap-2 font-semibold mb-2">
+                            <AlertTriangle className="w-4 h-4" />
+                            Bracket Preconditions Not Met
+                          </div>
+                          {readiness.issues.map((issue) => (
+                            <p key={issue} className="text-xs">{issue}</p>
+                          ))}
+                        </div>
+                      )}
+
                       {tournament.rules && (
                         <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                           <h3 className="font-heading text-lg mb-2">Rules</h3>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap">{tournament.rules}</p>
                         </div>
                       )}
+
+                      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div>
+                          <h3 className="font-heading text-lg">Delegated Staff</h3>
+                          <p className="text-sm text-muted-foreground">Assign tournament-scoped admins, referees, and staff.</p>
+                        </div>
+                        <div className="space-y-2">
+                          {admins.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No delegated staff assigned yet.</p>
+                          ) : (
+                            admins.map((assignment) => (
+                              <div key={assignment.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 p-3">
+                                <div>
+                                  <p className="font-medium">{assignment.userName}</p>
+                                  <p className="text-xs text-muted-foreground">{assignment.userId} · {assignment.role}</p>
+                                </div>
+                                {assignment.role !== "OWNER" && canManageDelegation && (
+                                  <Button
+                                    variant="outline"
+                                    className="border-red-500/20 text-red-300 hover:bg-red-500/10"
+                                    disabled={busyTournamentId === tournament.id}
+                                    onClick={() => void removeDelegatedStaff(tournament.id, assignment.userId)}
+                                  >
+                                    <UserX className="w-4 h-4 mr-2" />
+                                    Remove
+                                  </Button>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        {canManageDelegation && (
+                          <div className="grid gap-3 md:grid-cols-[1fr,180px,auto]">
+                            <Input
+                              placeholder="User ID"
+                              value={delegationForm.userId}
+                              onChange={(e) =>
+                                setDelegationForms((current) => ({
+                                  ...current,
+                                  [tournament.id]: { ...delegationForm, userId: e.target.value },
+                                }))
+                              }
+                            />
+                            <select
+                              value={delegationForm.role}
+                              onChange={(e) =>
+                                setDelegationForms((current) => ({
+                                  ...current,
+                                  [tournament.id]: {
+                                    ...delegationForm,
+                                    role: e.target.value as Exclude<TournamentAdminRole, "OWNER">,
+                                  },
+                                }))
+                              }
+                              className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                            >
+                              <option value="STAFF">Staff</option>
+                              <option value="REFEREE">Referee</option>
+                              <option value="ADMIN">Admin</option>
+                            </select>
+                            <Button disabled={busyTournamentId === tournament.id} onClick={() => void addDelegatedStaff(tournament.id)}>
+                              <UserPlus className="w-4 h-4 mr-2" />
+                              Add Staff
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div>
+                          <h3 className="font-heading text-lg">Entries, Check-In & Roster Lock</h3>
+                          <p className="text-sm text-muted-foreground">Assign bracket seeds, complete check-in, and lock rosters before generating matches.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          <Button
+                            variant="outline"
+                            className="border-white/10"
+                            disabled={busyTournamentId === tournament.id || entries.length < 2}
+                            onClick={() => void autoAssignSeeds(tournament.id)}
+                          >
+                            <Target className="w-4 h-4 mr-2" />
+                            Auto Assign Seeds
+                          </Button>
+                          <p className="text-xs text-muted-foreground self-center">
+                            Uses the current tournament structure and eligible registrations to fill bracket seeds automatically.
+                          </p>
+                        </div>
+                        {entries.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No teams registered yet.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {entries.map((entry) => (
+                              <div key={entry.id} className="grid gap-3 rounded-xl border border-white/10 bg-background/30 p-4 md:grid-cols-[1.2fr,140px,1fr,1fr,auto,auto] md:items-end">
+                                <div>
+                                  <p className="font-semibold">{entry.teamName}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Check-In: {entry.checkInStatus} · Roster: {entry.rosterLockedAt ? "Locked" : "Unlocked"}
+                                  </p>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seed</Label>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    max={tournament.maxTeams}
+                                    value={entry.seedNumber ?? ""}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value;
+                                      setTournamentEntries((current) => ({
+                                        ...current,
+                                        [tournament.id]: (current[tournament.id] ?? []).map((item) =>
+                                          item.id === entry.id
+                                            ? {
+                                                ...item,
+                                                seedNumber: rawValue === "" ? null : Number(rawValue),
+                                              }
+                                            : item,
+                                        ),
+                                      }));
+                                    }}
+                                    className="bg-white/5 border-white/10"
+                                    disabled={busyTournamentId === tournament.id}
+                                  />
+                                </div>
+                                <select
+                                  value={entry.checkInStatus}
+                                  onChange={(e) => void updateEntryCheckIn(tournament.id, entry.id, e.target.value as TournamentEntryCheckInStatus)}
+                                  className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                                  disabled={busyTournamentId === tournament.id}
+                                >
+                                  <option value="NOT_OPEN">Not Open</option>
+                                  <option value="PENDING">Pending</option>
+                                  <option value="CHECKED_IN">Checked In</option>
+                                  <option value="MISSED">Missed</option>
+                                </select>
+                                <Button
+                                  variant="outline"
+                                  className="border-white/10"
+                                  disabled={busyTournamentId === tournament.id || Boolean(entry.rosterLockedAt) || entry.checkInStatus !== "CHECKED_IN"}
+                                  onClick={() => void lockEntryRoster(tournament.id, entry.id)}
+                                >
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Lock Roster
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="border-white/10"
+                                  disabled={busyTournamentId === tournament.id}
+                                  onClick={() => void saveEntrySeed(tournament.id, entry)}
+                                >
+                                  <Save className="w-4 h-4 mr-2" />
+                                  Save Seed
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  className="border-white/10"
+                                  disabled={busyTournamentId === tournament.id}
+                                  onClick={() => void updateEntryCheckIn(tournament.id, entry.id, "CHECKED_IN")}
+                                >
+                                  <ClipboardCheck className="w-4 h-4 mr-2" />
+                                  Quick Check-In
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                         <div>

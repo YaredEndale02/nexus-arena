@@ -10,9 +10,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { AuthPanel } from "@/components/AuthPanel";
 import { useAuth } from "@/hooks/useAuth";
-import { api, Team, Tournament } from "@/lib/api";
+import { api, Team, Tournament, TournamentEntry } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Users, Shield, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Users, Shield, ArrowRight, Loader2, AlertCircle, ClipboardCheck, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RegistrationWizardProps {
@@ -26,17 +26,25 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [myEntries, setMyEntries] = useState<TournamentEntry[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  const mode = tournament?.status === "CHECK_IN" ? "check-in" : "registration";
 
   useEffect(() => {
     if (isOpen && user) {
-      const loadTeamsForDialog = async () => {
+      const loadDialogData = async () => {
         setIsLoading(true);
         try {
-          const myTeams = await api.getMyTeams(user.id);
+          const [myTeams, entries] = await Promise.all([
+            api.getMyTeams(user.id),
+            tournament ? api.getMyTournamentEntries(tournament.id, user.id) : Promise.resolve([]),
+          ]);
           setTeams(myTeams);
+          setMyEntries(entries);
           if (myTeams.length > 0) setSelectedTeamId(myTeams[0].id);
         } catch (error) {
           console.error("Failed to load teams", error);
@@ -45,16 +53,16 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
         }
       };
 
-      void loadTeamsForDialog();
+      void loadDialogData();
     } else {
       setStep(1);
       setTeams([]);
+      setMyEntries([]);
       setSelectedTeamId("");
     }
-  }, [isOpen, user]);
+  }, [isOpen, tournament, user]);
 
   const selectedTeam = teams.find((team) => team.id === selectedTeamId);
-
   const handleRegister = async () => {
     if (!tournament || !selectedTeamId || !user) return;
     setIsRegistering(true);
@@ -73,6 +81,27 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
     }
   };
 
+  const handleCheckIn = async (entryId: string) => {
+    setIsCheckingIn(true);
+    try {
+      const updatedEntry = await api.updateTournamentEntryCheckIn(entryId, "CHECKED_IN");
+      setMyEntries((current) => current.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry)));
+      toast({
+        title: "Check-in complete",
+        description: `${updatedEntry.teamName} has been checked in.`,
+      });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Check-in failed";
+      toast({
+        title: "Check-in Failed",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
   if (!tournament) return null;
 
   return (
@@ -82,10 +111,12 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
           <DialogHeader>
             <DialogTitle className="font-heading text-2xl font-bold flex items-center gap-2">
               <Shield className="w-6 h-6 text-primary" />
-              Tournament Registration
+              {mode === "check-in" ? "Tournament Check-In" : "Tournament Registration"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {`${tournament.title} - $${tournament.entryFee} Entry`}
+              {mode === "check-in"
+                ? `${tournament.title} - confirm your team attendance`
+                : `${tournament.title} - $${tournament.entryFee} Entry`}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -98,19 +129,75 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             />
           ) : (
             <>
-          <div className="flex items-center gap-2 mb-8">
-            {[1, 2, 3, 4].map((progressStep) => (
-              <div
-                key={progressStep}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full transition-all duration-300",
-                  step >= progressStep ? "bg-primary" : "bg-white/10",
-                )}
-              />
-            ))}
-          </div>
+          {mode === "registration" && (
+            <div className="flex items-center gap-2 mb-8">
+              {[1, 2, 3, 4].map((progressStep) => (
+                <div
+                  key={progressStep}
+                  className={cn(
+                    "h-1.5 flex-1 rounded-full transition-all duration-300",
+                    step >= progressStep ? "bg-primary" : "bg-white/10",
+                  )}
+                />
+              ))}
+            </div>
+          )}
 
-          {step === 1 && (
+          {mode === "check-in" ? (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="font-heading text-lg font-bold">Captain Self Check-In</h3>
+              <p className="text-sm text-muted-foreground">
+                Select one of your registered teams and confirm they are ready to compete.
+              </p>
+
+              {isLoading ? (
+                <div className="py-8 flex justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : myEntries.length > 0 ? (
+                <div className="space-y-3">
+                  {myEntries.map((entry) => (
+                    <div key={entry.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-bold">{entry.teamName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Check-In: {entry.checkInStatus} · Roster: {entry.rosterLockedAt ? "Locked" : "Pending lock by admin"}
+                          </p>
+                        </div>
+                        {entry.checkInStatus === "CHECKED_IN" ? (
+                          <span className="inline-flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Checked In
+                          </span>
+                        ) : (
+                          <Button
+                            onClick={() => void handleCheckIn(entry.id)}
+                            disabled={isCheckingIn}
+                            className="bg-emerald-500 hover:bg-emerald-500/90 text-black"
+                          >
+                            {isCheckingIn ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
+                            Check In
+                          </Button>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-background/30 p-3 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4" />
+                          Roster lock is still controlled by tournament staff after captain check-in.
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center border border-dashed border-white/20 rounded-xl">
+                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+                  <p className="text-muted-foreground">None of your teams are registered for this tournament yet.</p>
+                </div>
+              )}
+            </div>
+          ) : step === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="font-heading text-lg font-bold">Select Your Team</h3>
               <p className="text-sm text-muted-foreground">
@@ -247,6 +334,10 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
           {!user ? (
             <Button onClick={onClose} variant="outline" className="w-full border-white/10 bg-transparent">
               Close
+            </Button>
+          ) : mode === "check-in" ? (
+            <Button onClick={onClose} className="w-full bg-primary">
+              Done
             </Button>
           ) : step < 4 ? (
             <div className="flex w-full gap-3">

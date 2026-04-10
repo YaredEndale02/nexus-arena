@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Tournament } from "@/lib/api";
 import { Users, Calendar, DollarSign, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,9 @@ import { RegistrationWizard } from "./RegistrationWizard";
 const statusColors: Record<string, string> = {
   Live: "bg-red-500/20 text-red-400 border-red-500/30",
   "Registration Open": "bg-primary/20 text-primary border-primary/30",
+  "Registration Closed": "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  "Check-In": "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  Published: "bg-sky-500/20 text-sky-300 border-sky-500/30",
   Upcoming: "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
   Completed: "bg-muted text-muted-foreground border-border",
   Draft: "bg-white/10 text-muted-foreground border-white/10",
@@ -87,13 +91,21 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
             )}
           </div>
 
-          <div className="mt-auto">
+          <div className="mt-auto space-y-3">
             {statusLabel === "Registration Open" ? (
               <button
                 onClick={() => setIsWizardOpen(true)}
                 className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-gradient-to-r from-primary to-neon-blue text-primary-foreground animate-pulse-glow hover:scale-[1.02] transition-transform"
               >
                 REGISTER NOW
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : statusLabel === "Check-In" ? (
+              <button
+                onClick={() => setIsWizardOpen(true)}
+                className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
+              >
+                TEAM CHECK-IN
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : statusLabel === "Live" ? (
@@ -109,6 +121,13 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
                 COMING SOON
               </button>
             )}
+            <Link
+              to={`/tournaments/${tournament.id}`}
+              className="w-full py-2.5 rounded-lg flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-white/5 text-foreground border border-white/10 hover:bg-white/10 transition-colors"
+            >
+              VIEW DETAILS
+              <ChevronRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </div>

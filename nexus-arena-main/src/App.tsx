@@ -9,6 +9,8 @@ import Index from "./pages/Index.tsx";
 import Bracket from "./pages/Bracket.tsx";
 import Live from "./pages/Live.tsx";
 import AdminTournaments from "./pages/AdminTournaments.tsx";
+import MyRegistrations from "./pages/MyRegistrations.tsx";
+import TournamentDetails from "./pages/TournamentDetails.tsx";
 import Teams from "./pages/Teams.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -23,6 +25,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/tournaments/:id" element={<TournamentDetails />} />
             <Route path="/bracket" element={<Bracket />} />
             <Route path="/live" element={<Live />} />
             <Route
@@ -34,12 +37,19 @@ const App = () => (
               }
             />
             <Route
+              path="/registrations"
+              element={
+                <ProtectedRoute title="Registrations require sign in">
+                  <MyRegistrations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/tournaments"
               element={
                 <ProtectedRoute
-                  allowedRoles={["ADMIN", "ORGANIZER"]}
-                  title="Organizer access required"
-                  description="Sign in as an organizer or admin to create and manage tournaments."
+                  title="Tournament access required"
+                  description="Sign in to manage tournaments you own or have been assigned to."
                 >
                   <AdminTournaments />
                 </ProtectedRoute>

@@ -1,7 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { X, Clock, Swords, Loader2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
-import { X, Clock, Swords, Loader2 } from "lucide-react";
 import { api, type MatchReport, type Tournament } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,12 +31,14 @@ function mapMatchToNode(match: MatchReport): BracketNode {
     round: match.roundNumber ?? 1,
     position: match.positionInRound ?? 1,
     roundLabel: match.roundLabel,
-    team1: match.team1Name && match.team1Name !== "TBD" && match.team1Name !== "BYE"
-      ? { name: match.team1Name, score: match.team1Score }
-      : null,
-    team2: match.team2Name && match.team2Name !== "TBD" && match.team2Name !== "BYE"
-      ? { name: match.team2Name, score: match.team2Score }
-      : null,
+    team1:
+      match.team1Name && match.team1Name !== "TBD" && match.team1Name !== "BYE"
+        ? { name: match.team1Name, score: match.team1Score }
+        : null,
+    team2:
+      match.team2Name && match.team2Name !== "TBD" && match.team2Name !== "BYE"
+        ? { name: match.team2Name, score: match.team2Score }
+        : null,
     winner: match.winnerName ?? null,
     status,
     scheduledTime: match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : "TBD",
@@ -142,6 +145,8 @@ function MatchDetailPanel({ match, onClose }: { match: BracketNode; onClose: () 
 
 export default function Bracket() {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTournamentId = searchParams.get("tournament") ?? "";
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [matches, setMatches] = useState<BracketNode[]>([]);
@@ -149,33 +154,68 @@ export default function Bracket() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
+    const loadTournaments = async () => {
       setIsLoading(true);
       try {
         const tournamentData = await api.getTournaments();
         setTournaments(tournamentData);
-        const initialTournamentId = selectedTournamentId || tournamentData.find((item) => (item._count?.matches ?? 0) > 0)?.id || tournamentData[0]?.id || "";
-        setSelectedTournamentId(initialTournamentId);
+        setSelectedTournamentId((current) => {
+          const hasRequestedTournament =
+            requestedTournamentId && tournamentData.some((item) => item.id === requestedTournamentId);
 
-        if (initialTournamentId) {
-          const matchData = await api.getTournamentMatches(initialTournamentId);
-          setMatches(matchData.map(mapMatchToNode));
-        } else {
-          setMatches([]);
-        }
+          return (
+            (hasRequestedTournament ? requestedTournamentId : "") ||
+            current ||
+            tournamentData.find((item) => (item._count?.matches ?? 0) > 0)?.id ||
+            tournamentData[0]?.id ||
+            ""
+          );
+        });
       } catch (error) {
         toast({
           title: "Bracket unavailable",
           description: error instanceof Error ? error.message : "Failed to load bracket data",
           variant: "destructive",
         });
+        setIsLoading(false);
+      }
+    };
+
+    void loadTournaments();
+  }, [requestedTournamentId, toast]);
+
+  useEffect(() => {
+    const loadMatches = async () => {
+      if (!selectedTournamentId) {
+        setMatches([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const matchData = await api.getTournamentMatches(selectedTournamentId);
+        setMatches(matchData.map(mapMatchToNode));
+      } catch (error) {
+        toast({
+          title: "Bracket unavailable",
+          description: error instanceof Error ? error.message : "Failed to load matches for this tournament",
+          variant: "destructive",
+        });
+        setMatches([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    void load();
+    void loadMatches();
   }, [selectedTournamentId, toast]);
+
+  useEffect(() => {
+    if (!selectedTournamentId) return;
+    if (requestedTournamentId === selectedTournamentId) return;
+    setSearchParams({ tournament: selectedTournamentId }, { replace: true });
+  }, [requestedTournamentId, selectedTournamentId, setSearchParams]);
 
   const selectedTournament = useMemo(
     () => tournaments.find((tournament) => tournament.id === selectedTournamentId) ?? null,
@@ -213,7 +253,10 @@ export default function Bracket() {
         <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">Tournament</label>
         <select
           value={selectedTournamentId}
-          onChange={(e) => setSelectedTournamentId(e.target.value)}
+          onChange={(e) => {
+            setSelectedTournamentId(e.target.value);
+            setSelectedMatch(null);
+          }}
           className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
         >
           <option value="">Select a tournament</option>

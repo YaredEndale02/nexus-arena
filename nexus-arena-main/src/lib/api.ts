@@ -10,6 +10,14 @@ import type {
   TournamentFormat,
   TournamentType,
 } from "@/integrations/supabase/types";
+import {
+  assertValidMatchScores,
+  assertValidStatusTransition,
+  assertValidTournamentConfiguration,
+  getBracketReadiness,
+  type TournamentValidationInput,
+} from "@/lib/tournamentLifecycle";
+import { assignSequentialSeeds, compareEntriesBySeed, createBracketSlots } from "@/lib/bracketSeeding";
 
 export type ApiTournamentStatus =
   | "DRAFT"
@@ -94,6 +102,38 @@ export interface MatchReport {
   scheduledAt?: string | null;
   status: string;
   winnerName?: string | null;
+}
+
+export type TournamentAdminRole = "OWNER" | "ADMIN" | "REFEREE" | "STAFF";
+
+export interface TournamentAdminAssignment {
+  id: string;
+  tournamentId: string;
+  userId: string;
+  role: TournamentAdminRole;
+  userName: string;
+  userEmail?: string | null;
+}
+
+export type TournamentEntryCheckInStatus = "NOT_OPEN" | "PENDING" | "CHECKED_IN" | "MISSED";
+
+export interface TournamentEntry {
+  id: string;
+  tournamentId: string;
+  teamId: string;
+  teamName: string;
+  seedNumber?: number | null;
+  registrationStatus: string;
+  paymentStatus: string;
+  checkInStatus: TournamentEntryCheckInStatus;
+  checkedInAt?: string | null;
+  rosterLockedAt?: string | null;
+  createdAt?: string | null;
+}
+
+export interface MyRegistration {
+  entry: TournamentEntry;
+  tournament: Tournament;
 }
 
 type TournamentMutationInput = Pick<
@@ -183,6 +223,57 @@ function mapMatch(row: SupabaseMatchRow): MatchReport {
     scheduledAt: row.scheduled_at,
     status: row.status,
     winnerName: row.winner_name,
+  };
+}
+
+function mapTournamentEntry(row: SupabaseTournamentEntryRow, teamName: string): TournamentEntry {
+  return {
+    id: row.id,
+    tournamentId: row.tournament_id,
+    teamId: row.team_id,
+    teamName,
+    seedNumber: row.seed_number ?? null,
+    registrationStatus: row.registration_status ?? "PENDING",
+    paymentStatus: row.payment_status,
+    checkInStatus: (row.check_in_status as TournamentEntryCheckInStatus) ?? "NOT_OPEN",
+    checkedInAt: row.checked_in_at ?? null,
+    rosterLockedAt: row.roster_locked_at ?? null,
+    createdAt: row.created_at ?? null,
+  };
+}
+
+function buildTournamentValidationInput(data: TournamentMutationInput): TournamentValidationInput {
+  return {
+    title: data.title,
+    gameTitle: data.gameTitle,
+    startDate: data.startDate,
+    registrationOpenAt: data.registrationOpenAt ?? null,
+    registrationCloseAt: data.registrationCloseAt ?? null,
+    maxTeams: data.maxTeams,
+    minPlayersPerTeam: data.minPlayersPerTeam,
+    maxPlayersPerTeam: data.maxPlayersPerTeam ?? null,
+    entryFee: data.entryFee,
+    prizePool: data.prizePool,
+  };
+}
+
+function mergeTournamentInput(base: Tournament, patch: Partial<TournamentMutationInput>): TournamentMutationInput {
+  return {
+    title: patch.title ?? base.title,
+    gameTitle: patch.gameTitle ?? base.gameTitle,
+    format: patch.format ?? base.format,
+    tournamentType: patch.tournamentType ?? base.tournamentType,
+    rules: patch.rules !== undefined ? patch.rules : base.rules ?? null,
+    startDate: patch.startDate ?? base.startDate,
+    registrationOpenAt: patch.registrationOpenAt !== undefined ? patch.registrationOpenAt : base.registrationOpenAt ?? null,
+    registrationCloseAt: patch.registrationCloseAt !== undefined ? patch.registrationCloseAt : base.registrationCloseAt ?? null,
+    maxTeams: patch.maxTeams ?? base.maxTeams,
+    minPlayersPerTeam: patch.minPlayersPerTeam ?? base.minPlayersPerTeam,
+    maxPlayersPerTeam: patch.maxPlayersPerTeam !== undefined ? patch.maxPlayersPerTeam : base.maxPlayersPerTeam ?? null,
+    entryFee: patch.entryFee ?? base.entryFee,
+    prizePool: patch.prizePool ?? base.prizePool,
+    waitlistEnabled: patch.waitlistEnabled ?? base.waitlistEnabled,
+    visibility: patch.visibility ?? base.visibility,
   };
 }
 
@@ -277,6 +368,67 @@ async function hydrateTeams(client: ReturnType<typeof requireSupabase>, rows: Su
   }));
 }
 
+async function attachTournamentCounts(
+  client: ReturnType<typeof requireSupabase>,
+  tournaments: SupabaseTournamentRow[],
+): Promise<Tournament[]> {
+  if (tournaments.length === 0) return [];
+
+  const tournamentIds = tournaments.map((tournament) => tournament.id);
+  const [{ data: entries, error: entriesError }, { data: matches, error: matchesError }] = await Promise.all([
+    client.from("tournament_entries").select("tournament_id").in("tournament_id", tournamentIds),
+    client.from("matches").select("tournament_id").in("tournament_id", tournamentIds),
+  ]);
+
+  if (entriesError) throw entriesError;
+  if (matchesError) throw matchesError;
+
+  const entryCounts = new Map<string, number>();
+  ((entries ?? []) as Array<Pick<SupabaseTournamentEntryRow, "tournament_id">>).forEach((entry) => {
+    entryCounts.set(entry.tournament_id, (entryCounts.get(entry.tournament_id) ?? 0) + 1);
+  });
+
+  const matchCounts = new Map<string, number>();
+  ((matches ?? []) as Array<Pick<SupabaseMatchRow, "tournament_id">>).forEach((match) => {
+    matchCounts.set(match.tournament_id, (matchCounts.get(match.tournament_id) ?? 0) + 1);
+  });
+
+  return tournaments.map((tournament) =>
+    mapTournament(tournament, entryCounts.get(tournament.id) ?? 0, matchCounts.get(tournament.id) ?? 0),
+  );
+}
+
+async function getTournamentById(client: ReturnType<typeof requireSupabase>, tournamentId: string): Promise<SupabaseTournamentRow> {
+  const { data, error } = await client.from("tournaments").select("*").eq("id", tournamentId).single();
+  if (error) throw error;
+  return data as SupabaseTournamentRow;
+}
+
+async function assertTeamRosterUnlocked(client: ReturnType<typeof requireSupabase>, teamId: string) {
+  const { data: lockedEntries, error: lockedEntriesError } = await client
+    .from("tournament_entries")
+    .select("tournament_id")
+    .eq("team_id", teamId)
+    .not("roster_locked_at", "is", null);
+
+  if (lockedEntriesError) throw lockedEntriesError;
+
+  const lockedTournamentIds = [...new Set((lockedEntries ?? []).map((entry) => entry.tournament_id))];
+  if (lockedTournamentIds.length === 0) return;
+
+  const { data: tournaments, error: tournamentsError } = await client
+    .from("tournaments")
+    .select("title, status")
+    .in("id", lockedTournamentIds);
+
+  if (tournamentsError) throw tournamentsError;
+
+  const activeLocks = (tournaments ?? []).filter((tournament) => !["COMPLETED", "CANCELLED"].includes(tournament.status as string));
+  if (activeLocks.length > 0) {
+    throw new Error(`Roster is locked for active tournaments: ${activeLocks.map((item) => item.title).join(", ")}.`);
+  }
+}
+
 export const api = {
   async getTournaments(organizerId?: string): Promise<Tournament[]> {
     const client = requireSupabase();
@@ -286,37 +438,56 @@ export const api = {
 
     const { data, error } = await query;
     if (error) throw error;
+    return attachTournamentCounts(client, (data ?? []) as SupabaseTournamentRow[]);
+  },
 
-    const tournaments = (data ?? []) as SupabaseTournamentRow[];
-    if (tournaments.length === 0) return [];
+  async getTournament(tournamentId: string): Promise<Tournament> {
+    const client = requireSupabase();
+    const row = await getTournamentById(client, tournamentId);
+    const [mapped] = await attachTournamentCounts(client, [row]);
+    return mapped;
+  },
 
-    const tournamentIds = tournaments.map((tournament) => tournament.id);
-    const [{ data: entries, error: entriesError }, { data: matches, error: matchesError }] = await Promise.all([
-      client.from("tournament_entries").select("tournament_id").in("tournament_id", tournamentIds),
-      client.from("matches").select("tournament_id").in("tournament_id", tournamentIds),
+  async getManagedTournaments(actor: AppUserPayload): Promise<Tournament[]> {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+
+    if (actor.role === "ADMIN") {
+      return api.getTournaments();
+    }
+
+    const [{ data: owned, error: ownedError }, { data: delegated, error: delegatedError }] = await Promise.all([
+      client.from("tournaments").select("id").eq("organizer_id", actor.id),
+      client.from("tournament_admins").select("tournament_id").eq("user_id", actor.id),
     ]);
 
-    if (entriesError) throw entriesError;
-    if (matchesError) throw matchesError;
+    if (ownedError) throw ownedError;
+    if (delegatedError) throw delegatedError;
 
-    const entryCounts = new Map<string, number>();
-    ((entries ?? []) as Array<Pick<SupabaseTournamentEntryRow, "tournament_id">>).forEach((entry) => {
-      entryCounts.set(entry.tournament_id, (entryCounts.get(entry.tournament_id) ?? 0) + 1);
-    });
+    const managedIds = [
+      ...new Set([
+        ...((owned ?? []).map((item) => item.id) as string[]),
+        ...((delegated ?? []).map((item) => item.tournament_id) as string[]),
+      ]),
+    ];
 
-    const matchCounts = new Map<string, number>();
-    ((matches ?? []) as Array<Pick<SupabaseMatchRow, "tournament_id">>).forEach((match) => {
-      matchCounts.set(match.tournament_id, (matchCounts.get(match.tournament_id) ?? 0) + 1);
-    });
+    if (managedIds.length === 0) return [];
 
-    return tournaments.map((tournament) =>
-      mapTournament(tournament, entryCounts.get(tournament.id) ?? 0, matchCounts.get(tournament.id) ?? 0),
-    );
+    const { data: tournaments, error: tournamentsError } = await client
+      .from("tournaments")
+      .select("*")
+      .in("id", managedIds)
+      .order("start_date", { ascending: true });
+
+    if (tournamentsError) throw tournamentsError;
+
+    return attachTournamentCounts(client, (tournaments ?? []) as SupabaseTournamentRow[]);
   },
 
   async createTournament(data: TournamentMutationInput & { creator: AppUserPayload }) {
     const client = requireSupabase();
     await ensureUser(client, data.creator);
+    assertValidTournamentConfiguration(buildTournamentValidationInput(data));
 
     const payload = {
       ...mapTournamentPayload(data),
@@ -337,6 +508,9 @@ export const api = {
   ) {
     const client = requireSupabase();
     await ensureUser(client, data.actor);
+    const currentRow = await getTournamentById(client, tournamentId);
+    const merged = mergeTournamentInput(mapTournament(currentRow), data);
+    assertValidTournamentConfiguration(buildTournamentValidationInput(merged));
 
     const { data: updated, error } = await client
       .from("tournaments")
@@ -352,6 +526,8 @@ export const api = {
   async updateTournamentStatus(tournamentId: string, status: ApiTournamentStatus, actor: AppUserPayload) {
     const client = requireSupabase();
     await ensureUser(client, actor);
+    const currentRow = await getTournamentById(client, tournamentId);
+    assertValidStatusTransition(currentRow.status as ApiTournamentStatus, status);
 
     const { data: updated, error } = await client
       .from("tournaments")
@@ -364,6 +540,16 @@ export const api = {
       .single();
 
     if (error) throw error;
+
+    if (status === "REGISTRATION_CLOSED" || status === "CHECK_IN") {
+      const { error: checkInError } = await client
+        .from("tournament_entries")
+        .update({ check_in_status: "PENDING" })
+        .eq("tournament_id", tournamentId)
+        .eq("check_in_status", "NOT_OPEN");
+      if (checkInError) throw checkInError;
+    }
+
     return mapTournament(updated as SupabaseTournamentRow);
   },
 
@@ -387,9 +573,329 @@ export const api = {
     return ((data ?? []) as SupabaseMatchRow[]).map(mapMatch);
   },
 
+  async getTournamentAdmins(tournamentId: string): Promise<TournamentAdminAssignment[]> {
+    const client = requireSupabase();
+    const [{ data: tournament, error: tournamentError }, { data: admins, error: adminsError }] = await Promise.all([
+      client.from("tournaments").select("organizer_id").eq("id", tournamentId).single(),
+      client.from("tournament_admins").select("*").eq("tournament_id", tournamentId),
+    ]);
+
+    if (tournamentError) throw tournamentError;
+    if (adminsError) throw adminsError;
+
+    const delegatedRows = (admins ?? []) as Array<{ id: string; tournament_id: string; user_id: string; role: TournamentAdminRole }>;
+    const userIds = [
+      ...new Set([
+        ...delegatedRows.map((row) => row.user_id),
+        tournament.organizer_id as string | null,
+      ].filter(Boolean) as string[]),
+    ];
+
+    const { data: users, error: usersError } = userIds.length > 0
+      ? await client.from("users").select("id, name, email").in("id", userIds)
+      : { data: [], error: null };
+    if (usersError) throw usersError;
+
+    const userMap = new Map((users ?? []).map((row) => [row.id, row]));
+    const assignments = delegatedRows.map((row) => {
+      const user = userMap.get(row.user_id);
+      return {
+        id: row.id,
+        tournamentId: row.tournament_id,
+        userId: row.user_id,
+        role: row.role,
+        userName: user?.name ?? row.user_id,
+        userEmail: user?.email ?? null,
+      };
+    });
+
+    if (tournament.organizer_id) {
+      const organizer = userMap.get(tournament.organizer_id);
+      assignments.unshift({
+        id: `organizer-${tournament.organizer_id}`,
+        tournamentId,
+        userId: tournament.organizer_id,
+        role: "OWNER",
+        userName: organizer?.name ?? "Organizer",
+        userEmail: organizer?.email ?? null,
+      });
+    }
+
+    return assignments;
+  },
+
+  async addTournamentAdmin(
+    tournamentId: string,
+    userId: string,
+    role: Exclude<TournamentAdminRole, "OWNER">,
+    actor: AppUserPayload,
+  ) {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+    const tournament = await getTournamentById(client, tournamentId);
+
+    if (actor.role !== "ADMIN" && tournament.organizer_id !== actor.id) {
+      throw new Error("Only the organizer or a global admin can manage delegated tournament staff.");
+    }
+
+    const { data: targetUser, error: targetUserError } = await client.from("users").select("id").eq("id", userId).single();
+    if (targetUserError || !targetUser) {
+      throw new Error("Target user was not found. The user must sign up before being assigned.");
+    }
+
+    if (tournament.organizer_id === userId) {
+      throw new Error("The organizer already owns this tournament.");
+    }
+
+    const { error } = await client.from("tournament_admins").upsert(
+      {
+        tournament_id: tournamentId,
+        user_id: userId,
+        role,
+      },
+      { onConflict: "tournament_id,user_id" },
+    );
+
+    if (error) throw error;
+  },
+
+  async removeTournamentAdmin(tournamentId: string, userId: string, actor: AppUserPayload) {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+    const tournament = await getTournamentById(client, tournamentId);
+
+    if (actor.role !== "ADMIN" && tournament.organizer_id !== actor.id) {
+      throw new Error("Only the organizer or a global admin can manage delegated tournament staff.");
+    }
+
+    if (tournament.organizer_id === userId) {
+      throw new Error("The tournament organizer cannot be removed.");
+    }
+
+    const { error } = await client
+      .from("tournament_admins")
+      .delete()
+      .eq("tournament_id", tournamentId)
+      .eq("user_id", userId);
+
+    if (error) throw error;
+  },
+
+  async getTournamentEntries(tournamentId: string): Promise<TournamentEntry[]> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("tournament_entries")
+      .select("*")
+      .eq("tournament_id", tournamentId)
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    const entries = (data ?? []) as SupabaseTournamentEntryRow[];
+    if (entries.length === 0) return [];
+
+    const { data: teams, error: teamsError } = await client
+      .from("teams")
+      .select("id, name")
+      .in("id", [...new Set(entries.map((entry) => entry.team_id))]);
+    if (teamsError) throw teamsError;
+
+    const teamNameMap = new Map((teams ?? []).map((team) => [team.id, team.name as string]));
+    return entries
+      .map((entry) => mapTournamentEntry(entry, teamNameMap.get(entry.team_id) ?? "Unknown Team"))
+      .sort(compareEntriesBySeed);
+  },
+
+  async getMyTournamentEntries(tournamentId: string, captainUserId: string): Promise<TournamentEntry[]> {
+    const [entries, teams] = await Promise.all([
+      api.getTournamentEntries(tournamentId),
+      api.getMyTeams(captainUserId),
+    ]);
+
+    const myTeamIds = new Set(teams.map((team) => team.id));
+    return entries.filter((entry) => myTeamIds.has(entry.teamId));
+  },
+
+  async getMyRegistrations(captainUserId: string): Promise<MyRegistration[]> {
+    const client = requireSupabase();
+    const teams = await api.getMyTeams(captainUserId);
+    const myTeamIds = teams.map((team) => team.id);
+
+    if (myTeamIds.length === 0) return [];
+
+    const { data: entries, error: entriesError } = await client
+      .from("tournament_entries")
+      .select("*")
+      .in("team_id", myTeamIds)
+      .order("created_at", { ascending: false });
+
+    if (entriesError) throw entriesError;
+
+    const entryRows = (entries ?? []) as SupabaseTournamentEntryRow[];
+    if (entryRows.length === 0) return [];
+
+    const tournamentIds = [...new Set(entryRows.map((entry) => entry.tournament_id))];
+    const { data: tournaments, error: tournamentsError } = await client
+      .from("tournaments")
+      .select("*")
+      .in("id", tournamentIds);
+
+    if (tournamentsError) throw tournamentsError;
+
+    const mappedTournaments = await attachTournamentCounts(client, (tournaments ?? []) as SupabaseTournamentRow[]);
+    const tournamentMap = new Map(mappedTournaments.map((tournament) => [tournament.id, tournament]));
+    const teamMap = new Map(teams.map((team) => [team.id, team]));
+
+    return entryRows
+      .map((entry) => {
+        const tournament = tournamentMap.get(entry.tournament_id);
+        if (!tournament) return null;
+
+        return {
+          entry: mapTournamentEntry(entry, teamMap.get(entry.team_id)?.name ?? "Unknown Team"),
+          tournament,
+        };
+      })
+      .filter((registration): registration is MyRegistration => Boolean(registration))
+      .sort((a, b) => new Date(a.tournament.startDate).getTime() - new Date(b.tournament.startDate).getTime());
+  },
+
+  async updateTournamentEntryCheckIn(entryId: string, status: TournamentEntryCheckInStatus): Promise<TournamentEntry> {
+    const client = requireSupabase();
+    const { data: updated, error } = await client
+      .from("tournament_entries")
+      .update({
+        check_in_status: status,
+        checked_in_at: status === "CHECKED_IN" ? new Date().toISOString() : null,
+      })
+      .eq("id", entryId)
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const row = updated as SupabaseTournamentEntryRow;
+    const { data: team, error: teamError } = await client.from("teams").select("name").eq("id", row.team_id).single();
+    if (teamError) throw teamError;
+
+    return mapTournamentEntry(row, (team?.name as string) ?? "Unknown Team");
+  },
+
+  async updateTournamentEntrySeed(entryId: string, seedNumber: number | null): Promise<TournamentEntry> {
+    const client = requireSupabase();
+    const normalizedSeed = seedNumber == null ? null : Number(seedNumber);
+
+    if (normalizedSeed != null && (!Number.isInteger(normalizedSeed) || normalizedSeed < 1)) {
+      throw new Error("Seed number must be a positive whole number.");
+    }
+
+    const { data: currentEntry, error: currentEntryError } = await client
+      .from("tournament_entries")
+      .select("*")
+      .eq("id", entryId)
+      .single();
+    if (currentEntryError) throw currentEntryError;
+
+    const currentRow = currentEntry as SupabaseTournamentEntryRow;
+
+    if (normalizedSeed != null) {
+      const { data: conflicting, error: conflictError } = await client
+        .from("tournament_entries")
+        .select("id")
+        .eq("tournament_id", currentRow.tournament_id)
+        .eq("seed_number", normalizedSeed)
+        .neq("id", entryId)
+        .maybeSingle();
+      if (conflictError) throw conflictError;
+      if (conflicting) {
+        throw new Error(`Seed ${normalizedSeed} is already assigned to another team in this tournament.`);
+      }
+    }
+
+    const { data: updated, error } = await client
+      .from("tournament_entries")
+      .update({ seed_number: normalizedSeed })
+      .eq("id", entryId)
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const row = updated as SupabaseTournamentEntryRow;
+    const { data: team, error: teamError } = await client.from("teams").select("name").eq("id", row.team_id).single();
+    if (teamError) throw teamError;
+
+    return mapTournamentEntry(row, (team?.name as string) ?? "Unknown Team");
+  },
+
+  async autoAssignTournamentSeeds(tournamentId: string, actor: AppUserPayload): Promise<TournamentEntry[]> {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+
+    const tournament = await getTournamentById(client, tournamentId);
+    const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const entries = await api.getTournamentEntries(tournamentId);
+
+    const eligibleEntries = entries.filter((entry) => {
+      const registrationEligible = !["REJECTED", "CANCELLED"].includes(entry.registrationStatus);
+      const checkInEligible = !requireCheckIn || entry.checkInStatus === "CHECKED_IN";
+      return registrationEligible && checkInEligible;
+    });
+
+    if (eligibleEntries.length < 2) {
+      throw new Error("At least 2 eligible entries are required before automatic bracket assignment can run.");
+    }
+
+    const seededEntries = assignSequentialSeeds(
+      eligibleEntries.map((entry) => ({
+        id: entry.id,
+        teamId: entry.teamId,
+        teamName: entry.teamName,
+        createdAt: entry.createdAt ?? null,
+      })),
+    );
+
+    await Promise.all(
+      entries.map((entry) =>
+        client
+          .from("tournament_entries")
+          .update({
+            seed_number: seededEntries.find((seededEntry) => seededEntry.id === entry.id)?.seedNumber ?? null,
+          })
+          .eq("id", entry.id),
+      ),
+    );
+
+    return api.getTournamentEntries(tournamentId);
+  },
+
+  async lockTournamentEntryRoster(entryId: string): Promise<TournamentEntry> {
+    const client = requireSupabase();
+    const { data: entry, error: entryError } = await client.from("tournament_entries").select("*").eq("id", entryId).single();
+    if (entryError) throw entryError;
+
+    const row = entry as SupabaseTournamentEntryRow;
+    if ((row.check_in_status ?? "NOT_OPEN") !== "CHECKED_IN") {
+      throw new Error("Only checked-in teams can have their roster locked.");
+    }
+
+    const { data: updated, error } = await client
+      .from("tournament_entries")
+      .update({ roster_locked_at: row.roster_locked_at ?? new Date().toISOString() })
+      .eq("id", entryId)
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const updatedRow = updated as SupabaseTournamentEntryRow;
+    const { data: team, error: teamError } = await client.from("teams").select("name").eq("id", updatedRow.team_id).single();
+    if (teamError) throw teamError;
+
+    return mapTournamentEntry(updatedRow, (team?.name as string) ?? "Unknown Team");
+  },
+
   async generateBracket(tournamentId: string, actor: AppUserPayload) {
     const client = requireSupabase();
     await ensureUser(client, actor);
+    const tournament = await getTournamentById(client, tournamentId);
 
     const { data: existingMatches, error: matchesError } = await client
       .from("matches")
@@ -403,20 +909,33 @@ export const api = {
 
     const { data: entries, error: entriesError } = await client
       .from("tournament_entries")
-      .select("team_id, created_at")
+      .select("team_id, created_at, check_in_status, roster_locked_at, seed_number")
       .eq("tournament_id", tournamentId)
       .order("created_at", { ascending: true });
     if (entriesError) throw entriesError;
 
-    const entryRows = (entries ?? []) as Array<Pick<SupabaseTournamentEntryRow, "team_id" | "created_at">>;
-    if (entryRows.length < 2) {
-      throw new Error("At least 2 registered teams are required to generate a bracket");
-    }
+    const entryRows = (entries ?? []) as Array<
+      Pick<SupabaseTournamentEntryRow, "team_id" | "created_at" | "check_in_status" | "roster_locked_at" | "seed_number">
+    >;
 
     const teamIds = entryRows.map((entry) => entry.team_id);
     const { data: teams, error: teamsError } = await client.from("teams").select("*").in("id", teamIds);
     if (teamsError) throw teamsError;
     const teamMap = new Map(((teams ?? []) as SupabaseTeamRow[]).map((team) => [team.id, team]));
+
+    const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const readiness = getBracketReadiness(
+      entryRows.map((entry) => ({
+        teamId: entry.team_id,
+        teamName: teamMap.get(entry.team_id)?.name ?? "Unknown Team",
+        checkInStatus: entry.check_in_status,
+        rosterLockedAt: entry.roster_locked_at,
+      })),
+      requireCheckIn,
+    );
+    if (!readiness.ready) {
+      throw new Error(`Bracket generation blocked: ${readiness.issues.join(" ")}`);
+    }
 
     const { data: stage, error: stageError } = await client
       .from("tournament_stages")
@@ -432,14 +951,48 @@ export const api = {
       .single();
     if (stageError) throw stageError;
 
-    const seededTeams = entryRows
-      .map((entry) => teamMap.get(entry.team_id))
-      .filter((team): team is SupabaseTeamRow => Boolean(team));
+    const eligibleEntries = entryRows
+      .filter((entry) => !requireCheckIn || entry.check_in_status === "CHECKED_IN")
+      .map((entry) => {
+        const team = teamMap.get(entry.team_id);
+        if (!team) return null;
 
-    const bracketSize = nextPowerOfTwo(seededTeams.length);
+        return {
+          team,
+          seedNumber: entry.seed_number ?? null,
+          createdAt: entry.created_at ?? null,
+        };
+      })
+      .filter((entry): entry is { team: SupabaseTeamRow; seedNumber: number | null; createdAt: string | null } => Boolean(entry));
+    if (eligibleEntries.length < 2) {
+      throw new Error("At least 2 eligible teams are required to generate a bracket");
+    }
+
+    const highestExplicitSeed = eligibleEntries.reduce((max, entry) => Math.max(max, entry.seedNumber ?? 0), 0);
+    const bracketSize = Math.max(nextPowerOfTwo(eligibleEntries.length), nextPowerOfTwo(highestExplicitSeed || eligibleEntries.length));
     const totalRounds = Math.log2(bracketSize);
-    const slots: Array<SupabaseTeamRow | null> = [...seededTeams];
-    while (slots.length < bracketSize) slots.push(null);
+    const seededSlots = createBracketSlots(
+      eligibleEntries.map((entry) => ({
+        teamId: entry.team.id,
+        teamName: entry.team.name,
+        seedNumber: entry.seedNumber,
+        createdAt: entry.createdAt,
+      })),
+      bracketSize,
+    );
+    const slots: Array<SupabaseTeamRow | null> = seededSlots.map((entry) => (entry ? teamMap.get(entry.teamId) ?? null : null));
+
+    const stageSeedRows = seededSlots
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .map((entry) => ({
+        stage_id: (stage as SupabaseTournamentStageRow).id,
+        team_id: entry.teamId,
+        seed_number: entry.bracketSeed,
+      }));
+    if (stageSeedRows.length > 0) {
+      const { error: stageSeedError } = await client.from("tournament_stage_seeds").insert(stageSeedRows);
+      if (stageSeedError) throw stageSeedError;
+    }
 
     const matchesToInsert: Array<Record<string, string | number | null>> = [];
     for (let round = 1; round <= totalRounds; round += 1) {
@@ -538,6 +1091,7 @@ export const api = {
   ) {
     const client = requireSupabase();
     await ensureUser(client, data.actor);
+    assertValidMatchScores(data.team1Score, data.team2Score);
 
     const { data: match, error: matchError } = await client
       .from("matches")
@@ -580,6 +1134,22 @@ export const api = {
         [`${slot}_id`]: updatedRow.winner_team_id,
         [`${slot}_name`]: updatedRow.winner_name,
       };
+
+      const { data: nextMatch, error: nextMatchError } = await client
+        .from("matches")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .eq("round_number", nextRound)
+        .eq("position_in_round", nextPosition)
+        .maybeSingle();
+      if (nextMatchError) throw nextMatchError;
+
+      if (nextMatch) {
+        const existingTeamId = slot === "team1" ? (nextMatch.team1_id as string | null) : (nextMatch.team2_id as string | null);
+        if (existingTeamId && existingTeamId !== updatedRow.winner_team_id) {
+          throw new Error("Bracket progression conflict detected in the next round.");
+        }
+      }
 
       await client
         .from("matches")
@@ -627,6 +1197,8 @@ export const api = {
     const { error } = await client.from("tournament_entries").insert({
       team_id: teamId,
       tournament_id: tournamentId,
+      registration_status: "APPROVED",
+      check_in_status: "NOT_OPEN",
       payment_status: tournamentRow.entry_fee > 0 ? "PENDING" : "PAID",
     });
 
@@ -687,6 +1259,7 @@ export const api = {
   ): Promise<Team> {
     const client = requireSupabase();
     await ensureUser(client, data.requester);
+    await assertTeamRosterUnlocked(client, teamId);
 
     const memberId = crypto.randomUUID();
     await ensureUser(client, {
@@ -714,6 +1287,7 @@ export const api = {
   async removeTeamMember(teamId: string, userId: string, requester: AppUserPayload) {
     const client = requireSupabase();
     await ensureUser(client, requester);
+    await assertTeamRosterUnlocked(client, teamId);
 
     const { error } = await client.from("team_members").delete().eq("team_id", teamId).eq("user_id", userId);
     if (error) throw error;
