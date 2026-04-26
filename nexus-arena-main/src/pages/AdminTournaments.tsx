@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   api,
+  type AutoSeedStrategy,
   type ApiTournamentStatus,
   type MatchReport,
   type Tournament,
@@ -183,6 +184,7 @@ export default function AdminTournaments() {
   const [tournamentAdmins, setTournamentAdmins] = useState<Record<string, TournamentAdminAssignment[]>>({});
   const [tournamentEntries, setTournamentEntries] = useState<Record<string, TournamentEntry[]>>({});
   const [delegationForms, setDelegationForms] = useState<Record<string, DelegationFormState>>({});
+  const [autoSeedStrategies, setAutoSeedStrategies] = useState<Record<string, AutoSeedStrategy>>({});
   const [busyTournamentId, setBusyTournamentId] = useState<string | null>(null);
 
   const loadManagedTournaments = useCallback(async () => {
@@ -196,10 +198,12 @@ export default function AdminTournaments() {
       const nextAdmins: Record<string, TournamentAdminAssignment[]> = {};
       const nextEntries: Record<string, TournamentEntry[]> = {};
       const nextDelegationForms: Record<string, DelegationFormState> = {};
+      const nextAutoSeedStrategies: Record<string, AutoSeedStrategy> = {};
       await Promise.all(
         tournaments.map(async (tournament) => {
           nextMatchForms[tournament.id] = createMatchForm();
           nextDelegationForms[tournament.id] = createDelegationForm();
+          nextAutoSeedStrategies[tournament.id] = "REGISTRATION_ORDER";
           try {
             const [matches, admins, entries] = await Promise.all([
               api.getTournamentMatches(tournament.id),
@@ -221,6 +225,7 @@ export default function AdminTournaments() {
       setTournamentAdmins(nextAdmins);
       setTournamentEntries(nextEntries);
       setDelegationForms(nextDelegationForms);
+      setAutoSeedStrategies(nextAutoSeedStrategies);
     } catch (error) {
       toast({
         title: "Error",
@@ -498,16 +503,17 @@ export default function AdminTournaments() {
 
   const autoAssignSeeds = async (tournamentId: string) => {
     if (!user) return;
+    const strategy = autoSeedStrategies[tournamentId] ?? "REGISTRATION_ORDER";
     setBusyTournamentId(tournamentId);
     try {
-      const updatedEntries = await api.autoAssignTournamentSeeds(tournamentId, user);
+      const updatedEntries = await api.autoAssignTournamentSeeds(tournamentId, user, strategy);
       setTournamentEntries((current) => ({
         ...current,
         [tournamentId]: updatedEntries,
       }));
       toast({
         title: "Seeds assigned",
-        description: "The app assigned bracket seeds automatically from the current eligible registrations.",
+        description: "Seeds were assigned using registration order from the current eligible entries.",
       });
     } catch (error) {
       toast({
@@ -919,6 +925,16 @@ export default function AdminTournaments() {
                 const entries = tournamentEntries[tournament.id] ?? [];
                 const matchForm = matchForms[tournament.id] ?? createMatchForm();
                 const delegationForm = delegationForms[tournament.id] ?? createDelegationForm();
+                const registrationOrderByEntryId = new Map(
+                  [...entries]
+                    .sort((a, b) => {
+                      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
+                      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Number.MAX_SAFE_INTEGER;
+                      if (aTime !== bTime) return aTime - bTime;
+                      return a.teamName.localeCompare(b.teamName);
+                    })
+                    .map((entry, index) => [entry.id, index + 1]),
+                );
                 const allowedTransitions = getAllowedStatusTransitions(tournament.status);
                 const readiness = getBracketReadiness(
                   entries.map((entry) => ({
@@ -1222,6 +1238,18 @@ export default function AdminTournaments() {
                           <p className="text-sm text-muted-foreground">Assign bracket seeds, complete check-in, and lock rosters before generating matches.</p>
                         </div>
                         <div className="flex flex-wrap gap-3">
+                          <select
+                            value={autoSeedStrategies[tournament.id] ?? "REGISTRATION_ORDER"}
+                            onChange={(e) =>
+                              setAutoSeedStrategies((current) => ({
+                                ...current,
+                                [tournament.id]: e.target.value as AutoSeedStrategy,
+                              }))
+                            }
+                            className="flex h-10 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                          >
+                            <option value="REGISTRATION_ORDER">Registration Order</option>
+                          </select>
                           <Button
                             variant="outline"
                             className="border-white/10"
@@ -1229,10 +1257,10 @@ export default function AdminTournaments() {
                             onClick={() => void autoAssignSeeds(tournament.id)}
                           >
                             <Target className="w-4 h-4 mr-2" />
-                            Auto Assign Seeds
+                            Auto Assign
                           </Button>
                           <p className="text-xs text-muted-foreground self-center">
-                            Uses the current tournament structure and eligible registrations to fill bracket seeds automatically.
+                            Uses the selected strategy to seed eligible entries before bracket generation.
                           </p>
                         </div>
                         {entries.length === 0 ? (
@@ -1244,7 +1272,7 @@ export default function AdminTournaments() {
                                 <div>
                                   <p className="font-semibold">{entry.teamName}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    Check-In: {entry.checkInStatus} · Roster: {entry.rosterLockedAt ? "Locked" : "Unlocked"}
+                                    {`Reg Order: ${registrationOrderByEntryId.get(entry.id) ?? "-"} | Check-In: ${entry.checkInStatus} | Roster: ${entry.rosterLockedAt ? "Locked" : "Unlocked"}`}
                                   </p>
                                 </div>
                                 <div className="space-y-2">

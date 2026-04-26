@@ -52,4 +52,16 @@ describe("bracket seeding", () => {
       ["Charlie", 3],
     ]);
   });
+
+  it("uses team name as fallback when registration timestamps match", () => {
+    const seeded = assignSequentialSeeds([
+      { teamId: "team-z", teamName: "Zulu", createdAt: "2026-04-01T10:00:00.000Z" },
+      { teamId: "team-a", teamName: "Alpha", createdAt: "2026-04-01T10:00:00.000Z" },
+    ]);
+
+    expect(seeded.map((entry) => [entry.teamName, entry.seedNumber])).toEqual([
+      ["Alpha", 1],
+      ["Zulu", 2],
+    ]);
+  });
 });

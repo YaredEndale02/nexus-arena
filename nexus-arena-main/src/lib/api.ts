@@ -116,6 +116,7 @@ export interface TournamentAdminAssignment {
 }
 
 export type TournamentEntryCheckInStatus = "NOT_OPEN" | "PENDING" | "CHECKED_IN" | "MISSED";
+export type AutoSeedStrategy = "REGISTRATION_ORDER";
 
 export interface TournamentEntry {
   id: string;
@@ -826,7 +827,11 @@ export const api = {
     return mapTournamentEntry(row, (team?.name as string) ?? "Unknown Team");
   },
 
-  async autoAssignTournamentSeeds(tournamentId: string, actor: AppUserPayload): Promise<TournamentEntry[]> {
+  async autoAssignTournamentSeeds(
+    tournamentId: string,
+    actor: AppUserPayload,
+    strategy: AutoSeedStrategy = "REGISTRATION_ORDER",
+  ): Promise<TournamentEntry[]> {
     const client = requireSupabase();
     await ensureUser(client, actor);
 
@@ -844,25 +849,37 @@ export const api = {
       throw new Error("At least 2 eligible entries are required before automatic bracket assignment can run.");
     }
 
-    const seededEntries = assignSequentialSeeds(
-      eligibleEntries.map((entry) => ({
-        id: entry.id,
-        teamId: entry.teamId,
-        teamName: entry.teamName,
-        createdAt: entry.createdAt ?? null,
-      })),
-    );
+    const sourceEntries = eligibleEntries.map((entry) => ({
+      id: entry.id,
+      teamId: entry.teamId,
+      teamName: entry.teamName,
+      createdAt: entry.createdAt ?? null,
+    }));
 
-    await Promise.all(
+    const seededEntries = (() => {
+      switch (strategy) {
+        case "REGISTRATION_ORDER":
+          return assignSequentialSeeds(sourceEntries);
+        default:
+          throw new Error(`Unsupported seeding strategy: ${strategy}`);
+      }
+    })();
+
+    const seedByEntryId = new Map(seededEntries.map((entry) => [entry.id, entry.seedNumber]));
+    const updateResponses = await Promise.all(
       entries.map((entry) =>
         client
           .from("tournament_entries")
           .update({
-            seed_number: seededEntries.find((seededEntry) => seededEntry.id === entry.id)?.seedNumber ?? null,
+            seed_number: seedByEntryId.get(entry.id) ?? null,
           })
           .eq("id", entry.id),
       ),
     );
+    const failedResponse = updateResponses.find((response) => response.error);
+    if (failedResponse?.error) {
+      throw failedResponse.error;
+    }
 
     return api.getTournamentEntries(tournamentId);
   },
