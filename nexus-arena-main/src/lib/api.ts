@@ -34,6 +34,8 @@ export interface AppUserPayload {
   name: string;
   role: "ADMIN" | "ORGANIZER" | "PLAYER";
   riotId?: string;
+  email?: string;
+  phoneNumber?: string;
 }
 
 export interface Tournament {
@@ -42,6 +44,7 @@ export interface Tournament {
   gameTitle: string;
   format: TournamentFormat;
   tournamentType: TournamentType;
+  bracketType: "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "ROUND_ROBIN" | "SWISS" | "GROUP_STAGE";
   rules?: string | null;
   startDate: string;
   registrationOpenAt?: string | null;
@@ -95,6 +98,7 @@ export interface MatchReport {
   roundLabel: string;
   roundNumber?: number | null;
   positionInRound?: number | null;
+  bracketSide?: string | null;
   team1Name: string;
   team2Name: string;
   team1Score: number;
@@ -143,6 +147,7 @@ type TournamentMutationInput = Pick<
   | "gameTitle"
   | "format"
   | "tournamentType"
+  | "bracketType"
   | "rules"
   | "startDate"
   | "registrationOpenAt"
@@ -316,6 +321,8 @@ async function ensureUser(client: ReturnType<typeof requireSupabase>, user: AppU
     name: user.name,
     role: user.role,
     riot_id: user.riotId ?? null,
+    ...(user.email ? { email: user.email } : {}),
+    ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
   };
 
   const { error } = await client.from("users").upsert(payload, { onConflict: "id" });
@@ -909,7 +916,28 @@ export const api = {
     return mapTournamentEntry(updatedRow, (team?.name as string) ?? "Unknown Team");
   },
 
-  async generateBracket(tournamentId: string, actor: AppUserPayload) {
+  async resetBracket(tournamentId: string, actor: AppUserPayload) {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+
+    // 1. Delete all matches for this tournament
+    const { error: matchDeleteError } = await client
+      .from("matches")
+      .delete()
+      .eq("tournament_id", tournamentId);
+    if (matchDeleteError) throw new Error(`Failed to delete matches: ${matchDeleteError.message}`);
+
+    // 2. Delete all tournament stages (this also deletes stage seeds via cascade)
+    const { error: stageDeleteError } = await client
+      .from("tournament_stages")
+      .delete()
+      .eq("tournament_id", tournamentId);
+    if (stageDeleteError) throw new Error(`Failed to delete stages: ${stageDeleteError.message}`);
+
+    return { success: true };
+  },
+
+async generateBracket(tournamentId: string, actor: AppUserPayload) {
     const client = requireSupabase();
     await ensureUser(client, actor);
     const tournament = await getTournamentById(client, tournamentId);
@@ -954,14 +982,16 @@ export const api = {
       throw new Error(`Bracket generation blocked: ${readiness.issues.join(" ")}`);
     }
 
+    const isDoubleElim = (tournament as any).bracketType === "DOUBLE_ELIMINATION";
+
     const { data: stage, error: stageError } = await client
       .from("tournament_stages")
       .insert({
         tournament_id: tournamentId,
-        name: "Main Bracket",
+        name: isDoubleElim ? "Double Elimination" : "Main Bracket",
         stage_order: 1,
         stage_type: "MAIN",
-        format: "SINGLE_ELIMINATION",
+        format: isDoubleElim ? "DOUBLE_ELIMINATION" : "SINGLE_ELIMINATION",
         best_of: 1,
       })
       .select("*")
@@ -1012,15 +1042,18 @@ export const api = {
     }
 
     const matchesToInsert: Array<Record<string, string | number | null>> = [];
+    
+    // UPPER BRACKET
     for (let round = 1; round <= totalRounds; round += 1) {
       const matchesInRound = bracketSize / 2 ** round;
       for (let position = 1; position <= matchesInRound; position += 1) {
         const baseMatch = {
           tournament_id: tournamentId,
           stage_id: (stage as SupabaseTournamentStageRow).id,
-          round_label: createRoundLabel(round, totalRounds),
+          round_label: isDoubleElim ? `Upper R${round}` : createRoundLabel(round, totalRounds),
           round_number: round,
           position_in_round: position,
+          bracket_side: "UPPER",
           best_of: 1,
           status: "SCHEDULED",
         };
@@ -1037,6 +1070,7 @@ export const api = {
             status: team1 && team2 ? "SCHEDULED" : "COMPLETED",
             winner_team_id: team1 && !team2 ? team1.id : !team1 && team2 ? team2.id : null,
             winner_name: team1 && !team2 ? team1.name : !team1 && team2 ? team2.name : null,
+            loser_team_id: null,
             completed_at: team1 && !team2 ? new Date().toISOString() : !team1 && team2 ? new Date().toISOString() : null,
           });
         } else {
@@ -1051,16 +1085,57 @@ export const api = {
       }
     }
 
+    if (isDoubleElim) {
+        // LOWER BRACKET (2 * totalRounds - 2 rounds)
+        const totalLowerRounds = Math.max(1, (totalRounds - 1) * 2);
+        let currentMatchesInRound = bracketSize / 4; // R1
+        
+        for (let round = 1; round <= totalLowerRounds; round += 1) {
+            for (let position = 1; position <= currentMatchesInRound; position += 1) {
+                matchesToInsert.push({
+                    tournament_id: tournamentId,
+                    stage_id: (stage as SupabaseTournamentStageRow).id,
+                    round_label: `Lower R${round}`,
+                    round_number: round,
+                    position_in_round: position,
+                    bracket_side: "LOWER",
+                    best_of: 1,
+                    status: "SCHEDULED",
+                    team1_id: null,
+                    team2_id: null,
+                    team1_name: "TBD",
+                    team2_name: "TBD",
+                });
+            }
+            if (round % 2 === 0) {
+                currentMatchesInRound = Math.floor(currentMatchesInRound / 2);
+            }
+        }
+        
+        // GRAND FINALS
+        matchesToInsert.push({
+            tournament_id: tournamentId,
+            stage_id: (stage as SupabaseTournamentStageRow).id,
+            round_label: `Grand Finals`,
+            round_number: 1,
+            position_in_round: 1,
+            bracket_side: "GRAND_FINAL",
+            best_of: 1,
+            status: "SCHEDULED",
+            team1_id: null,
+            team2_id: null,
+            team1_name: "TBD",
+            team2_name: "TBD"
+        });
+    }
+
     const { data: insertedMatches, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
     if (insertError) throw insertError;
 
-    const createdMatches = ((insertedMatches ?? []) as SupabaseMatchRow[]).sort((a, b) => {
-      if ((a.round_number ?? 0) !== (b.round_number ?? 0)) return (a.round_number ?? 0) - (b.round_number ?? 0);
-      return (a.position_in_round ?? 0) - (b.position_in_round ?? 0);
-    });
+    let createdMatches = ((insertedMatches ?? []) as SupabaseMatchRow[]);
 
-    // Auto-advance BYEs into round 2
-    for (const match of createdMatches.filter((item) => item.round_number === 1 && item.winner_team_id)) {
+    const upperMatches = createdMatches.filter(m => m.bracket_side === "UPPER" || m.bracket_side === null || m.bracket_side === undefined);
+    for (const match of upperMatches.filter((item) => item.round_number === 1 && item.winner_team_id)) {
       const nextRound = (match.round_number ?? 1) + 1;
       const nextPosition = Math.ceil((match.position_in_round ?? 1) / 2);
       const slot = (match.position_in_round ?? 1) % 2 === 1 ? "team1" : "team2";
@@ -1072,10 +1147,12 @@ export const api = {
         })
         .eq("tournament_id", tournamentId)
         .eq("round_number", nextRound)
+        .eq("bracket_side", "UPPER")
         .eq("position_in_round", nextPosition);
     }
 
-    return createdMatches.map(mapMatch);
+    const { data: finalMatches } = await client.from("matches").select("*").eq("tournament_id", tournamentId);
+    return (finalMatches ?? []).map(mapMatch);
   },
 
   async createMatchReport(
@@ -1144,38 +1221,70 @@ export const api = {
     const updatedRow = updated as SupabaseMatchRow;
 
     if ((updatedRow.round_number ?? 0) > 0 && updatedRow.winner_team_id) {
-      const nextRound = (updatedRow.round_number ?? 0) + 1;
-      const nextPosition = Math.ceil((updatedRow.position_in_round ?? 1) / 2);
-      const slot = (updatedRow.position_in_round ?? 1) % 2 === 1 ? "team1" : "team2";
-      const nextMatchPayload: Record<string, string | null> = {
-        [`${slot}_id`]: updatedRow.winner_team_id,
-        [`${slot}_name`]: updatedRow.winner_name,
-      };
-
-      const { data: nextMatch, error: nextMatchError } = await client
-        .from("matches")
-        .select("*")
-        .eq("tournament_id", tournamentId)
-        .eq("round_number", nextRound)
-        .eq("position_in_round", nextPosition)
-        .maybeSingle();
-      if (nextMatchError) throw nextMatchError;
-
-      if (nextMatch) {
-        const existingTeamId = slot === "team1" ? (nextMatch.team1_id as string | null) : (nextMatch.team2_id as string | null);
-        if (existingTeamId && existingTeamId !== updatedRow.winner_team_id) {
-          throw new Error("Bracket progression conflict detected in the next round.");
+        const isUpper = updatedRow.bracket_side === "UPPER" || updatedRow.bracket_side === null;
+        const isLower = updatedRow.bracket_side === "LOWER";
+        
+        let targetSide = isLower ? "LOWER" : "UPPER";
+        let nextRound = (updatedRow.round_number ?? 0) + 1;
+        let nextPosition = Math.ceil((updatedRow.position_in_round ?? 1) / 2);
+        let slot = (updatedRow.position_in_round ?? 1) % 2 === 1 ? "team1" : "team2";
+        
+        if (isLower) {
+            if ((updatedRow.round_number ?? 1) % 2 === 1) {
+                nextPosition = updatedRow.position_in_round ?? 1;
+                slot = "team2";
+            } else {
+                nextPosition = Math.ceil((updatedRow.position_in_round ?? 1) / 2);
+                slot = (updatedRow.position_in_round ?? 1) % 2 === 1 ? "team1" : "team2";
+            }
         }
-      }
 
-      await client
-        .from("matches")
-        .update(nextMatchPayload)
-        .eq("tournament_id", tournamentId)
-        .eq("round_number", nextRound)
-        .eq("position_in_round", nextPosition);
+        const nextMatchPayload: Record<string, string | null> = {
+            [`${slot}_id`]: updatedRow.winner_team_id,
+            [`${slot}_name`]: updatedRow.winner_name,
+        };
+
+        const { data: nextMatch } = await client
+            .from("matches")
+            .select("*")
+            .eq("tournament_id", tournamentId)
+            .eq("bracket_side", targetSide)
+            .eq("round_number", nextRound)
+            .eq("position_in_round", nextPosition)
+            .maybeSingle();
+
+        if (nextMatch) {
+            await client.from("matches").update(nextMatchPayload).eq("id", nextMatch.id);
+        } else if (isUpper) {
+            await client.from("matches").update({ team1_id: updatedRow.winner_team_id, team1_name: updatedRow.winner_name ?? "TBD" })
+                .eq("tournament_id", tournamentId).eq("bracket_side", "GRAND_FINAL").eq("round_number", 1);
+        } else if (isLower) {
+            await client.from("matches").update({ team2_id: updatedRow.winner_team_id, team2_name: updatedRow.winner_name ?? "TBD" })
+                .eq("tournament_id", tournamentId).eq("bracket_side", "GRAND_FINAL").eq("round_number", 1);
+        }
+
+        if (isUpper && updatedRow.loser_team_id) {
+            const loserRound = (updatedRow.round_number ?? 1) === 1 ? 1 : ((updatedRow.round_number ?? 1) - 1) * 2;
+            const dropSlot = "team1";
+            let dropPos = updatedRow.position_in_round ?? 1;
+
+            const { data: lowerTarget } = await client
+                .from("matches")
+                .select("*")
+                .eq("tournament_id", tournamentId)
+                .eq("bracket_side", "LOWER")
+                .eq("round_number", loserRound)
+                .eq("position_in_round", dropPos)
+                .maybeSingle();
+                
+            if (lowerTarget) {
+                await client.from("matches").update({
+                    [`${dropSlot}_id`]: updatedRow.loser_team_id,
+                    [`${dropSlot}_name`]: updatedRow.team1_id === updatedRow.loser_team_id ? updatedRow.team1_name : updatedRow.team2_name
+                }).eq("id", lowerTarget.id);
+            }
+        }
     }
-
     return mapMatch(updatedRow);
   },
 
@@ -1308,5 +1417,218 @@ export const api = {
 
     const { error } = await client.from("team_members").delete().eq("team_id", teamId).eq("user_id", userId);
     if (error) throw error;
+  },
+
+  async searchUsers(query: string) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("users")
+      .select("id, name, email, riot_id")
+      .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(10);
+    if (error) throw error;
+    return data;
+  },
+
+  async registerSolo(
+    tournamentId: string,
+    userAuth: AppUserPayload & { email: string; phoneNumber: string }
+  ) {
+    const client = requireSupabase();
+
+    const { data: tournament, error: tournamentError } = await client
+      .from("tournaments")
+      .select("*")
+      .eq("id", tournamentId)
+      .single();
+    if (tournamentError) throw tournamentError;
+
+    if (tournament.status !== "REGISTRATION_OPEN") {
+      throw new Error("Tournament is not open for registration");
+    }
+
+    const { count, error: countError } = await client
+      .from("tournament_entries")
+      .select("*", { count: "exact", head: true })
+      .eq("tournament_id", tournamentId);
+    if (countError) throw countError;
+    if ((count ?? 0) >= tournament.max_teams) {
+      throw new Error("Tournament is full");
+    }
+
+    // Check if phone number is already used in this tournament
+    const { data: phoneCheckData, error: phoneCheckError } = await client
+      .from("tournament_entries")
+      .select("team_id, tournament_id")
+      .eq("tournament_id", tournamentId);
+
+    if (phoneCheckError) throw phoneCheckError;
+
+    if (phoneCheckData && phoneCheckData.length > 0) {
+      const teamIds = phoneCheckData.map((en) => en.team_id);
+      const { data: membersCheck, error: membersError } = await client
+        .from("team_members")
+        .select("user_id")
+        .in("team_id", teamIds);
+      if (membersError) throw membersError;
+      
+      const userIds = membersCheck.map((m) => m.user_id);
+      
+      if (userIds.length > 0) {
+        const { data: usersData, error: usersError } = await client
+          .from("users")
+          .select("id, phone_number")
+          .in("id", userIds)
+          .eq("phone_number", userAuth.phoneNumber);
+        
+        if (usersError) throw usersError;
+        if (usersData && usersData.length > 0) {
+          throw new Error("This phone number has already been registered for this tournament.");
+        }
+      }
+    }
+
+    await ensureUser(client, userAuth);
+
+    const { data: createdTeam, error: teamError } = await client
+      .from("teams")
+      .insert({
+        name: `${userAuth.name} (Solo)`,
+        captain_id: userAuth.id,
+      })
+      .select("*")
+      .single();
+    if (teamError) throw teamError;
+
+    const { error: memberError } = await client.from("team_members").insert({
+      team_id: createdTeam.id,
+      user_id: userAuth.id,
+      role: "CAPTAIN",
+    });
+    if (memberError) throw memberError;
+
+    const { error: regError } = await client.from("tournament_entries").insert({
+      team_id: createdTeam.id,
+      tournament_id: tournamentId,
+      registration_status: "APPROVED",
+      check_in_status: "NOT_OPEN",
+      payment_status: tournament.entry_fee > 0 ? "PENDING" : "PAID",
+    });
+    if (regError) throw regError;
+  },
+
+  async adminAddUsers(
+    tournamentId: string,
+    players: Array<{ name: string; email: string; phoneNumber: string }>,
+    actor: AppUserPayload
+  ) {
+    const client = requireSupabase();
+    await ensureUser(client, actor);
+
+    const errors: string[] = [];
+    const added: string[] = [];
+
+    for (const player of players) {
+      if (!player.name?.trim() || !player.email?.trim() || !player.phoneNumber?.trim()) {
+        errors.push(`Skipped "${player.name || "unknown"}" — Name, Email, and Phone are all required.`);
+        continue;
+      }
+
+      try {
+        // 1. Look up existing user by email or phone
+        const { data: existingUser } = await client
+          .from("users")
+          .select("id")
+          .or(`email.eq.${player.email.trim()},phone_number.eq.${player.phoneNumber.trim()}`)
+          .maybeSingle();
+
+        // 2. Check for duplicate registration in this tournament
+        if (existingUser) {
+          const { data: existingTeams } = await client
+            .from("teams")
+            .select("id")
+            .eq("captain_id", actor.id);
+
+          if (existingTeams && existingTeams.length > 0) {
+            const teamIds = existingTeams.map((t) => t.id);
+            // Check if any team named after this player already in tournament
+            const { data: existingEntry } = await client
+              .from("tournament_entries")
+              .select("id")
+              .eq("tournament_id", tournamentId)
+              .in("team_id", teamIds)
+              .maybeSingle();
+
+            if (existingEntry) {
+              errors.push(`Skipped "${player.name}" — already registered.`);
+              continue;
+            }
+          }
+        }
+
+        // 3. Create the pseudo-user row for the player (upsert by email)
+        // The organizer inserts into users — this is allowed if RLS permits or via upsert
+        const playerUserId = existingUser?.id ?? `manual-${new Date().toISOString().slice(0, 10)}-${Date.now()}`;
+
+        if (!existingUser) {
+          // Insert a minimal user row for the manually-added player
+          const { error: userErr } = await client.from("users").upsert(
+            {
+              id: playerUserId,
+              name: player.name.trim(),
+              email: player.email.trim(),
+              phone_number: player.phoneNumber.trim(),
+              role: "PLAYER",
+            },
+            { onConflict: "email" }
+          );
+          // It's okay if this fails (RLS may block) — we still create the team entry
+          if (userErr) {
+            console.warn("Could not upsert manual player user row:", userErr.message);
+          }
+        }
+
+        // 4. Create the team owned by the ORGANIZER (captain_id = actor.id satisfies RLS)
+        //    Team name includes player name so it's identifiable
+        const { data: team, error: teamError } = await client
+          .from("teams")
+          .insert({
+            name: `${player.name.trim()} (Manual)`,
+            captain_id: actor.id, // organizer owns the team — satisfies RLS
+          })
+          .select("id")
+          .single();
+        if (teamError) throw new Error(`Team creation failed: ${teamError.message}`);
+
+        // 5. Add the player as a member of this team (best-effort)
+        await client.from("team_members").insert({
+          team_id: team.id,
+          user_id: existingUser ? existingUser.id : actor.id,
+          role: "MEMBER",
+        });
+
+        // 6. Register the team for the tournament (bypass waitlist/status checks)
+        const { error: entryError } = await client.from("tournament_entries").insert({
+          team_id: team.id,
+          tournament_id: tournamentId,
+          registration_status: "APPROVED",
+          check_in_status: "NOT_OPEN",
+          payment_status: "PAID",
+        });
+        if (entryError) throw new Error(`Entry creation failed: ${entryError.message}`);
+
+        added.push(player.name.trim());
+      } catch (err) {
+        errors.push(`Failed to add "${player.name}": ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
+    }
+
+    if (errors.length > 0 && added.length === 0) {
+      throw new Error(errors.join("\n"));
+    }
+    if (errors.length > 0) {
+      // Partial success — throw so UI shows the warnings
+      throw new Error(`Added ${added.length} player(s). Issues:\n${errors.join("\n")}`);
+    }
   },
 };

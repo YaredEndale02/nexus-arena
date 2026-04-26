@@ -32,6 +32,7 @@ export interface SupabaseUserRow {
   country_code?: string | null;
   timezone?: string | null;
   status?: string;
+  phone_number?: string | null;
   created_at?: string;
   updated_at?: string;
 }

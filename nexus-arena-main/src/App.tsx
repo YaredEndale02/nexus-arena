@@ -48,8 +48,9 @@ const App = () => (
               path="/admin/tournaments"
               element={
                 <ProtectedRoute
-                  title="Tournament access required"
-                  description="Sign in to manage tournaments you own or have been assigned to."
+                  allowedRoles={["ORGANIZER", "ADMIN"]}
+                  title="Organizer access required"
+                  description="Sign in with an organizer account to manage tournaments."
                 >
                   <AdminTournaments />
                 </ProtectedRoute>

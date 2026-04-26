@@ -10,6 +10,7 @@ export interface User {
   name: string;
   role: UserRole;
   riotId?: string;
+  phoneNumber?: string;
 }
 
 interface SignUpInput {
@@ -18,6 +19,7 @@ interface SignUpInput {
   name: string;
   role: Exclude<UserRole, "ADMIN">;
   riotId?: string;
+  phoneNumber?: string;
 }
 
 interface AuthContextType {
@@ -34,6 +36,7 @@ type ProfileRow = {
   name: string | null;
   role: string;
   riot_id: string | null;
+  phone_number: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,6 +61,7 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
     name: typeof metadata.name === "string" ? metadata.name : authUser.email?.split("@")[0] ?? "Arena Player",
     role: typeof metadata.role === "string" ? metadata.role : "PLAYER",
     riot_id: typeof metadata.riot_id === "string" ? metadata.riot_id : null,
+    phone_number: typeof metadata.phone_number === "string" ? metadata.phone_number : null,
   };
 
   const { error: upsertError } = await client.from("users").upsert(payload, { onConflict: "id" });
@@ -73,6 +77,7 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
     name: profile.name ?? payload.name,
     role: (profile.role as UserRole) ?? "PLAYER",
     riotId: profile.riot_id ?? undefined,
+    phoneNumber: profile.phone_number ?? undefined,
   };
 }
 
@@ -127,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: input.name,
           role: input.role,
           riot_id: input.riotId ?? null,
+          phone_number: input.phoneNumber ?? null,
         },
       },
     });

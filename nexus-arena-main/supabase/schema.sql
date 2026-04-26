@@ -87,7 +87,8 @@ begin
     username,
     role,
     riot_id,
-    timezone
+    timezone,
+    phone_number
   )
   values (
     new.id::text,
@@ -96,7 +97,8 @@ begin
     nullif(new.raw_user_meta_data->>'username', ''),
     coalesce(new.raw_user_meta_data->>'role', 'PLAYER'),
     nullif(new.raw_user_meta_data->>'riot_id', ''),
-    nullif(new.raw_user_meta_data->>'timezone', '')
+    nullif(new.raw_user_meta_data->>'timezone', ''),
+    nullif(new.raw_user_meta_data->>'phone_number', '')
   )
   on conflict (id) do update
   set
@@ -105,6 +107,7 @@ begin
     username = coalesce(excluded.username, public.users.username),
     role = excluded.role,
     riot_id = excluded.riot_id,
+    phone_number = coalesce(excluded.phone_number, public.users.phone_number),
     timezone = coalesce(excluded.timezone, public.users.timezone);
 
   return new;
@@ -504,6 +507,7 @@ alter table public.users add column if not exists bio text;
 alter table public.users add column if not exists country_code text;
 alter table public.users add column if not exists timezone text;
 alter table public.users add column if not exists status text not null default 'ACTIVE';
+alter table public.users add column if not exists phone_number text;
 alter table public.users add column if not exists updated_at timestamptz not null default now();
 
 alter table public.teams add column if not exists organization_id uuid references public.organizations(id) on delete set null;

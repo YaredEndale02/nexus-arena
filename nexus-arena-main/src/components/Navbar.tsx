@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const navItems = [
-  { label: "Dashboard", path: "/", icon: BarChart3 },
   { label: "Tournaments", path: "/", icon: Trophy },
   { label: "Bracket", path: "/bracket", icon: Swords },
   { label: "Live", path: "/live", icon: Radio },
@@ -24,7 +23,7 @@ const navItems = [
 export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
-  const canManageTournaments = Boolean(user);
+  const canManageTournaments = Boolean(user && ["ORGANIZER", "ADMIN"].includes(user.role));
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-white/10">

@@ -22,6 +22,7 @@ export function AuthPanel({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [riotId, setRiotId] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [role, setRole] = useState<Exclude<UserRole, "ADMIN">>("PLAYER");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -41,6 +42,7 @@ export function AuthPanel({
           password,
           name,
           riotId: riotId || undefined,
+          phoneNumber: phoneNumber || undefined,
           role,
         });
 
@@ -114,6 +116,10 @@ export function AuthPanel({
               <div className="space-y-2">
                 <Label htmlFor="auth-riot">Riot ID</Label>
                 <Input id="auth-riot" value={riotId} onChange={(e) => setRiotId(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="auth-phone">Phone Number</Label>
+                <Input id="auth-phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
               </div>
             </>
           )}

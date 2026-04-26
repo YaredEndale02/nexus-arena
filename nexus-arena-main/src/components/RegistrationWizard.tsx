@@ -12,8 +12,9 @@ import { AuthPanel } from "@/components/AuthPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { api, Team, Tournament, TournamentEntry } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Users, Shield, ArrowRight, Loader2, AlertCircle, ClipboardCheck, Lock } from "lucide-react";
+import { CheckCircle2, Users, Shield, ArrowRight, Loader2, AlertCircle, ClipboardCheck, Lock, Search, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 interface RegistrationWizardProps {
   tournament: Tournament | null;
@@ -32,22 +33,35 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
   const [isRegistering, setIsRegistering] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
 
+  // Solo fields
+  const [soloFullName, setSoloFullName] = useState(user?.name || "");
+  const [soloEmail, setSoloEmail] = useState(user?.email || "");
+  const [soloPhone, setSoloPhone] = useState(user?.phoneNumber || "");
+
+  // Search fields
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{id: string, name: string, email: string|null, riot_id: string|null}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+
   const mode = tournament?.status === "CHECK_IN" ? "check-in" : "registration";
+  const isSolo = tournament?.format === "SOLO";
 
   useEffect(() => {
     if (isOpen && user) {
       const loadDialogData = async () => {
         setIsLoading(true);
         try {
-          const [myTeams, entries] = await Promise.all([
-            api.getMyTeams(user.id),
-            tournament ? api.getMyTournamentEntries(tournament.id, user.id) : Promise.resolve([]),
-          ]);
-          setTeams(myTeams);
+          const entries = tournament ? await api.getMyTournamentEntries(tournament.id, user.id) : [];
           setMyEntries(entries);
-          if (myTeams.length > 0) setSelectedTeamId(myTeams[0].id);
+
+          if (!isSolo) {
+            const myTeams = await api.getMyTeams(user.id);
+            setTeams(myTeams);
+            if (myTeams.length > 0) setSelectedTeamId(myTeams[0].id);
+          }
         } catch (error) {
-          console.error("Failed to load teams", error);
+          console.error("Failed to load registration data", error);
         } finally {
           setIsLoading(false);
         }
@@ -59,18 +73,44 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
       setTeams([]);
       setMyEntries([]);
       setSelectedTeamId("");
+      setSearchQuery("");
+      setSearchResults([]);
     }
-  }, [isOpen, tournament, user]);
+  }, [isOpen, tournament, user, isSolo]);
+
+  useEffect(() => {
+    if (user && isSolo) {
+      setSoloFullName(user.name);
+      setSoloEmail(user.email);
+      setSoloPhone(user?.phoneNumber || "");
+    }
+  }, [user, isSolo]);
 
   const selectedTeam = teams.find((team) => team.id === selectedTeamId);
+
   const handleRegister = async () => {
-    if (!tournament || !selectedTeamId || !user) return;
+    if (!tournament || !user) return;
     setIsRegistering(true);
     try {
-      await api.registerTeam(tournament.id, selectedTeamId, user.id);
-      setStep(4);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Registration failed";
+      if (isSolo) {
+        if (!soloFullName || !soloPhone || !soloEmail) {
+          throw new Error("Please fill in all fields.");
+        }
+        await api.registerSolo(tournament.id, {
+          id: user.id,
+          name: soloFullName,
+          role: "PLAYER",
+          email: soloEmail,
+          phoneNumber: soloPhone,
+          riotId: undefined,
+        });
+      } else {
+        if (!selectedTeamId) throw new Error("No team selected");
+        await api.registerTeam(tournament.id, selectedTeamId, user.id);
+      }
+      setStep(isSolo ? 2 : 4);
+    } catch (error: any) {
+      const message = error?.message || (error instanceof Error ? error.message : "Registration failed");
       toast({
         title: "Registration Failed",
         description: message,
@@ -78,6 +118,41 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
       });
     } finally {
       setIsRegistering(false);
+    }
+  };
+
+  const handleSearchUsers = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const results = await api.searchUsers(searchQuery);
+      // Filter out existing members
+      const existingIds = new Set(selectedTeam?.members.map(m => m.user.id));
+      setSearchResults(results.filter(r => !existingIds.has(r.id)));
+    } catch (error: any) {
+      const message = error?.message || (error instanceof Error ? error.message : "Search failed");
+      toast({ title: "Search failed", description: message, variant: "destructive" });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddMember = async (targetUser: {id: string, name: string}) => {
+    if (!selectedTeamId || !user) return;
+    setIsAddingMember(true);
+    try {
+      const updatedTeam = await api.addTeamMember(selectedTeamId, {
+        memberName: targetUser.name,
+        requester: { id: user.id, name: user.name, role: "PLAYER" }
+      });
+      setTeams(current => current.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+      setSearchResults(current => current.filter(u => u.id !== targetUser.id));
+      toast({ title: "Player added", description: `${targetUser.name} added to your roster.` });
+    } catch (error: any) {
+      const message = error?.message || (error instanceof Error ? error.message : "Failed to add member");
+      toast({ title: "Failed to add member", description: message, variant: "destructive" });
+    } finally {
+      setIsAddingMember(false);
     }
   };
 
@@ -115,7 +190,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               {mode === "check-in"
-                ? `${tournament.title} - confirm your team attendance`
+                ? `${tournament.title} - confirm your attendance`
                 : `${tournament.title} - $${tournament.entryFee} Entry`}
             </DialogDescription>
           </DialogHeader>
@@ -129,7 +204,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             />
           ) : (
             <>
-          {mode === "registration" && (
+          {mode === "registration" && !isSolo && (
             <div className="flex items-center gap-2 mb-8">
               {[1, 2, 3, 4].map((progressStep) => (
                 <div
@@ -143,11 +218,21 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             </div>
           )}
 
+          {mode === "registration" && myEntries.length > 0 && step < 4 && (
+            <div className="mb-6 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-500 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold">Already Registered</p>
+                <p className="text-sm opacity-90">You've already register for this tournament.</p>
+              </div>
+            </div>
+          )}
+
           {mode === "check-in" ? (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-              <h3 className="font-heading text-lg font-bold">Captain Self Check-In</h3>
+              <h3 className="font-heading text-lg font-bold">Self Check-In</h3>
               <p className="text-sm text-muted-foreground">
-                Select one of your registered teams and confirm they are ready to compete.
+                Select your entry and confirm you are ready to compete.
               </p>
 
               {isLoading ? (
@@ -181,22 +266,59 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                           </Button>
                         )}
                       </div>
-                      <div className="rounded-lg border border-white/10 bg-background/30 p-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4" />
-                          Roster lock is still controlled by tournament staff after captain check-in.
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="p-8 text-center border border-dashed border-white/20 rounded-xl">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
-                  <p className="text-muted-foreground">None of your teams are registered for this tournament yet.</p>
+                  <span className="text-muted-foreground">You are not registered for this tournament yet.</span>
                 </div>
               )}
             </div>
+          ) : isSolo ? (
+            step === 1 ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                <h3 className="font-heading text-lg font-bold">Player Details</h3>
+                <p className="text-sm text-muted-foreground">
+                  Provide your details to register for this solo tournament.
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-bold opacity-80">Full Name</label>
+                    <Input value={soloFullName} onChange={e => setSoloFullName(e.target.value)} placeholder="John Doe" className="bg-background/50" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold opacity-80">Phone Number</label>
+                    <Input value={soloPhone} onChange={e => setSoloPhone(e.target.value)} placeholder="+1 234 567 8900" className="bg-background/50" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold opacity-80">Email</label>
+                    <Input type="email" value={soloEmail} onChange={e => setSoloEmail(e.target.value)} placeholder="player@example.com" className="bg-background/50" />
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-3 mt-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Tournament</span>
+                    <span className="font-bold">{tournament.title}</span>
+                  </div>
+                  <div className="h-px bg-white/10" />
+                  <div className="flex justify-between items-center text-lg font-heading">
+                    <span className="text-foreground font-bold">Entry Fee</span>
+                    <span className="text-primary font-bold">${tournament.entryFee}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-12 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-400" />
+                </div>
+                <h2 className="font-heading text-3xl font-bold">You're In!</h2>
+                <p className="text-muted-foreground max-w-[280px]">
+                  Successfully registered as <span className="text-foreground font-bold">{soloFullName}</span> for the tournament.
+                </p>
+              </div>
+            )
           ) : step === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="font-heading text-lg font-bold">Select Your Team</h3>
@@ -253,11 +375,11 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             </div>
           )}
 
-          {step === 2 && selectedTeam && (
+          {step === 2 && !isSolo && selectedTeam && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <h3 className="font-heading text-lg font-bold">Roster Verification</h3>
               <p className="text-sm text-muted-foreground">
-                Verify all team members are ready. Game ID linking is optional but recommended.
+                Verify all team members are ready or add new players.
               </p>
 
               <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
@@ -272,9 +394,6 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                       </div>
                       <div>
                         <p className="text-sm font-medium">{member.user.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {member.user.riotId ? `ID: ${member.user.riotId}` : "Game ID Not Linked"}
-                        </p>
                       </div>
                     </div>
                     {member.user.riotId ? (
@@ -285,10 +404,41 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                   </div>
                 ))}
               </div>
+
+              <div className="pt-4 border-t border-white/10 mt-4 space-y-3">
+                <h4 className="text-sm font-bold opacity-80">Add Players</h4>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Search by name or email..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-background/50"
+                  />
+                  <Button variant="outline" onClick={handleSearchUsers} disabled={!searchQuery || isSearching}>
+                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
+                </div>
+                
+                {searchResults.length > 0 && (
+                  <div className="space-y-2 mt-2 p-2 border border-white/10 rounded-lg bg-black/20">
+                    {searchResults.map(res => (
+                      <div key={res.id} className="flex items-center justify-between p-2 rounded hover:bg-white/5">
+                        <div className="text-sm">
+                          <p className="font-medium">{res.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{res.email || "No email"}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" onClick={() => handleAddMember(res)} disabled={isAddingMember}>
+                          <Plus className="w-4 h-4 text-primary" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && !isSolo && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <h3 className="font-heading text-lg font-bold">Final Confirmation</h3>
               <div className="p-6 rounded-2xl bg-primary/5 border border-primary/20 space-y-4">
@@ -307,22 +457,19 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                 </div>
               </div>
               <p className="text-[10px] text-center text-muted-foreground italic">
-                By clicking "Confirm Registration", you agree to the tournament rules and fair play
-                policy.
+                By clicking "Confirm Registration", you agree to the tournament rules and fair play policy.
               </p>
             </div>
           )}
 
-          {step === 4 && (
+          {step === 4 && !isSolo && (
             <div className="py-12 flex flex-col items-center text-center space-y-4 animate-in zoom-in-95">
               <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
                 <CheckCircle2 className="w-12 h-12 text-emerald-400" />
               </div>
               <h2 className="font-heading text-3xl font-bold">You're In!</h2>
               <p className="text-muted-foreground max-w-[280px]">
-                Successfully registered{" "}
-                <span className="text-foreground font-bold">{selectedTeam?.name}</span> for the
-                tournament.
+                Successfully registered <span className="text-foreground font-bold">{selectedTeam?.name}</span> for the tournament.
               </p>
             </div>
           )}
@@ -339,30 +486,28 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             <Button onClick={onClose} className="w-full bg-primary">
               Done
             </Button>
-          ) : step < 4 ? (
+          ) : (isSolo && step === 1) || (!isSolo && step < 4) ? (
             <div className="flex w-full gap-3">
               {step > 1 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setStep(step - 1)}
-                  className="flex-1 bg-transparent border-white/10"
-                >
+                <Button variant="outline" onClick={() => setStep(step - 1)} className="flex-1 bg-transparent border-white/10">
                   Back
                 </Button>
               )}
               <Button
-                onClick={() => (step === 3 ? void handleRegister() : setStep(step + 1))}
-                disabled={(step === 1 && !selectedTeamId) || isRegistering}
+                onClick={() => {
+                  if (isSolo) handleRegister();
+                  else if (step === 3) handleRegister();
+                  else setStep(step + 1);
+                }}
+                disabled={(!isSolo && step === 1 && !selectedTeamId) || isRegistering || (isSolo && (!soloFullName || !soloPhone || !soloEmail)) || myEntries.length > 0}
                 className="flex-[2] bg-primary hover:neon-glow-blue"
               >
                 {isRegistering ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : step === 3 ? (
+                ) : (isSolo || step === 3) ? (
                   "Confirm Registration"
                 ) : (
-                  <>
-                    Next Step <ArrowRight className="w-4 h-4 ml-2" />
-                  </>
+                  <>Next Step <ArrowRight className="w-4 h-4 ml-2" /></>
                 )}
               </Button>
             </div>
