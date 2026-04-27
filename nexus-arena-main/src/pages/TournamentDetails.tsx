@@ -59,6 +59,30 @@ export default function TournamentDetails() {
     void loadTournament();
   }, [id, toast, user]);
 
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!id) return;
+
+    const matchSub = api.subscribeToMatches(id, () => {
+      // Refresh matches when they change
+      void api.getTournamentMatches(id).then(setMatches);
+    });
+
+    const entrySub = api.subscribeToEntries(id, () => {
+      // Refresh my entries when entries change (e.g. check-in status)
+      if (user) {
+        void api.getMyTournamentEntries(id, user.id).then(setMyEntries);
+      }
+      // Also refresh tournament data to get updated registered count
+      void api.getTournament(id).then(setTournament);
+    });
+
+    return () => {
+      void matchSub.unsubscribe();
+      void entrySub.unsubscribe();
+    };
+  }, [id, user]);
+
   const nextMatch = useMemo(() => {
     return matches.find((match) => match.status !== "COMPLETED") ?? matches[0] ?? null;
   }, [matches]);

@@ -108,6 +108,34 @@ export interface MatchReport {
   winnerName?: string | null;
 }
 
+export type AuditTargetType = "TOURNAMENT" | "MATCH" | "TEAM" | "ENTRY" | "SYSTEM";
+export type AuditAction = 
+  | "CREATE" | "UPDATE" | "DELETE" 
+  | "UPDATE_STATUS" | "REPORT_RESULT" 
+  | "GENERATE_BRACKET" | "CHECK_IN" | "LOCK_ROSTER";
+
+async function auditLog(
+  client: typeof supabase,
+  actorId: string,
+  targetType: AuditTargetType,
+  targetId: string,
+  action: AuditAction,
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    const { error } = await client.from("audit_logs").insert({
+      actor_id: actorId,
+      target_type: targetType,
+      target_id: targetId,
+      action,
+      metadata,
+    });
+    if (error) console.error("Audit log failed:", error);
+  } catch (err) {
+    console.error("Audit log exception:", err);
+  }
+}
+
 export type TournamentAdminRole = "OWNER" | "ADMIN" | "REFEREE" | "STAFF";
 
 export interface TournamentAdminAssignment {
@@ -192,6 +220,7 @@ function mapTournament(row: SupabaseTournamentRow, entryCount = 0, matchCount = 
     title: row.title,
     gameTitle: row.game_title,
     format: (row.format as TournamentFormat) ?? "TEAM",
+    bracketType: (row.bracket_type as Tournament["bracketType"]) ?? "SINGLE_ELIMINATION",
     tournamentType: (row.tournament_type as TournamentType) ?? "ONLINE",
     rules: row.rules ?? null,
     startDate: row.start_date,
@@ -268,6 +297,7 @@ function mergeTournamentInput(base: Tournament, patch: Partial<TournamentMutatio
     title: patch.title ?? base.title,
     gameTitle: patch.gameTitle ?? base.gameTitle,
     format: patch.format ?? base.format,
+    bracketType: patch.bracketType ?? base.bracketType,
     tournamentType: patch.tournamentType ?? base.tournamentType,
     rules: patch.rules !== undefined ? patch.rules : base.rules ?? null,
     startDate: patch.startDate ?? base.startDate,
@@ -300,6 +330,7 @@ function mapTournamentPayload(data: Partial<TournamentMutationInput>) {
   if (data.title !== undefined) payload.title = data.title;
   if (data.gameTitle !== undefined) payload.game_title = data.gameTitle;
   if (data.format !== undefined) payload.format = data.format;
+  if (data.bracketType !== undefined) payload.bracket_type = data.bracketType;
   if (data.tournamentType !== undefined) payload.tournament_type = data.tournamentType;
   if (data.rules !== undefined) payload.rules = data.rules ?? null;
   if (data.startDate !== undefined) payload.start_date = data.startDate;
@@ -548,6 +579,8 @@ export const api = {
       .single();
 
     if (error) throw error;
+    
+    await auditLog(client, actor.id, "TOURNAMENT", tournamentId, "UPDATE_STATUS", { old: currentRow.status, new: status });
 
     if (status === "REGISTRATION_CLOSED" || status === "CHECK_IN") {
       const { error: checkInError } = await client
@@ -982,7 +1015,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       throw new Error(`Bracket generation blocked: ${readiness.issues.join(" ")}`);
     }
 
-    const isDoubleElim = (tournament as any).bracketType === "DOUBLE_ELIMINATION";
+    const isDoubleElim = ((tournament as unknown as Record<string, unknown>).bracketType) === "DOUBLE_ELIMINATION";
 
     const { data: stage, error: stageError } = await client
       .from("tournament_stages")
@@ -1132,7 +1165,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     const { data: insertedMatches, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
     if (insertError) throw insertError;
 
-    let createdMatches = ((insertedMatches ?? []) as SupabaseMatchRow[]);
+    const createdMatches = ((insertedMatches ?? []) as SupabaseMatchRow[]);
 
     const upperMatches = createdMatches.filter(m => m.bracket_side === "UPPER" || m.bracket_side === null || m.bracket_side === undefined);
     for (const match of upperMatches.filter((item) => item.round_number === 1 && item.winner_team_id)) {
@@ -1152,6 +1185,9 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     }
 
     const { data: finalMatches } = await client.from("matches").select("*").eq("tournament_id", tournamentId);
+    
+    await auditLog(client, actor.id, "TOURNAMENT", tournamentId, "GENERATE_BRACKET", { matchCount: (finalMatches ?? []).length });
+
     return (finalMatches ?? []).map(mapMatch);
   },
 
@@ -1218,14 +1254,21 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       .single();
 
     if (error) throw error;
+
+    await auditLog(client, data.actor.id, "MATCH", matchId, "REPORT_RESULT", {
+      team1Score: data.team1Score,
+      team2Score: data.team2Score,
+      winner: winner_name
+    });
+
     const updatedRow = updated as SupabaseMatchRow;
 
     if ((updatedRow.round_number ?? 0) > 0 && updatedRow.winner_team_id) {
         const isUpper = updatedRow.bracket_side === "UPPER" || updatedRow.bracket_side === null;
         const isLower = updatedRow.bracket_side === "LOWER";
         
-        let targetSide = isLower ? "LOWER" : "UPPER";
-        let nextRound = (updatedRow.round_number ?? 0) + 1;
+        const targetSide = isLower ? "LOWER" : "UPPER";
+        const nextRound = (updatedRow.round_number ?? 0) + 1;
         let nextPosition = Math.ceil((updatedRow.position_in_round ?? 1) / 2);
         let slot = (updatedRow.position_in_round ?? 1) % 2 === 1 ? "team1" : "team2";
         
@@ -1266,7 +1309,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
         if (isUpper && updatedRow.loser_team_id) {
             const loserRound = (updatedRow.round_number ?? 1) === 1 ? 1 : ((updatedRow.round_number ?? 1) - 1) * 2;
             const dropSlot = "team1";
-            let dropPos = updatedRow.position_in_round ?? 1;
+            const dropPos = updatedRow.position_in_round ?? 1;
 
             const { data: lowerTarget } = await client
                 .from("matches")
@@ -1630,5 +1673,50 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       // Partial success — throw so UI shows the warnings
       throw new Error(`Added ${added.length} player(s). Issues:\n${errors.join("\n")}`);
     }
+  },
+
+  subscribeToMatches(tournamentId: string, onUpdate: (match: MatchReport) => void) {
+    const client = requireSupabase();
+    return client
+      .channel(`tournament-matches-${tournamentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "matches",
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            onUpdate(mapMatch(payload.new as SupabaseMatchRow));
+          }
+        }
+      )
+      .subscribe();
+  },
+
+  subscribeToEntries(tournamentId: string, onUpdate: (entry: TournamentEntry) => void) {
+    const client = requireSupabase();
+    return client
+      .channel(`tournament-entries-${tournamentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tournament_entries",
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        async (payload) => {
+          if (payload.new) {
+            const row = payload.new as SupabaseTournamentEntryRow;
+            // Fetch team name for mapping
+            const { data: team } = await client.from("teams").select("name").eq("id", row.team_id).single();
+            onUpdate(mapTournamentEntry(row, (team?.name as string) ?? "Unknown Team"));
+          }
+        }
+      )
+      .subscribe();
   },
 };

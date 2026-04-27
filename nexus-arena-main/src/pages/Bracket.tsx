@@ -221,42 +221,19 @@ export default function Bracket() {
   }, [loadMatches]);
 
   // Real-time subscription: auto-refresh when matches change
+  // Real-time subscription: auto-refresh when matches change
   useEffect(() => {
-    if (!selectedTournamentId || !supabase) return;
+    if (!selectedTournamentId) return;
 
-    // Clean up previous channel
-    if (channelRef.current) {
-      void supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
-    const channel = supabase
-      .channel(`bracket-matches-${selectedTournamentId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "matches",
-          filter: `tournament_id=eq.${selectedTournamentId}`,
-        },
-        () => {
-          // Silently refresh the bracket when any match changes
-          void loadMatches(true);
-        }
-      )
-      .subscribe((status) => {
-        setIsLiveConnected(status === "SUBSCRIBED");
-      });
-
-    channelRef.current = channel;
+    const subscription = api.subscribeToMatches(selectedTournamentId, (updatedMatch) => {
+      // Opt-in to full list refresh to ensure dependencies (like advancing winners) are reflected
+      void loadMatches(true);
+      setIsLiveConnected(true);
+    });
 
     return () => {
-      if (channelRef.current) {
-        void supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-        setIsLiveConnected(false);
-      }
+      void subscription.unsubscribe();
+      setIsLiveConnected(false);
     };
   }, [selectedTournamentId, loadMatches]);
 
