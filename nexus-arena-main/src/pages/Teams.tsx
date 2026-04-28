@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { api, Team } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Plus, Loader2, Shield, UserPlus, Save, Trash2 } from "lucide-react";
+import { Users, Plus, Loader2, Shield, UserPlus, Save, Trash2, Search } from "lucide-react";
 
 export default function Teams() {
   const { user } = useAuth();
@@ -19,7 +19,9 @@ export default function Teams() {
   const [newTeamName, setNewTeamName] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [teamNames, setTeamNames] = useState<Record<string, string>>({});
-  const [newMembers, setNewMembers] = useState<Record<string, { name: string; riotId: string }>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{id: string, name: string, email: string|null, riot_id: string|null}[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const loadTeams = useCallback(async () => {
     if (!user) return;
@@ -29,9 +31,6 @@ export default function Teams() {
       setTeams(myTeams);
       setTeamNames(
         Object.fromEntries(myTeams.map((team) => [team.id, team.name])),
-      );
-      setNewMembers(
-        Object.fromEntries(myTeams.map((team) => [team.id, { name: "", riotId: "" }])),
       );
       if (myTeams.length > 0 && !selectedTeamId) {
         setSelectedTeamId(myTeams[0].id);
@@ -81,7 +80,7 @@ export default function Teams() {
     } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create team",
+        description: (error as any)?.message || "Failed to create team",
         variant: "destructive",
       });
     } finally {
@@ -105,7 +104,7 @@ export default function Teams() {
     } catch (error) {
       toast({
         title: "Update failed",
-        description: error instanceof Error ? error.message : "Failed to update team",
+        description: (error as any)?.message || "Failed to update team",
         variant: "destructive",
       });
     } finally {
@@ -113,29 +112,44 @@ export default function Teams() {
     }
   };
 
-  const addMember = async (teamId: string) => {
+  const handleSearchUsers = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    try {
+      const results = await api.searchUsers(searchQuery);
+      // Filter out existing members
+      const existingIds = new Set(selectedTeam?.members.map(m => m.user.id));
+      setSearchResults(results.filter(r => !existingIds.has(r.id)));
+    } catch (error: any) {
+      toast({ 
+        title: "Search failed", 
+        description: (error as any)?.message || "Search failed", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleAddMemberBySearch = async (teamId: string, targetUser: {id: string, name: string}) => {
     if (!user) return;
-    const member = newMembers[teamId];
     setBusyTeamId(teamId);
     try {
       const updated = await api.addTeamMember(teamId, {
-        memberName: member.name,
-        memberRiotId: member.riotId || undefined,
+        memberName: targetUser.name,
+        userId: targetUser.id,
         requester: user,
       });
       setTeams((current) => current.map((team) => (team.id === teamId ? updated : team)));
-      setNewMembers((current) => ({
-        ...current,
-        [teamId]: { name: "", riotId: "" },
-      }));
+      setSearchResults(current => current.filter(u => u.id !== targetUser.id));
       toast({
         title: "Roster updated",
-        description: "New player added to the team.",
+        description: `${targetUser.name} added to the team.`,
       });
     } catch (error) {
       toast({
         title: "Add member failed",
-        description: error instanceof Error ? error.message : "Failed to add member",
+        description: (error as any)?.message || "Failed to add member",
         variant: "destructive",
       });
     } finally {
@@ -156,7 +170,7 @@ export default function Teams() {
     } catch (error) {
       toast({
         title: "Remove member failed",
-        description: error instanceof Error ? error.message : "Failed to remove member",
+        description: (error as any)?.message || "Failed to remove member",
         variant: "destructive",
       });
     } finally {
@@ -298,42 +312,49 @@ export default function Teams() {
                       <UserPlus className="w-4 h-4 text-primary" />
                       <h3 className="font-heading text-lg">Add Member</h3>
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Player Name</Label>
-                        <Input
-                          value={newMembers[selectedTeam.id]?.name ?? ""}
-                          onChange={(e) =>
-                            setNewMembers((current) => ({
-                              ...current,
-                              [selectedTeam.id]: {
-                                ...(current[selectedTeam.id] ?? { name: "", riotId: "" }),
-                                name: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Riot ID</Label>
-                        <Input
-                          value={newMembers[selectedTeam.id]?.riotId ?? ""}
-                          onChange={(e) =>
-                            setNewMembers((current) => ({
-                              ...current,
-                              [selectedTeam.id]: {
-                                ...(current[selectedTeam.id] ?? { name: "", riotId: "" }),
-                                riotId: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Search by name, email, or Riot ID..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-white/5 border-white/10"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={handleSearchUsers} 
+                        disabled={!searchQuery || isSearching}
+                        className="border-white/10"
+                      >
+                        {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      </Button>
                     </div>
-                    <Button onClick={() => void addMember(selectedTeam.id)} disabled={busyTeamId === selectedTeam.id}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add to Roster
-                    </Button>
+
+                    {searchResults.length > 0 && (
+                      <div className="space-y-2 mt-2 p-2 border border-white/10 rounded-xl bg-black/20 animate-in fade-in slide-in-from-top-2">
+                        {searchResults.map(res => (
+                          <div key={res.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 border border-transparent hover:border-white/5 transition-all">
+                            <div className="text-sm">
+                              <p className="font-semibold">{res.name}</p>
+                              <div className="flex flex-col gap-0.5">
+                                {res.riot_id && (
+                                  <p className="text-[10px] text-primary font-bold">{res.riot_id}</p>
+                                )}
+                                <p className="text-[10px] text-muted-foreground">{res.email || "No email"}</p>
+                              </div>
+                            </div>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => void handleAddMemberBySearch(selectedTeam.id, res)} 
+                              disabled={busyTeamId === selectedTeam.id}
+                              className="hover:bg-primary/20 hover:text-primary"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -192,6 +192,7 @@ create table if not exists public.teams (
   slug text unique,
   tag text,
   logo_url text,
+  invite_code text unique,
   banner_url text,
   description text,
   captain_id text not null references public.users(id) on delete restrict,
@@ -743,6 +744,12 @@ on public.team_members for all
 to authenticated
 using (public.is_team_captain(team_id) or public.is_admin())
 with check (public.is_team_captain(team_id) or public.is_admin());
+
+drop policy if exists "team members self join" on public.team_members;
+create policy "team members self join"
+on public.team_members for insert
+to authenticated
+with check (user_id = auth.uid()::text);
 
 drop policy if exists "team invites captain manage" on public.team_invites;
 create policy "team invites captain manage"

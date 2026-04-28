@@ -226,7 +226,7 @@ export default function AdminTournaments() {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load tournaments",
+        description: (error as any)?.message || "Failed to load tournaments",
         variant: "destructive",
       });
     } finally {
@@ -246,8 +246,8 @@ export default function AdminTournaments() {
       setTournamentEntries((current) => ({ ...current, [tournamentId]: entries }));
     } catch (error) {
       toast({
-        title: "Refresh failed",
-        description: error instanceof Error ? error.message : "Failed to refresh tournament operations",
+        title: "Error",
+        description: (error as any)?.message || "Failed to refresh tournament operations",
         variant: "destructive",
       });
     }
@@ -307,8 +307,8 @@ export default function AdminTournaments() {
       });
     } catch (error) {
       toast({
-        title: "Update failed",
-        description: error instanceof Error ? error.message : "Failed to update tournament",
+        title: "Error",
+        description: (error as any)?.message || "Failed to update tournament",
         variant: "destructive",
       });
     } finally {

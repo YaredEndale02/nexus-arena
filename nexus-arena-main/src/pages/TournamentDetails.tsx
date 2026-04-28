@@ -125,13 +125,24 @@ export default function TournamentDetails() {
 
   const canRegister = tournament.status === "REGISTRATION_OPEN";
   const canCheckIn = tournament.status === "CHECK_IN";
+  const isOrganizer = user?.role === "ORGANIZER";
   const registeredTeams = tournament.registeredTeams ?? tournament._count?.entries ?? 0;
-  const actionLabel = canCheckIn ? "Team Check-In" : canRegister ? "Register Team" : null;
-  const actionDescription = canCheckIn
-    ? "Captains can confirm attendance for registered teams here."
-    : canRegister
-      ? "Captains can register an eligible team from this page."
-      : "Registration actions are currently closed.";
+  
+  const actionLabel = isOrganizer 
+    ? "Manage Tournament" 
+    : canCheckIn 
+      ? "Team Check-In" 
+      : canRegister 
+        ? "Register Team" 
+        : null;
+        
+  const actionDescription = isOrganizer
+    ? "Go to the admin dashboard to manage settings, brackets, and players."
+    : canCheckIn
+      ? "Captains can confirm attendance for registered teams here."
+      : canRegister
+        ? "Captains can register an eligible team from this page."
+        : "Registration actions are currently closed.";
 
   return (
     <Layout>
@@ -170,10 +181,19 @@ export default function TournamentDetails() {
             </CardHeader>
             <CardContent className="space-y-4">
               {actionLabel ? (
-                <Button onClick={() => setIsWizardOpen(true)} className="w-full">
-                  {canCheckIn ? <ClipboardCheck className="w-4 h-4 mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-                  {actionLabel}
-                </Button>
+                isOrganizer ? (
+                  <Button asChild className="w-full">
+                    <Link to="/admin/tournaments">
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      {actionLabel}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button onClick={() => setIsWizardOpen(true)} className="w-full">
+                    {canCheckIn ? <ClipboardCheck className="w-4 h-4 mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                    {actionLabel}
+                  </Button>
+                )
               ) : (
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
                   Registration is not open right now. You can still follow the tournament and view the bracket.
@@ -187,9 +207,11 @@ export default function TournamentDetails() {
                 </Link>
               </Button>
 
-              <Button asChild variant="outline" className="w-full border-white/10">
-                <Link to="/registrations">My Registrations</Link>
-              </Button>
+              {!isOrganizer && (
+                <Button asChild variant="outline" className="w-full border-white/10">
+                  <Link to="/registrations">My Registrations</Link>
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -215,12 +237,14 @@ export default function TournamentDetails() {
               </p>
             </CardContent>
           </Card>
-          <Card className="glass border-white/10">
-            <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Your Check-Ins</p>
-              <p className="font-heading text-3xl font-bold mt-2">{checkedInCount}</p>
-            </CardContent>
-          </Card>
+          {!isOrganizer && (
+            <Card className="glass border-white/10">
+              <CardContent className="p-5">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Your Check-Ins</p>
+                <p className="font-heading text-3xl font-bold mt-2">{checkedInCount}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.25fr,0.75fr]">
@@ -263,35 +287,37 @@ export default function TournamentDetails() {
           </Card>
 
           <div className="space-y-6">
-            <Card className="glass border-white/10">
-              <CardHeader>
-                <CardTitle className="font-heading text-2xl">Your Entry Status</CardTitle>
-                <CardDescription>
-                  {user ? "Captain-facing view of your registered teams for this tournament." : "Sign in as a captain to see your team status here."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!user ? (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
-                    Sign in to register, self check-in, and track roster lock status for your teams.
-                  </div>
-                ) : myEntries.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
-                    None of your teams are registered for this tournament yet.
-                  </div>
-                ) : (
-                  myEntries.map((entry) => (
-                    <div key={entry.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <p className="font-semibold">{entry.teamName}</p>
-                      <p className="text-sm text-muted-foreground">Check-In: {entry.checkInStatus}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Roster: {entry.rosterLockedAt ? "Locked by staff" : "Not locked yet"}
-                      </p>
+            {!isOrganizer && (
+              <Card className="glass border-white/10">
+                <CardHeader>
+                  <CardTitle className="font-heading text-2xl">Your Entry Status</CardTitle>
+                  <CardDescription>
+                    {user ? "Captain-facing view of your registered teams for this tournament." : "Sign in as a captain to see your team status here."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!user ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
+                      Sign in to register, self check-in, and track roster lock status for your teams.
                     </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+                  ) : myEntries.length === 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
+                      None of your teams are registered for this tournament yet.
+                    </div>
+                  ) : (
+                    myEntries.map((entry) => (
+                      <div key={entry.id} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+                        <p className="font-semibold">{entry.teamName}</p>
+                        <p className="text-sm text-muted-foreground">Check-In: {entry.checkInStatus}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Roster: {entry.rosterLockedAt ? "Locked by staff" : "Not locked yet"}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             <Card className="glass border-white/10">
               <CardHeader>

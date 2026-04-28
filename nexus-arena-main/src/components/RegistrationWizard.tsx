@@ -43,6 +43,13 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
   const [searchResults, setSearchResults] = useState<{id: string, name: string, email: string|null, riot_id: string|null}[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [isSubmittingNewTeam, setIsSubmittingNewTeam] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
+  const [isJoiningByCode, setIsJoiningByCode] = useState(false);
+  const [isJoinCodeFormOpen, setIsJoinCodeFormOpen] = useState(false);
+  const [currentTeamCode, setCurrentTeamCode] = useState<string | null>(null);
 
   const mode = tournament?.status === "CHECK_IN" ? "check-in" : "registration";
   const isSolo = tournament?.format === "SOLO";
@@ -121,6 +128,72 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
     }
   };
 
+  const handleCreateTeamInWizard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newTeamName.trim()) return;
+    setIsSubmittingNewTeam(true);
+    try {
+      const newTeam = await api.createTeam({
+        name: newTeamName.trim(),
+        captain: user,
+      });
+      setTeams(current => [...current, newTeam]);
+      setSelectedTeamId(newTeam.id);
+      setIsCreatingTeam(false);
+      setNewTeamName("");
+      setStep(2); // Auto-advance to Roster Verification
+      toast({ title: "Team created", description: `"${newTeam.name}" is ready for registration.` });
+    } catch (error: any) {
+      toast({ 
+        title: "Creation failed", 
+        description: (error as any)?.message || "Failed to create team", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsSubmittingNewTeam(false);
+    }
+  };
+
+  const handleJoinByCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !inviteCode.trim()) return;
+    setIsJoiningByCode(true);
+    try {
+      const joinedTeam = await api.joinTeamByCode(inviteCode.trim(), {
+        id: user.id,
+        name: user.name,
+        role: "PLAYER",
+      });
+      setTeams(current => [...current.filter(t => t.id !== joinedTeam.id), joinedTeam]);
+      setSelectedTeamId(joinedTeam.id);
+      setIsJoinCodeFormOpen(false);
+      setInviteCode("");
+      toast({ title: "Welcome to the squad!", description: `You've joined "${joinedTeam.name}".` });
+    } catch (error: any) {
+      toast({ 
+        title: "Join failed", 
+        description: (error as any)?.message || "Invalid code", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsJoiningByCode(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTeamId && step === 2) {
+      const fetchCode = async () => {
+        try {
+          const code = await api.getOrCreateInviteCode(selectedTeamId);
+          setCurrentTeamCode(code);
+        } catch (err) {
+          console.warn("Could not fetch invite code", err);
+        }
+      };
+      void fetchCode();
+    }
+  }, [selectedTeamId, step]);
+
   const handleSearchUsers = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
@@ -143,6 +216,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
     try {
       const updatedTeam = await api.addTeamMember(selectedTeamId, {
         memberName: targetUser.name,
+        userId: targetUser.id,
         requester: { id: user.id, name: user.name, role: "PLAYER" }
       });
       setTeams(current => current.map(t => t.id === updatedTeam.id ? updatedTeam : t));
@@ -330,46 +404,144 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                 <div className="py-8 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
-              ) : teams.length > 0 ? (
-                <div className="grid gap-3">
-                  {teams.map((team) => (
-                    <div
-                      key={team.id}
-                      onClick={() => setSelectedTeamId(team.id)}
-                      className={cn(
-                        "p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between",
-                        selectedTeamId === team.id
-                          ? "bg-primary/10 border-primary neon-glow-blue"
-                          : "bg-white/5 border-white/10 hover:bg-white/10",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold">
-                          {team.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-bold">{team.name}</p>
-                          <p className="text-xs text-muted-foreground">{team.members.length} Members</p>
-                        </div>
-                      </div>
-                      {selectedTeamId === team.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                    </div>
-                  ))}
-                </div>
               ) : (
-                <div className="p-8 text-center border border-dashed border-white/20 rounded-xl">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
-                  <p className="text-muted-foreground">You don't have any teams yet.</p>
-                  <Button
-                    variant="link"
-                    className="text-primary mt-2"
-                    onClick={() => {
-                      onClose();
-                      window.location.href = "/teams";
-                    }}
-                  >
-                    Create a Team
-                  </Button>
+                <div className="space-y-6">
+                  {isCreatingTeam ? (
+                    <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-4 animate-in zoom-in-95">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-sm">Create New Team</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setIsCreatingTeam(false)}
+                          className="text-xs hover:bg-white/5"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Team Name</label>
+                        <Input 
+                          placeholder="e.g. Neon Vipers" 
+                          value={newTeamName}
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                          className="bg-background/50 border-white/10"
+                        />
+                      </div>
+                      <Button 
+                        onClick={handleCreateTeamInWizard} 
+                        disabled={!newTeamName.trim() || isSubmittingNewTeam}
+                        className="w-full bg-primary"
+                      >
+                        {isSubmittingNewTeam ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                        Confirm & Select
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {teams.length > 0 ? (
+                        <>
+                          {teams.map((team) => (
+                            <div
+                              key={team.id}
+                              onClick={() => setSelectedTeamId(team.id)}
+                              className={cn(
+                                "p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between",
+                                selectedTeamId === team.id
+                                  ? "bg-primary/10 border-primary neon-glow-blue"
+                                  : "bg-white/5 border-white/10 hover:bg-white/10",
+                              )}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold">
+                                  {team.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-bold">{team.name}</p>
+                                  <p className="text-xs text-muted-foreground">{team.members.length} Members</p>
+                                </div>
+                              </div>
+                              {selectedTeamId === team.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                            </div>
+                          ))}
+                          
+                          <div className="grid grid-cols-2 gap-3 mt-2">
+                            <Button 
+                              variant="outline" 
+                              className="border-white/10 bg-transparent hover:bg-white/5"
+                              onClick={() => setIsCreatingTeam(true)}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              New Team
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              className="border-white/10 bg-transparent hover:bg-white/5"
+                              onClick={() => setIsJoinCodeFormOpen(true)}
+                            >
+                              <ClipboardCheck className="w-4 h-4 mr-2" />
+                              Join by Code
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-8 text-center border border-dashed border-white/20 rounded-xl space-y-4">
+                          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-20" />
+                          <p className="text-muted-foreground">You don't have any teams yet.</p>
+                          <div className="flex flex-col gap-2">
+                            <Button
+                              className="bg-primary text-black"
+                              onClick={() => setIsCreatingTeam(true)}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Create My First Team
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="border-white/10"
+                              onClick={() => setIsJoinCodeFormOpen(true)}
+                            >
+                              <ClipboardCheck className="w-4 h-4 mr-2" />
+                              Join by Invite Code
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isJoinCodeFormOpen && (
+                        <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-4 animate-in zoom-in-95">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-bold text-sm">Join Team by Code</h4>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => setIsJoinCodeFormOpen(false)}
+                              className="text-xs hover:bg-white/5"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Invite Code</label>
+                            <Input 
+                              placeholder="e.g. NX-A1B2C3" 
+                              value={inviteCode}
+                              onChange={(e) => setInviteCode(e.target.value)}
+                              className="bg-background/50 border-white/10"
+                            />
+                          </div>
+                          <Button 
+                            onClick={handleJoinByCode} 
+                            disabled={!inviteCode.trim() || isJoiningByCode}
+                            className="w-full bg-primary"
+                          >
+                            {isJoiningByCode ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ClipboardCheck className="w-4 h-4 mr-2" />}
+                            Join Squad
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -377,16 +549,75 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
 
           {step === 2 && !isSolo && selectedTeam && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              <h3 className="font-heading text-lg font-bold">Roster Verification</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-heading text-lg font-bold">Roster Verification</h3>
+                <div className="flex gap-1">
+                  <div className={cn("w-2 h-2 rounded-full", selectedTeam.members.length >= (tournament.minPlayersPerTeam || 1) ? "bg-emerald-500" : "bg-amber-500")} />
+                  <div className={cn("w-2 h-2 rounded-full", selectedTeam.members.every(m => m.user.riotId) ? "bg-emerald-500" : "bg-amber-500")} />
+                </div>
+              </div>
+              
+              {/* Readiness Checklist */}
+              <div className="p-4 rounded-xl border border-white/10 bg-white/5 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    {selectedTeam.members.length >= (tournament.minPlayersPerTeam || 1) ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                    )}
+                    <span>Team Size ({selectedTeam.members.length}/{tournament.minPlayersPerTeam || 1} required)</span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase opacity-60">
+                    {selectedTeam.members.length >= (tournament.minPlayersPerTeam || 1) ? "Ready" : "Incomplete"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    {selectedTeam.members.every(m => m.user.riotId) ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                    )}
+                    <span>All Riot IDs linked</span>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase opacity-60">
+                    {selectedTeam.members.every(m => m.user.riotId) ? "Ready" : "Missing IDs"}
+                  </span>
+                </div>
+                
+                {/* Invite Code Display */}
+                {currentTeamCode && (
+                  <div className="pt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between bg-primary/10 p-2 rounded-lg border border-primary/20">
+                      <div>
+                        <p className="text-[10px] uppercase font-bold opacity-60">Share Code with Friends</p>
+                        <p className="text-sm font-mono font-bold text-primary">{currentTeamCode}</p>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentTeamCode);
+                          toast({ title: "Copied!", description: "Invite code copied to clipboard." });
+                        }}
+                      >
+                        <ClipboardCheck className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <p className="text-sm text-muted-foreground">
                 Verify all team members are ready or add new players.
               </p>
 
-              <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
                 {selectedTeam.members.map((member) => (
                   <div
                     key={member.user.id}
-                    className="p-3 rounded-lg bg-white/5 flex items-center justify-between"
+                    className="p-3 rounded-lg bg-white/5 flex items-center justify-between border border-transparent hover:border-white/5 transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold">
@@ -394,12 +625,22 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                       </div>
                       <div>
                         <p className="text-sm font-medium">{member.user.name}</p>
+                        {member.user.riotId ? (
+                          <p className="text-[10px] text-emerald-400 font-bold">{member.user.riotId}</p>
+                        ) : (
+                          <p className="text-[10px] text-amber-400">Missing Riot ID</p>
+                        )}
                       </div>
                     </div>
                     {member.user.riotId ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-400" />
+                      <div className="group relative">
+                        <AlertCircle className="w-4 h-4 text-amber-400 cursor-help" />
+                        <div className="absolute bottom-full right-0 mb-2 w-32 p-2 bg-black text-[10px] rounded border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                          Player must link their Riot ID in their profile settings.
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -425,7 +666,12 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                       <div key={res.id} className="flex items-center justify-between p-2 rounded hover:bg-white/5">
                         <div className="text-sm">
                           <p className="font-medium">{res.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{res.email || "No email"}</p>
+                          <div className="flex flex-col gap-0.5">
+                            {res.riot_id && (
+                              <p className="text-[10px] text-primary font-bold">{res.riot_id}</p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">{res.email || "No email"}</p>
+                          </div>
                         </div>
                         <Button size="sm" variant="ghost" onClick={() => handleAddMember(res)} disabled={isAddingMember}>
                           <Plus className="w-4 h-4 text-primary" />
@@ -499,7 +745,13 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                   else if (step === 3) handleRegister();
                   else setStep(step + 1);
                 }}
-                disabled={(!isSolo && step === 1 && !selectedTeamId) || isRegistering || (isSolo && (!soloFullName || !soloPhone || !soloEmail)) || myEntries.length > 0}
+                disabled={
+                  (!isSolo && step === 1 && !selectedTeamId) || 
+                  (!isSolo && step === 2 && selectedTeam && (selectedTeam.members.length < (tournament.minPlayersPerTeam || 1) || !selectedTeam.members.every(m => m.user.riotId))) ||
+                  isRegistering || 
+                  (isSolo && (!soloFullName || !soloPhone || !soloEmail)) || 
+                  myEntries.length > 0
+                }
                 className="flex-[2] bg-primary hover:neon-glow-blue"
               >
                 {isRegistering ? (

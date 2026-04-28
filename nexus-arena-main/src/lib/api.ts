@@ -19,6 +19,16 @@ import {
 } from "@/lib/tournamentLifecycle";
 import { assignSequentialSeeds, compareEntriesBySeed, createBracketSlots } from "@/lib/bracketSeeding";
 
+function generateUUID() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export type ApiTournamentStatus =
   | "DRAFT"
   | "PUBLISHED"
@@ -1424,19 +1434,26 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
 
   async addTeamMember(
     teamId: string,
-    data: { memberName: string; memberRiotId?: string; requester: AppUserPayload },
+    data: { memberName: string; memberRiotId?: string; userId?: string; requester: AppUserPayload },
   ): Promise<Team> {
     const client = requireSupabase();
     await ensureUser(client, data.requester);
     await assertTeamRosterUnlocked(client, teamId);
 
-    const memberId = crypto.randomUUID();
-    await ensureUser(client, {
-      id: memberId,
-      name: data.memberName,
-      role: "PLAYER",
-      riotId: data.memberRiotId,
-    });
+    const memberId = data.userId || generateUUID();
+    
+    try {
+      await ensureUser(client, {
+        id: memberId,
+        name: data.memberName,
+        role: "PLAYER",
+        riotId: data.memberRiotId,
+      });
+    } catch (err) {
+      // If we can't ensure user (e.g. RLS), we only continue if the user already exists
+      console.warn("Could not ensure member user:", err);
+      if (!data.userId) throw err; 
+    }
 
     const { error } = await client.from("team_members").insert({
       team_id: teamId,
@@ -1462,12 +1479,59 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     if (error) throw error;
   },
 
+  async joinTeamByCode(code: string, requester: AppUserPayload): Promise<Team> {
+    const client = requireSupabase();
+    await ensureUser(client, requester);
+
+    const { data: team, error: teamError } = await client
+      .from("teams")
+      .select("*")
+      .eq("invite_code", code.toUpperCase())
+      .single();
+
+    if (teamError) {
+      console.error("Join by code error:", teamError);
+      if (teamError.code === "PGRST116") throw new Error("Invalid or expired invite code.");
+      throw new Error(`Database error: ${teamError.message}`);
+    }
+    if (!team) throw new Error("Invalid or expired invite code.");
+
+    // Add requester as member
+    const { error: memberError } = await client.from("team_members").insert({
+      team_id: team.id,
+      user_id: requester.id,
+      role: "MEMBER",
+    });
+
+    if (memberError && memberError.code !== "23505") { // Ignore if already a member
+      throw memberError;
+    }
+
+    const [hydratedTeam] = await hydrateTeams(client, [team as SupabaseTeamRow]);
+    return hydratedTeam;
+  },
+
+  async getOrCreateInviteCode(teamId: string): Promise<string> {
+    const client = requireSupabase();
+    const { data: team } = await client.from("teams").select("invite_code").eq("id", teamId).single();
+    
+    if (team?.invite_code) return team.invite_code;
+
+    const newCode = `NX-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const { error: updateError } = await client.from("teams").update({ invite_code: newCode }).eq("id", teamId);
+    if (updateError) {
+      console.error("Failed to save invite code:", updateError);
+      throw new Error(`Failed to generate invite code: ${updateError.message}`);
+    }
+    return newCode;
+  },
+
   async searchUsers(query: string) {
     const client = requireSupabase();
     const { data, error } = await client
       .from("users")
       .select("id, name, email, riot_id")
-      .or(`name.ilike.%${query}%,email.ilike.%${query}%`)
+      .or(`name.ilike.%${query}%,email.ilike.%${query}%,riot_id.ilike.%${query}%`)
       .limit(10);
     if (error) throw error;
     return data;

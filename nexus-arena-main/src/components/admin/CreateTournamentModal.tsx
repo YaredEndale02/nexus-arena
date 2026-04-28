@@ -39,7 +39,8 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
         prizePool: 0,
         visibility: "PUBLIC",
         waitlistEnabled: false,
-      }, user);
+        creator: user,
+      });
       toast({ title: "Success", description: "Tournament created." });
       setOpen(false);
       onSuccess();

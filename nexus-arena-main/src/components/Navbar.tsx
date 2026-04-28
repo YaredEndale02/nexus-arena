@@ -38,30 +38,37 @@ export function Navbar() {
         </Link>
 
         <div className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => {
-            const isActive =
-              location.pathname === item.path &&
-              item.label !== "Tournaments" &&
-              item.label !== "Teams";
-            return (
-              <Link
-                key={item.label}
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-primary/10 text-primary neon-glow-blue"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                )}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                {item.label === "Live" && (
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                )}
-              </Link>
-            );
-          })}
+          {navItems
+            .filter((item) => {
+              if (user?.role === "ORGANIZER") {
+                return !["Teams", "Registrations"].includes(item.label);
+              }
+              return true;
+            })
+            .map((item) => {
+              const isActive =
+                location.pathname === item.path &&
+                item.label !== "Tournaments" &&
+                item.label !== "Teams";
+              return (
+                <Link
+                  key={item.label}
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? "bg-primary/10 text-primary neon-glow-blue"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  )}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                  {item.label === "Live" && (
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                </Link>
+              );
+            })}
           {canManageTournaments && (
             <Link
               to="/admin/tournaments"

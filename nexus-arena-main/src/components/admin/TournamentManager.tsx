@@ -82,6 +82,8 @@ export function TournamentManager({
           updateEntryCheckIn={updateEntryCheckIn}
           lockEntryRoster={lockEntryRoster}
           saveEntrySeed={saveEntrySeed}
+          refreshTournamentOps={refreshTournamentOps}
+          setBusyTournamentId={setBusyTournamentId}
         />
       </TabsContent>
 
