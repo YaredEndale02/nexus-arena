@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Save, Trash2, Edit } from "lucide-react";
 import { Tournament } from "@/lib/api";
 import { TournamentValidationInput } from "@/lib/tournamentLifecycle";
+import { DEFAULT_GAMES } from "@/lib/games";
 
 export function TournamentSettingsTab({
   tournament,
@@ -45,11 +46,20 @@ export function TournamentSettingsTab({
             <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Title</Label>
-                <Input value={editingForm.title} onChange={(e) => setEditingForm((current: any) => ({ ...current, title: e.target.value }))} />
+                <Input value={editingForm.title || ""} onChange={(e) => setEditingForm((current: any) => ({ ...current, title: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label>Game</Label>
-                <Input value={editingForm.gameTitle} onChange={(e) => setEditingForm((current: any) => ({ ...current, gameTitle: e.target.value }))} />
+                <Input 
+                  list="default-games-settings"
+                  value={editingForm.gameTitle || ""} 
+                  onChange={(e) => setEditingForm((current: any) => ({ ...current, gameTitle: e.target.value }))} 
+                />
+                <datalist id="default-games-settings">
+                  {DEFAULT_GAMES.map(game => (
+                    <option key={game} value={game} />
+                  ))}
+                </datalist>
               </div>
               <div className="space-y-2">
                 <Label>Format</Label>

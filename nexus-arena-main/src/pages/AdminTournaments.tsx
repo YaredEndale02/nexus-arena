@@ -258,13 +258,27 @@ export default function AdminTournaments() {
     void loadManagedTournaments();
   }, [loadManagedTournaments, user]);
 
+  // Real-time match updates
+  useEffect(() => {
+    if (!activeTournamentId) return;
+
+    const matchSub = api.subscribeToMatches(activeTournamentId, () => {
+      // Re-fetch matches to ensure we have full hydrated data (teams, etc.)
+      void refreshTournamentOps(activeTournamentId);
+    });
+
+    return () => {
+      void matchSub.unsubscribe();
+    };
+  }, [activeTournamentId, refreshTournamentOps]);
+
 
 
   const beginEditingTournament = (tournament: Tournament) => {
     setEditingTournamentId(tournament.id);
     setEditingForm({
-      title: tournament.title,
-      gameTitle: tournament.gameTitle,
+      title: tournament.title || "",
+      gameTitle: tournament.gameTitle || "",
       format: tournament.format,
       bracketType: ((tournament as unknown as Record<string, string>).bracketType as "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "ROUND_ROBIN" | "SWISS" | "GROUP_STAGE") || "SINGLE_ELIMINATION",
       tournamentType: tournament.tournamentType,
@@ -323,6 +337,12 @@ export default function AdminTournaments() {
       const updated = await api.updateTournamentStatus(tournamentId, status, user);
       setManagedTournaments((current) => current.map((item) => (item.id === tournamentId ? updated : item)));
       await refreshTournamentOps(tournamentId);
+
+      // Trigger Telegram Broadcast if tournament is being published
+      if (status === "PUBLISHED") {
+        void api.broadcastTournamentNotification(updated);
+      }
+
       toast({
         title: "Status updated",
         description: `${updated.title} is now ${updated.displayStatus}.`,
@@ -783,7 +803,13 @@ export default function AdminTournaments() {
                   setDelegationForm={(form: { userId: string; role: Exclude<TournamentAdminRole, "OWNER"> }) => setDelegationForms(current => ({ ...current, [tournament.id]: form }))}
                   setAutoSeedStrategy={(strategy: string) => setAutoSeedStrategies(current => ({ ...current, [tournament.id]: strategy as AutoSeedStrategy }))}
                   setBusyTournamentId={setBusyTournamentId}
-                  setEditingTournamentId={setEditingTournamentId}
+                  setEditingTournamentId={(id: string | null) => {
+                    if (id === null) setEditingTournamentId(null);
+                    else {
+                      const t = managedTournaments.find(x => x.id === id);
+                      if (t) beginEditingTournament(t);
+                    }
+                  }}
                   saveTournamentEdits={saveTournamentEdits}
                   deleteTournament={deleteTournament}
                   changeTournamentStatus={changeTournamentStatus}
@@ -795,6 +821,8 @@ export default function AdminTournaments() {
                   createMatch={createMatch}
                   reportMatch={reportMatch}
                   refreshTournamentOps={refreshTournamentOps}
+                  generateBracket={generateBracket}
+                  resetAndRegenerateBracket={resetAndRegenerateBracket}
                   setMatchReportScore={(matchId: string, team: 1|2, score: number) => {
                     setMatchReports((current) => ({
                       ...current,

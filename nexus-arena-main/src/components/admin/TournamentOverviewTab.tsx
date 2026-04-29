@@ -61,7 +61,9 @@ export function TournamentOverviewTab({
                 disabled={busyTournamentId === tournament.id || (action.status !== tournament.status && !allowedTransitions.includes(action.status))}
                 onClick={() => changeTournamentStatus(tournament.id, action.status)}
               >
-                {action.label}
+                {action.status === "REGISTRATION_OPEN" && (tournament.status === "REGISTRATION_CLOSED" || tournament.status === "CHECK_IN") 
+                  ? "Reopen Registration" 
+                  : action.label}
               </Button>
             ))}
           </CardContent>

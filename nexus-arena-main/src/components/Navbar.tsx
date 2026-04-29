@@ -109,6 +109,13 @@ export function Navbar() {
                 <>
                   <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings" className="cursor-pointer">
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign out

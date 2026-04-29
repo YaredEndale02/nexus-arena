@@ -42,6 +42,8 @@ export function TournamentManager({
   createMatch,
   reportMatch,
   refreshTournamentOps,
+  generateBracket,
+  resetAndRegenerateBracket,
   setMatchReportScore,
   addDelegatedStaff,
   removeDelegatedStaff,
@@ -90,6 +92,7 @@ export function TournamentManager({
       <TabsContent value="matches">
         <TournamentMatchesTab
           tournament={tournament}
+          entries={entries}
           matches={matches}
           matchForm={matchForm}
           busyTournamentId={busyTournamentId}
@@ -99,6 +102,8 @@ export function TournamentManager({
           reportMatch={reportMatch}
           refreshTournamentOps={refreshTournamentOps}
           setMatchReportScore={setMatchReportScore}
+          generateBracket={generateBracket}
+          resetAndRegenerateBracket={resetAndRegenerateBracket}
         />
       </TabsContent>
 

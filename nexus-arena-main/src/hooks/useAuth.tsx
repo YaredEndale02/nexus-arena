@@ -11,6 +11,7 @@ export interface User {
   role: UserRole;
   riotId?: string;
   phoneNumber?: string;
+  telegramChatId?: string;
 }
 
 interface SignUpInput {
@@ -37,6 +38,7 @@ type ProfileRow = {
   role: string;
   riot_id: string | null;
   phone_number: string | null;
+  telegram_chat_id: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,6 +80,7 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
     role: (profile.role as UserRole) ?? "PLAYER",
     riotId: profile.riot_id ?? undefined,
     phoneNumber: profile.phone_number ?? undefined,
+    telegramChatId: profile.telegram_chat_id ?? undefined,
   };
 }
 

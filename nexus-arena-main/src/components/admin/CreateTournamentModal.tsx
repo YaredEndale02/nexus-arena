@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { DEFAULT_GAMES } from "@/lib/games";
 
 export function CreateTournamentModal({ user, onSuccess }: { user: any, onSuccess: () => void }) {
   const [open, setOpen] = useState(false);
@@ -82,12 +83,18 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
             <Label htmlFor="game">Game Title</Label>
             <Input 
               id="game" 
+              list="default-games"
               value={form.gameTitle} 
               onChange={e => setForm({...form, gameTitle: e.target.value})} 
-              placeholder="e.g. Valorant, League of Legends" 
+              placeholder="Select or type game name" 
               className="bg-white/5 border-white/10"
               required 
             />
+            <datalist id="default-games">
+              {DEFAULT_GAMES.map(game => (
+                <option key={game} value={game} />
+              ))}
+            </datalist>
           </div>
           <div className="pt-4 flex justify-end gap-2">
             <Button type="button" variant="outline" className="border-white/10" onClick={() => setOpen(false)}>

@@ -21,6 +21,8 @@ export function TournamentPlayersTab({
   updateEntryCheckIn,
   lockEntryRoster,
   saveEntrySeed,
+  refreshTournamentOps,
+  setBusyTournamentId,
 }: {
   tournament: Tournament;
   entries: TournamentEntry[];

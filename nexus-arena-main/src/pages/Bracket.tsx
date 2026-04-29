@@ -225,7 +225,7 @@ export default function Bracket() {
   useEffect(() => {
     if (!selectedTournamentId) return;
 
-    const subscription = api.subscribeToMatches(selectedTournamentId, (updatedMatch) => {
+    const subscription = api.subscribeToMatches(selectedTournamentId, () => {
       // Opt-in to full list refresh to ensure dependencies (like advancing winners) are reflected
       void loadMatches(true);
       setIsLiveConnected(true);
@@ -358,26 +358,32 @@ export default function Bracket() {
                     style={{ marginTop: `${roundIndex * 48}px` }}
                   >
                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">{roundGroup.label}</span>
-                    {roundGroup.matches.map((match, index) => (
-                      <div key={match.id} className="animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-                        <MatchNode
-                          match={match}
-                          isFinal={roundIndex === upperRounds.length - 1 && grandFinalRounds.length === 0}
-                          onClick={() => setSelectedMatch(match)}
-                        />
-                      </div>
-                    ))}
+                    {roundGroup.matches.map((match, index) => {
+                      const matchKey = `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`;
+                      return (
+                        <div key={matchKey} className="animate-highlight-flash" style={{ animationDelay: `${index * 50}ms` }}>
+                          <MatchNode
+                            match={match}
+                            isFinal={roundIndex === upperRounds.length - 1 && grandFinalRounds.length === 0}
+                            onClick={() => setSelectedMatch(match)}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
                 
                 {grandFinalRounds.map((roundGroup) => (
                   <div key="grand-final" className="flex flex-col gap-6" style={{ marginTop: `${Math.max(0, upperRounds.length - 1) * 48}px` }}>
                     <span className="text-[10px] text-gold uppercase tracking-wider mb-2">Grand Finals</span>
-                    {roundGroup.matches.map((match, index) => (
-                      <div key={match.id} className="animate-fade-in">
-                        <MatchNode match={match} isFinal={true} onClick={() => setSelectedMatch(match)} />
-                      </div>
-                    ))}
+                    {roundGroup.matches.map((match, index) => {
+                      const matchKey = `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`;
+                      return (
+                        <div key={matchKey} className="animate-highlight-flash">
+                          <MatchNode match={match} isFinal={true} onClick={() => setSelectedMatch(match)} />
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -392,14 +398,17 @@ export default function Bracket() {
                         className="flex flex-col gap-6"
                       >
                         <span className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">{roundGroup.label}</span>
-                        {roundGroup.matches.map((match, index) => (
-                          <div key={match.id} className="animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
-                            <MatchNode
-                              match={match}
-                              onClick={() => setSelectedMatch(match)}
-                            />
-                          </div>
-                        ))}
+                        {roundGroup.matches.map((match, index) => {
+                          const matchKey = `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`;
+                          return (
+                            <div key={matchKey} className="animate-highlight-flash" style={{ animationDelay: `${index * 50}ms` }}>
+                              <MatchNode
+                                match={match}
+                                onClick={() => setSelectedMatch(match)}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     ))}
                   </div>

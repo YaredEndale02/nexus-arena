@@ -139,6 +139,12 @@
     50% { transform: translateY(-5px); }
   }
 
+  @keyframes highlight-flash {
+    0% { background-color: transparent; border-color: transparent; box-shadow: none; }
+    10% { background-color: hsl(var(--neon-blue) / 0.25); border-color: hsl(var(--neon-blue) / 1); box-shadow: 0 0 40px hsl(var(--neon-blue) / 0.5); }
+    100% { background-color: transparent; border-color: transparent; box-shadow: none; }
+  }
+
   @keyframes shimmer {
     0% { background-position: -200% 0; }
     100% { background-position: 200% 0; }
@@ -164,6 +170,10 @@
 
   .animate-float {
     animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-highlight-flash {
+    animation: highlight-flash 2s cubic-bezier(0, 0, 0.2, 1) forwards;
   }
 
   .animate-shimmer {

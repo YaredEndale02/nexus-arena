@@ -12,7 +12,23 @@ import { AuthPanel } from "@/components/AuthPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { api, Team, Tournament, TournamentEntry } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Users, Shield, ArrowRight, Loader2, AlertCircle, ClipboardCheck, Lock, Search, Plus } from "lucide-react";
+import { 
+  CheckCircle2, 
+  Users, 
+  Shield, 
+  ArrowRight, 
+  Loader2, 
+  AlertCircle, 
+  ClipboardCheck, 
+  Lock, 
+  Search, 
+  Plus,
+  Copy,
+  Send,
+  MessageCircle,
+  Disc
+} from "lucide-react";
+import confetti from 'canvas-confetti';
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
@@ -115,6 +131,15 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
         if (!selectedTeamId) throw new Error("No team selected");
         await api.registerTeam(tournament.id, selectedTeamId, user.id);
       }
+      
+      // Trigger Victory Confetti!
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#3b82f6', '#2dd4bf', '#ffffff']
+      });
+
       setStep(isSolo ? 2 : 4);
     } catch (error: any) {
       const message = error?.message || (error instanceof Error ? error.message : "Registration failed");
@@ -255,7 +280,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px] glass border-white/10 p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden glass border-white/10 max-h-[90vh] flex flex-col">
         <div className="bg-gradient-to-r from-primary/20 to-neon-purple/20 p-6 border-b border-white/10">
           <DialogHeader>
             <DialogTitle className="font-heading text-2xl font-bold flex items-center gap-2">
@@ -270,7 +295,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
           </DialogHeader>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1">
           {!user ? (
             <AuthPanel
               title="Sign in to register"
@@ -597,12 +622,49 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                       <Button 
                         variant="ghost" 
                         size="sm" 
+                        className="hover:bg-primary/20"
                         onClick={() => {
                           navigator.clipboard.writeText(currentTeamCode);
                           toast({ title: "Copied!", description: "Invite code copied to clipboard." });
                         }}
                       >
-                        <ClipboardCheck className="w-4 h-4" />
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2 mt-3">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1 bg-green-500/10 border-green-500/20 hover:bg-green-500/20 text-[10px] gap-1.5 h-8"
+                        onClick={() => {
+                          const msg = encodeURIComponent(`Join my squad for the ${tournament?.title} tournament! Code: ${currentTeamCode}`);
+                          window.open(`https://wa.me/?text=${msg}`, '_blank');
+                        }}
+                      >
+                        <MessageCircle className="w-3 h-3" /> WhatsApp
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1 bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/20 text-[10px] gap-1.5 h-8"
+                        onClick={() => {
+                          const msg = encodeURIComponent(`Join my squad for the ${tournament?.title} tournament! Code: ${currentTeamCode}`);
+                          window.open(`https://t.me/share/url?url=${window.location.origin}&text=${msg}`, '_blank');
+                        }}
+                      >
+                        <Send className="w-3 h-3" /> Telegram
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1 bg-indigo-500/10 border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] gap-1.5 h-8"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`Join my squad for the ${tournament?.title}! Code: ${currentTeamCode}`);
+                          toast({ title: "Discord Link Ready!", description: "Message copied. Paste it in your Discord server." });
+                        }}
+                      >
+                        <Disc className="w-3 h-3" /> Discord
                       </Button>
                     </div>
                   </div>

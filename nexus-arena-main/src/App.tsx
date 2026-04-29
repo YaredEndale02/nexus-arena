@@ -12,6 +12,7 @@ import AdminTournaments from "./pages/AdminTournaments.tsx";
 import MyRegistrations from "./pages/MyRegistrations.tsx";
 import TournamentDetails from "./pages/TournamentDetails.tsx";
 import Teams from "./pages/Teams.tsx";
+import Settings from "./pages/Settings.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -53,6 +54,14 @@ const App = () => (
                   description="Sign in with an organizer account to manage tournaments."
                 >
                   <AdminTournaments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute title="Settings require sign in">
+                  <Settings />
                 </ProtectedRoute>
               }
             />

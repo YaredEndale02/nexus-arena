@@ -133,7 +133,8 @@ create table if not exists public.users (
   timezone text,
   status text not null default 'ACTIVE' check (status in ('ACTIVE', 'SUSPENDED', 'BANNED', 'PENDING')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  telegram_chat_id text
 );
 
 create table if not exists public.organizations (

@@ -46,6 +46,7 @@ export interface AppUserPayload {
   riotId?: string;
   email?: string;
   phoneNumber?: string;
+  telegramChatId?: string;
 }
 
 export interface Tournament {
@@ -90,6 +91,7 @@ export interface TeamMember {
     id: string;
     name: string;
     riotId?: string;
+    telegramChatId?: string;
   };
 }
 
@@ -171,6 +173,7 @@ export interface TournamentEntry {
   checkInStatus: TournamentEntryCheckInStatus;
   checkedInAt?: string | null;
   rosterLockedAt?: string | null;
+  telegram_chat_id?: string | null;
   createdAt?: string | null;
 }
 
@@ -364,6 +367,7 @@ async function ensureUser(client: ReturnType<typeof requireSupabase>, user: AppU
     riot_id: user.riotId ?? null,
     ...(user.email ? { email: user.email } : {}),
     ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
+    ...(user.telegramChatId ? { telegram_chat_id: user.telegramChatId } : {}),
   };
 
   const { error } = await client.from("users").upsert(payload, { onConflict: "id" });
@@ -411,6 +415,7 @@ async function hydrateTeams(client: ReturnType<typeof requireSupabase>, rows: Su
             id: member.user_id,
             name: user?.name ?? "Unnamed Player",
             riotId: user?.riot_id ?? undefined,
+            telegramChatId: user?.telegram_chat_id ?? undefined,
           },
         };
       }),
@@ -487,6 +492,7 @@ export const api = {
 
     const { data, error } = await query;
     if (error) throw error;
+
     return attachTournamentCounts(client, (data ?? []) as SupabaseTournamentRow[]);
   },
 
@@ -561,14 +567,20 @@ export const api = {
     const merged = mergeTournamentInput(mapTournament(currentRow), data);
     assertValidTournamentConfiguration(buildTournamentValidationInput(merged));
 
+    const payload = mapTournamentPayload(data);
+    console.log("Updating Tournament with payload:", payload);
+
     const { data: updated, error } = await client
       .from("tournaments")
-      .update(mapTournamentPayload(data))
+      .update(payload)
       .eq("id", tournamentId)
       .select("*")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase Update Error:", error);
+      throw error;
+    }
     return mapTournament(updated as SupabaseTournamentRow);
   },
 
@@ -825,6 +837,23 @@ export const api = {
     if (error) throw error;
 
     const row = updated as SupabaseTournamentEntryRow;
+    
+    // Notify Organizers if they checked in
+    if (status === "CHECKED_IN") {
+      const { data: entry } = await client
+        .from("tournament_entries")
+        .select("team_name, tournament_id")
+        .eq("id", entryId)
+        .single();
+      
+      if (entry) {
+        void this.notifyTournamentOrganizers(
+          entry.tournament_id,
+          `✅ <b>Check-In Success!</b>\n\n<b>${entry.team_name}</b> has completed their check-in.`
+        );
+      }
+    }
+
     const { data: team, error: teamError } = await client.from("teams").select("name").eq("id", row.team_id).single();
     if (teamError) throw teamError;
 
@@ -1382,6 +1411,13 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     });
 
     if (error) throw error;
+
+    // Notify Organizers
+    const { data: teamData } = await client.from("teams").select("name").eq("id", teamId).single();
+    void this.notifyTournamentOrganizers(
+      tournamentId, 
+      `<b>New Registration!</b>\n\nTeam <b>${teamData?.name || "Unknown"}</b> has registered for your tournament.`
+    );
   },
 
   async getMyTeams(userId: string): Promise<Team[]> {
@@ -1479,6 +1515,19 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     if (error) throw error;
   },
 
+  async updateUserProfile(userId: string, data: any) {
+    const client = requireSupabase();
+    const { data: updated, error } = await client
+      .from("users")
+      .update(data)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return updated;
+  },
+
   async joinTeamByCode(code: string, requester: AppUserPayload): Promise<Team> {
     const client = requireSupabase();
     await ensureUser(client, requester);
@@ -1503,11 +1552,24 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       role: "MEMBER",
     });
 
-    if (memberError && memberError.code !== "23505") { // Ignore if already a member
-      throw memberError;
+    const [hydratedTeam] = await hydrateTeams(client, [team as SupabaseTeamRow]);
+
+    // Send Telegram Notifications
+    const captain = hydratedTeam.members.find(m => m.user.id === hydratedTeam.captainId);
+    if (captain?.user.telegramChatId) {
+      void this.sendTelegramNotification(
+        captain.user.telegramChatId,
+        `<b>New Teammate!</b>\n\n${requester.name} has joined <b>${hydratedTeam.name}</b> using your invite code. 🎮`
+      );
     }
 
-    const [hydratedTeam] = await hydrateTeams(client, [team as SupabaseTeamRow]);
+    if (requester.telegramChatId) {
+      void this.sendTelegramNotification(
+        requester.telegramChatId,
+        `<b>Squad Joined!</b>\n\nYou have successfully joined <b>${hydratedTeam.name}</b>. Good luck in the arena! 🚀`
+      );
+    }
+
     return hydratedTeam;
   },
 
@@ -1524,6 +1586,97 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       throw new Error(`Failed to generate invite code: ${updateError.message}`);
     }
     return newCode;
+  },
+
+  async sendTelegramNotification(chatId: string, message: string) {
+    const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
+    if (!token) {
+      console.warn("Telegram Token missing. Skipping notification.");
+      return;
+    }
+
+    try {
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: "HTML",
+        }),
+      });
+    } catch (err) {
+      console.error("Telegram delivery failed:", err);
+    }
+  },
+
+  async broadcastTournamentNotification(tournament: Tournament) {
+    const client = requireSupabase();
+    const { data: users, error } = await client
+      .from("users")
+      .select("telegram_chat_id")
+      .not("telegram_chat_id", "is", null);
+
+    if (error) {
+      console.error("Failed to fetch users for broadcast:", error);
+      return;
+    }
+
+    const baseUrl = window.location.origin;
+    const tournamentUrl = `${baseUrl}/tournaments/${tournament.id}`;
+    const message = `🏆 <b>New Tournament Alert!</b>\n\n<b>${tournament.title}</b> is now open for registration! Check it out and secure your spot.\n\n<a href="${tournamentUrl}">View Tournament Details</a>`;
+
+    // Send to all users who have linked Telegram
+    const notifications = users.map((u) => 
+      this.sendTelegramNotification(u.telegram_chat_id, message)
+    );
+
+    await Promise.allSettled(notifications);
+  },
+
+  async notifyTournamentOrganizers(tournamentId: string, message: string) {
+    const client = requireSupabase();
+    try {
+      // 1. Get all admins/staff for this tournament
+      const { data: admins, error } = await client
+        .from("tournament_admins")
+        .select("user_id, users(telegram_chat_id)")
+        .eq("tournament_id", tournamentId);
+
+      if (error) throw error;
+
+      // 2. Filter for those with Telegram linked
+      const chatIds = admins
+        .map((a: any) => {
+          const userData = Array.isArray(a.users) ? a.users[0] : a.users;
+          return userData?.telegram_chat_id;
+        })
+        .filter(Boolean);
+
+      // 3. Also include the main tournament organizer (creator)
+      const { data: tournament } = await client
+        .from("tournaments")
+        .select("organizer_id, users!organizer_id(telegram_chat_id)")
+        .eq("id", tournamentId)
+        .single();
+      
+      const organizerUser = Array.isArray(tournament?.users) ? tournament.users[0] : tournament?.users;
+      if (organizerUser?.telegram_chat_id) {
+        chatIds.push(organizerUser.telegram_chat_id);
+      }
+
+      // Remove duplicates
+      const uniqueChatIds = [...new Set(chatIds)];
+
+      // 4. Send notifications
+      const notifications = uniqueChatIds.map(id => 
+        this.sendTelegramNotification(id, `📢 <b>Organizer Alert</b>\n\n${message}`)
+      );
+
+      await Promise.allSettled(notifications);
+    } catch (err) {
+      console.error("Failed to notify organizers:", err);
+    }
   },
 
   async searchUsers(query: string) {
@@ -1622,6 +1775,12 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       payment_status: tournament.entry_fee > 0 ? "PENDING" : "PAID",
     });
     if (regError) throw regError;
+
+    // Notify Organizers
+    void this.notifyTournamentOrganizers(
+      tournamentId, 
+      `<b>New Registration!</b>\n\nPlayer <b>${userAuth.name}</b> has registered for your solo tournament.`
+    );
   },
 
   async adminAddUsers(
@@ -1673,12 +1832,11 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
           }
         }
 
-        // 3. Create the pseudo-user row for the player (upsert by email)
-        // The organizer inserts into users — this is allowed if RLS permits or via upsert
-        const playerUserId = existingUser?.id ?? `manual-${new Date().toISOString().slice(0, 10)}-${Date.now()}`;
+        // 3. Create a valid UUID for the pseudo-user if they don't exist
+        const playerUserId = existingUser?.id ?? 
+          '00000000-0000-4000-8000-' + Math.floor(Math.random() * 1000000000000).toString(16).padStart(12, '0');
 
         if (!existingUser) {
-          // Insert a minimal user row for the manually-added player
           const { error: userErr } = await client.from("users").upsert(
             {
               id: playerUserId,
@@ -1689,28 +1847,26 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
             },
             { onConflict: "email" }
           );
-          // It's okay if this fails (RLS may block) — we still create the team entry
           if (userErr) {
             console.warn("Could not upsert manual player user row:", userErr.message);
           }
         }
 
-        // 4. Create the team owned by the ORGANIZER (captain_id = actor.id satisfies RLS)
-        //    Team name includes player name so it's identifiable
+        // 4. Create the team owned by the ORGANIZER
         const { data: team, error: teamError } = await client
           .from("teams")
           .insert({
             name: `${player.name.trim()} (Manual)`,
-            captain_id: actor.id, // organizer owns the team — satisfies RLS
+            captain_id: actor.id,
           })
           .select("id")
           .single();
         if (teamError) throw new Error(`Team creation failed: ${teamError.message}`);
 
-        // 5. Add the player as a member of this team (best-effort)
+        // 5. Add the player as a member of this team
         await client.from("team_members").insert({
           team_id: team.id,
-          user_id: existingUser ? existingUser.id : actor.id,
+          user_id: playerUserId,
           role: "MEMBER",
         });
 
@@ -1739,9 +1895,9 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     }
   },
 
-  subscribeToMatches(tournamentId: string, onUpdate: (match: MatchReport) => void) {
+  subscribeToMatches(tournamentId: string, onUpdate: () => void) {
     const client = requireSupabase();
-    return client
+    const channel = client
       .channel(`tournament-matches-${tournamentId}`)
       .on(
         "postgres_changes",
@@ -1751,13 +1907,11 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
           table: "matches",
           filter: `tournament_id=eq.${tournamentId}`,
         },
-        (payload) => {
-          if (payload.new) {
-            onUpdate(mapMatch(payload.new as SupabaseMatchRow));
-          }
-        }
+        () => onUpdate()
       )
       .subscribe();
+    
+    return channel;
   },
 
   subscribeToEntries(tournamentId: string, onUpdate: (entry: TournamentEntry) => void) {
