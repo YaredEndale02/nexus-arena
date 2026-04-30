@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserX, UserPlus } from "lucide-react";
 import { Tournament, TournamentAdminAssignment, TournamentAdminRole } from "@/lib/api";
+import { UserSearchCombobox } from "./UserSearchCombobox";
 
 export function TournamentStaffTab({
   tournament,
@@ -62,17 +63,15 @@ export function TournamentStaffTab({
           </div>
           {canManageDelegation && (
             <div className="grid gap-3 md:grid-cols-[1fr,180px,auto]">
-              <Input
-                placeholder="User ID"
+              <UserSearchCombobox
                 value={delegationForm.userId}
-                onChange={(e) => setDelegationForm({ ...delegationForm, userId: e.target.value })}
+                onChange={(value) => setDelegationForm({ ...delegationForm, userId: value })}
               />
               <select
                 value={delegationForm.role}
                 onChange={(e) => setDelegationForm({ ...delegationForm, role: e.target.value as Exclude<TournamentAdminRole, "OWNER"> })}
                 className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
               >
-                <option value="STAFF">Staff</option>
                 <option value="REFEREE">Referee</option>
                 <option value="ADMIN">Admin</option>
               </select>

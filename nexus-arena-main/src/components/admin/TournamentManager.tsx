@@ -6,6 +6,8 @@ import { TournamentPlayersTab } from "./TournamentPlayersTab";
 import { TournamentMatchesTab } from "./TournamentMatchesTab";
 import { TournamentSettingsTab } from "./TournamentSettingsTab";
 import { TournamentStaffTab } from "./TournamentStaffTab";
+import { TournamentBroadcastTab } from "./TournamentBroadcastTab";
+import { Radio } from "lucide-react";
 
 export function isCheckInRequired(status: string) {
   return ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(status);
@@ -41,6 +43,7 @@ export function TournamentManager({
   saveEntrySeed,
   createMatch,
   reportMatch,
+  updateMatchScore,
   refreshTournamentOps,
   generateBracket,
   resetAndRegenerateBracket,
@@ -52,12 +55,13 @@ export function TournamentManager({
 
   return (
     <Tabs defaultValue="overview" className="w-full space-y-6">
-      <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 bg-white/5 border border-white/10 p-1 h-auto gap-1">
+      <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 bg-white/5 border border-white/10 p-1 h-auto gap-1">
         <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 gap-2 h-10"><LayoutDashboard className="w-4 h-4" /> Overview</TabsTrigger>
         <TabsTrigger value="players" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Users className="w-4 h-4" /> Players</TabsTrigger>
         <TabsTrigger value="matches" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Swords className="w-4 h-4" /> Matches</TabsTrigger>
         <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
         <TabsTrigger value="staff" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Shield className="w-4 h-4" /> Staff</TabsTrigger>
+        <TabsTrigger value="broadcast" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Radio className="w-4 h-4" /> Broadcast</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview">
@@ -100,6 +104,7 @@ export function TournamentManager({
           setBusyTournamentId={setBusyTournamentId}
           createMatch={createMatch}
           reportMatch={reportMatch}
+          updateMatchScore={updateMatchScore}
           refreshTournamentOps={refreshTournamentOps}
           setMatchReportScore={setMatchReportScore}
           generateBracket={generateBracket}
@@ -131,6 +136,9 @@ export function TournamentManager({
           addDelegatedStaff={addDelegatedStaff}
           removeDelegatedStaff={removeDelegatedStaff}
         />
+      </TabsContent>
+      <TabsContent value="broadcast">
+        <TournamentBroadcastTab tournament={tournament} />
       </TabsContent>
     </Tabs>
   );

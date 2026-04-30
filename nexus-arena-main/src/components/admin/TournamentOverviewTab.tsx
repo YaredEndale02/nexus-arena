@@ -67,6 +67,17 @@ export function TournamentOverviewTab({
               </Button>
             ))}
           </CardContent>
+          <CardContent className="pt-0 border-t border-white/5 mt-4">
+            <Button
+              asChild
+              className="w-full mt-4 bg-primary/20 text-primary hover:bg-primary/30 border-primary/20"
+              variant="outline"
+            >
+              <a href={`/broadcast/${tournament.id}`} target="_blank" rel="noreferrer">
+                Open Broadcast Overlay
+              </a>
+            </Button>
+          </CardContent>
         </Card>
         
         <Card className="glass border-white/10">

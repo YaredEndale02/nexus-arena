@@ -1260,7 +1260,18 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
   ) {
     const client = requireSupabase();
     await ensureUser(client, data.actor);
-    assertValidMatchScores(data.team1Score, data.team2Score);
+    // Only enforce no-tie rule on completion, not mid-game score updates
+    if (data.status !== "IN_PROGRESS") {
+      assertValidMatchScores(data.team1Score, data.team2Score);
+    } else {
+      // Still validate they are non-negative finite numbers
+      if (!Number.isFinite(data.team1Score) || !Number.isFinite(data.team2Score)) {
+        throw new Error("Match scores must be valid numbers.");
+      }
+      if (data.team1Score < 0 || data.team2Score < 0) {
+        throw new Error("Match scores cannot be negative.");
+      }
+    }
 
     const { data: match, error: matchError } = await client
       .from("matches")
@@ -1272,22 +1283,24 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     if (matchError) throw matchError;
 
     const row = match as SupabaseMatchRow;
-    const winner_name =
-      data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team1_name : row.team2_name;
+    const isCompleting = (data.status ?? "COMPLETED") === "COMPLETED";
+
+    const updatePayload: Record<string, any> = {
+      team1_score: data.team1Score,
+      team2_score: data.team2Score,
+      status: data.status ?? "COMPLETED",
+    };
+
+    if (isCompleting) {
+      updatePayload.winner_name = data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team1_name : row.team2_name;
+      updatePayload.winner_team_id = data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team1_id ?? null : row.team2_id ?? null;
+      updatePayload.loser_team_id = data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team2_id ?? null : row.team1_id ?? null;
+      updatePayload.completed_at = new Date().toISOString();
+    }
 
     const { data: updated, error } = await client
       .from("matches")
-      .update({
-        team1_score: data.team1Score,
-        team2_score: data.team2Score,
-        status: data.status ?? "COMPLETED",
-        winner_name,
-        winner_team_id:
-          data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team1_id ?? null : row.team2_id ?? null,
-        loser_team_id:
-          data.team1Score === data.team2Score ? null : data.team1Score > data.team2Score ? row.team2_id ?? null : row.team1_id ?? null,
-        completed_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", matchId)
       .select("*")
       .single();
@@ -1297,7 +1310,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     await auditLog(client, data.actor.id, "MATCH", matchId, "REPORT_RESULT", {
       team1Score: data.team1Score,
       team2Score: data.team2Score,
-      winner: winner_name
+      winner: updatePayload.winner_name ?? null
     });
 
     const updatedRow = updated as SupabaseMatchRow;
@@ -1683,7 +1696,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
     const client = requireSupabase();
     const { data, error } = await client
       .from("users")
-      .select("id, name, email, riot_id")
+      .select("id, name, email, riot_id, username")
       .or(`name.ilike.%${query}%,email.ilike.%${query}%,riot_id.ilike.%${query}%`)
       .limit(10);
     if (error) throw error;

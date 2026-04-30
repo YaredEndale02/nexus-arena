@@ -108,7 +108,7 @@ const createMatchForm = (): MatchFormState => ({
 
 const createDelegationForm = (): DelegationFormState => ({
   userId: "",
-  role: "STAFF",
+  role: "REFEREE",
 });
 
 const statusActions: Array<{ label: string; status: ApiTournamentStatus }> = [
@@ -583,6 +583,35 @@ export default function AdminTournaments() {
     }
   };
 
+  const updateMatchScore = async (tournamentId: string, match: MatchReport) => {
+    if (!user) return;
+    setBusyTournamentId(match.id);
+    try {
+      const updated = await api.reportMatchResult(tournamentId, match.id, {
+        team1Score: match.team1Score,
+        team2Score: match.team2Score,
+        status: "IN_PROGRESS",
+        actor: user,
+      });
+      setMatchReports((current) => ({
+        ...current,
+        [tournamentId]: (current[tournamentId] ?? []).map((item) => (item.id === updated.id ? updated : item)),
+      }));
+      toast({
+        title: "Score updated",
+        description: `${updated.team1Name} ${updated.team1Score} – ${updated.team2Score} ${updated.team2Name}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Score update failed",
+        description: error instanceof Error ? error.message : "Failed to update score",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
   const reportMatch = async (tournamentId: string, match: MatchReport) => {
     if (!user) return;
     setBusyTournamentId(match.id);
@@ -718,7 +747,7 @@ export default function AdminTournaments() {
                 <span className="text-muted-foreground mr-2">Managed:</span>
                 <span className="font-bold text-primary">{managedTournaments.length}</span>
               </div>
-              {user && <CreateTournamentModal user={user} onSuccess={loadManagedTournaments} />}
+              {user && (user.role === "ORGANIZER" || user.role === "ADMIN") && <CreateTournamentModal user={user} onSuccess={loadManagedTournaments} />}
             </div>
           )}
         </div>
@@ -820,6 +849,7 @@ export default function AdminTournaments() {
                   saveEntrySeed={saveEntrySeed}
                   createMatch={createMatch}
                   reportMatch={reportMatch}
+                  updateMatchScore={updateMatchScore}
                   refreshTournamentOps={refreshTournamentOps}
                   generateBracket={generateBracket}
                   resetAndRegenerateBracket={resetAndRegenerateBracket}

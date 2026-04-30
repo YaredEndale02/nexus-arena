@@ -59,6 +59,8 @@ create or replace function public.can_manage_tournament(target_tournament_id uui
 returns boolean
 language plpgsql
 stable
+security definer
+set search_path = public
 as $$
 begin
   return exists (
@@ -68,6 +70,11 @@ begin
       and (
         organizer_id = auth.uid()::text
         or public.is_admin()
+        or exists (
+          select 1 from public.tournament_admins
+          where tournament_id = target_tournament_id
+            and user_id = auth.uid()::text
+        )
       )
   );
 end;

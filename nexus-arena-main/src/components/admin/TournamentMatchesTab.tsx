@@ -2,10 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Swords, AlertTriangle } from "lucide-react";
+import { Swords, AlertTriangle, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Tournament, MatchReport, TournamentEntry } from "@/lib/api";
 import { getBracketReadiness } from "@/lib/tournamentLifecycle";
 import { isCheckInRequired } from "./TournamentManager";
+import { cn } from "@/lib/utils";
 
 export function TournamentMatchesTab({
   tournament,
@@ -17,6 +18,7 @@ export function TournamentMatchesTab({
   setBusyTournamentId,
   createMatch,
   reportMatch,
+  updateMatchScore,
   refreshTournamentOps,
   setMatchReportScore,
   generateBracket,
@@ -31,6 +33,7 @@ export function TournamentMatchesTab({
   setBusyTournamentId: (id: string | null) => void;
   createMatch: (tournamentId: string) => void;
   reportMatch: (tournamentId: string, match: MatchReport) => void;
+  updateMatchScore: (tournamentId: string, match: MatchReport) => void;
   refreshTournamentOps: (tournamentId: string) => void;
   setMatchReportScore: (matchId: string, team: 1 | 2, score: number) => void;
   generateBracket: (id: string) => void;
@@ -56,11 +59,19 @@ export function TournamentMatchesTab({
               <CardDescription>Generate and control the tournament flow.</CardDescription>
             </div>
             {matches.length > 0 && (
-              <Button asChild variant="outline" size="sm" className="border-white/10">
-                <a href={`/bracket?tournament=${tournament.id}`} target="_blank" rel="noreferrer">
-                  Open Public Bracket
-                </a>
-              </Button>
+              <div className="flex gap-2">
+                <Button asChild variant="outline" size="sm" className="border-white/10">
+                  <a href={`/bracket?tournament=${tournament.id}`} target="_blank" rel="noreferrer">
+                    Open Public Bracket
+                  </a>
+                </Button>
+                <Button asChild variant="secondary" size="sm" className="gap-2">
+                  <a href={`/broadcast/${tournament.id}`} target="_blank" rel="noreferrer">
+                    <Swords className="w-4 h-4" />
+                    Broadcast Overlay
+                  </a>
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -152,27 +163,61 @@ export function TournamentMatchesTab({
               <p className="text-sm text-muted-foreground">No matches reported yet.</p>
             ) : (
               matches.map((match) => (
-                <div key={match.id} className="grid gap-3 rounded-xl border border-white/10 bg-background/30 p-4 md:grid-cols-[1.4fr,1fr,1fr,auto] md:items-end">
-                  <div>
-                    <p className="font-semibold">{match.roundLabel}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {match.team1Name} vs {match.team2Name}
-                    </p>
+                <div key={match.id} className="rounded-xl border border-white/10 bg-background/30 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold">{match.roundLabel}</p>
+                        <p className="text-sm text-muted-foreground">{match.team1Name} vs {match.team2Name}</p>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-black uppercase px-2 py-0.5 rounded-full border",
+                        match.status === "LIVE" ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                        match.status === "COMPLETED" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                        "bg-white/5 text-white/30 border-white/10"
+                      )}>{match.status}</span>
+                    </div>
+
+                    {/* Score inputs */}
+                    <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-center">
+                      <Input
+                        type="number"
+                        placeholder={match.team1Name}
+                        value={match.team1Score}
+                        onChange={(e) => setMatchReportScore(match.id, 1, Number(e.target.value))}
+                        disabled={match.status === "COMPLETED"}
+                      />
+                      <Input
+                        type="number"
+                        placeholder={match.team2Name}
+                        value={match.team2Score}
+                        onChange={(e) => setMatchReportScore(match.id, 2, Number(e.target.value))}
+                        disabled={match.status === "COMPLETED"}
+                      />
+                      <Button
+                        variant="outline"
+                        className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
+                        disabled={busyTournamentId === match.id || match.status === "COMPLETED"}
+                        onClick={() => updateMatchScore(tournament.id, match)}
+                        title="Push score to broadcast overlay"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Update Score
+                      </Button>
+                      <Button
+                        className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
+                        disabled={busyTournamentId === match.id || match.status === "COMPLETED"}
+                        onClick={() => {
+                          if (confirm(`Mark this match as completed?\n${match.team1Name} ${match.team1Score} – ${match.team2Score} ${match.team2Name}`)) {
+                            reportMatch(tournament.id, match);
+                          }
+                        }}
+                        title="Mark match as complete and trigger winner animation"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Complete
+                      </Button>
+                    </div>
                   </div>
-                  <Input
-                    type="number"
-                    value={match.team1Score}
-                    onChange={(e) => setMatchReportScore(match.id, 1, Number(e.target.value))}
-                  />
-                  <Input
-                    type="number"
-                    value={match.team2Score}
-                    onChange={(e) => setMatchReportScore(match.id, 2, Number(e.target.value))}
-                  />
-                  <Button onClick={() => reportMatch(tournament.id, match)} disabled={busyTournamentId === match.id}>
-                    Report
-                  </Button>
-                </div>
               ))
             )}
           </div>

@@ -13,6 +13,7 @@ import MyRegistrations from "./pages/MyRegistrations.tsx";
 import TournamentDetails from "./pages/TournamentDetails.tsx";
 import Teams from "./pages/Teams.tsx";
 import Settings from "./pages/Settings.tsx";
+import BroadcastOverlay from "./pages/BroadcastOverlay.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/tournaments/:id" element={<TournamentDetails />} />
             <Route path="/bracket" element={<Bracket />} />
             <Route path="/live" element={<Live />} />
+            <Route path="/broadcast/:id" element={<BroadcastOverlay />} />
             <Route
               path="/teams"
               element={
@@ -49,9 +51,8 @@ const App = () => (
               path="/admin/tournaments"
               element={
                 <ProtectedRoute
-                  allowedRoles={["ORGANIZER", "ADMIN"]}
-                  title="Organizer access required"
-                  description="Sign in with an organizer account to manage tournaments."
+                  title="Tournament management required"
+                  description="Sign in to manage your tournaments."
                 >
                   <AdminTournaments />
                 </ProtectedRoute>
