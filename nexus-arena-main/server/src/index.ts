@@ -21,8 +21,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', server: 'running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  // Start the background polling
-  void pollTelegram();
-});
+// Conditionally start the server and polling if NOT running as a serverless function
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+    // Start the background polling only in non-serverless environments
+    void pollTelegram();
+  });
+}
+
+export default app;
