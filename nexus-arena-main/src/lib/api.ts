@@ -795,18 +795,6 @@ export const api = {
     if (error) throw error;
   },
 
-  async getTournamentMatches(tournamentId: string): Promise<MatchReport[]> {
-    const client = requireSupabase();
-    const { data, error } = await client
-      .from("matches")
-      .select("*")
-      .eq("tournament_id", tournamentId)
-      .order("scheduled_at", { ascending: true });
-
-    if (error) throw error;
-    return ((data ?? []) as SupabaseMatchRow[]).map(mapMatch);
-  },
-
   async getTournamentAdmins(tournamentId: string): Promise<TournamentAdminAssignment[]> {
     const client = requireSupabase();
     const [{ data: tournament, error: tournamentError }, { data: admins, error: adminsError }] = await Promise.all([
