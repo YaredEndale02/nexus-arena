@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ShieldCheck, Trophy, Users } from "lucide-react";
+import { CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ShieldCheck, Trophy, Users, Play } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { RegistrationWizard } from "@/components/RegistrationWizard";
 import { Button } from "@/components/ui/button";
@@ -180,6 +180,15 @@ export default function TournamentDetails() {
               <CardDescription>{actionDescription}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {tournament.displayStatus === "Live" && (
+                <Button asChild className="w-full bg-red-500 hover:bg-red-600 animate-pulse-glow shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                  <Link to={`/live?tournamentId=${tournament.id}`}>
+                    <Play className="w-4 h-4 mr-2 fill-current" />
+                    Watch Broadcast Live
+                  </Link>
+                </Button>
+              )}
+
               {actionLabel ? (
                 isOrganizer ? (
                   <Button asChild className="w-full">
@@ -195,9 +204,11 @@ export default function TournamentDetails() {
                   </Button>
                 )
               ) : (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
-                  Registration is not open right now. You can still follow the tournament and view the bracket.
-                </div>
+                tournament.displayStatus !== "Live" && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
+                    Registration is not open right now. You can still follow the tournament and view the bracket.
+                  </div>
+                )
               )}
 
               <Button asChild variant="outline" className="w-full border-white/10">

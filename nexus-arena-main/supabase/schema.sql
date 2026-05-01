@@ -269,6 +269,7 @@ create table if not exists public.tournaments (
   currency_code text not null default 'USD',
   prize_pool integer not null default 0,
   published_at timestamptz,
+  stream_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

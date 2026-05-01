@@ -69,6 +69,7 @@ export interface Tournament {
   visibility: "PUBLIC" | "UNLISTED" | "PRIVATE";
   status: ApiTournamentStatus;
   organizerId?: string | null;
+  streamUrl?: string | null;
   gradient?: string;
   _count?: {
     entries: number;
@@ -200,6 +201,7 @@ type TournamentMutationInput = Pick<
   | "prizePool"
   | "waitlistEnabled"
   | "visibility"
+  | "streamUrl"
 >;
 
 const tournamentStatusMap: Record<ApiTournamentStatus, Tournament["displayStatus"]> = {
@@ -248,6 +250,7 @@ function mapTournament(row: SupabaseTournamentRow, entryCount = 0, matchCount = 
     visibility: (row.visibility as Tournament["visibility"]) ?? "PUBLIC",
     status: row.status as ApiTournamentStatus,
     organizerId: row.organizer_id,
+    streamUrl: row.stream_url,
     registeredTeams: entryCount,
     _count: {
       entries: entryCount,
@@ -323,6 +326,7 @@ function mergeTournamentInput(base: Tournament, patch: Partial<TournamentMutatio
     prizePool: patch.prizePool ?? base.prizePool,
     waitlistEnabled: patch.waitlistEnabled ?? base.waitlistEnabled,
     visibility: patch.visibility ?? base.visibility,
+    streamUrl: patch.streamUrl !== undefined ? patch.streamUrl : base.streamUrl ?? null,
   };
 }
 
@@ -356,6 +360,14 @@ function mapTournamentPayload(data: Partial<TournamentMutationInput>) {
   if (data.prizePool !== undefined) payload.prize_pool = data.prizePool;
   if (data.waitlistEnabled !== undefined) payload.waitlist_enabled = data.waitlistEnabled;
   if (data.visibility !== undefined) payload.visibility = data.visibility;
+  
+  // Explicitly map streamUrl to stream_url
+  if (data.streamUrl !== undefined) {
+    payload.stream_url = data.streamUrl;
+  }
+  
+  console.log("Saving Tournament Payload:", payload);
+  
   return payload;
 }
 
@@ -453,7 +465,7 @@ async function attachTournamentCounts(
 }
 
 async function getTournamentById(client: ReturnType<typeof requireSupabase>, tournamentId: string): Promise<SupabaseTournamentRow> {
-  const { data, error } = await client.from("tournaments").select("*").eq("id", tournamentId).single();
+  const { data, error } = await client.from("tournaments").select("*, stream_url").eq("id", tournamentId).single();
   if (error) throw error;
   return data as SupabaseTournamentRow;
 }
@@ -487,7 +499,7 @@ export const api = {
   async getTournaments(organizerId?: string): Promise<Tournament[]> {
     const client = requireSupabase();
 
-    let query = client.from("tournaments").select("*").order("start_date", { ascending: true });
+    let query = client.from("tournaments").select("*, stream_url").order("start_date", { ascending: true });
     if (organizerId) query = query.eq("organizer_id", organizerId);
 
     const { data, error } = await query;
@@ -501,6 +513,165 @@ export const api = {
     const row = await getTournamentById(client, tournamentId);
     const [mapped] = await attachTournamentCounts(client, [row]);
     return mapped;
+  },
+
+  async getLatestActiveTournament(): Promise<Tournament | null> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("tournaments")
+      .select("*, stream_url")
+      .in("status", ["LIVE", "PUBLISHED", "REGISTRATION_OPEN", "REGISTRATION_CLOSED", "CHECK_IN"])
+      .order("start_date", { ascending: true })
+      .limit(1);
+    
+    if (error || !data || data.length === 0) return null;
+    const [mapped] = await attachTournamentCounts(client, data as SupabaseTournamentRow[]);
+    return mapped;
+  },
+
+  async getTournamentStandings(tournamentId: string): Promise<{ teamName: string; wins: number; losses: number; points: number }[]> {
+    const client = requireSupabase();
+    
+    // Fetch all entries for this tournament
+    const { data: entries, error: entriesError } = await client
+      .from("tournament_entries")
+      .select("team_id, teams(name)")
+      .eq("tournament_id", tournamentId);
+      
+    if (entriesError || !entries) return [];
+
+    // Fetch all completed matches for this tournament
+    const { data: matches, error: matchesError } = await client
+      .from("matches")
+      .select("winner_team_id, team1_id, team2_id")
+      .eq("tournament_id", tournamentId)
+      .eq("status", "COMPLETED");
+
+    if (matchesError) return [];
+
+    // Calculate wins/losses
+    const standings = entries.map((entry: any) => {
+      const teamId = entry.team_id;
+      const teamName = entry.teams?.name || "Unknown Team";
+      
+      const teamMatches = (matches || []).filter(m => m.team1_id === teamId || m.team2_id === teamId);
+      const wins = teamMatches.filter(m => m.winner_team_id === teamId).length;
+      const losses = teamMatches.length - wins;
+      
+      return {
+        teamName,
+        wins,
+        losses,
+        points: wins * 3, // Standard 3 points for a win
+      };
+    });
+
+    return standings.sort((a, b) => b.points - a.points || b.wins - a.wins);
+  },
+
+  async getTournamentMatches(tournamentId: string): Promise<MatchReport[]> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("matches")
+      .select("*")
+      .eq("tournament_id", tournamentId)
+      .order("scheduled_at", { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(mapMatch);
+  },
+
+  async getChatMessages(tournamentId: string): Promise<any[]> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("chat_messages")
+      .select("*, users(name, role)")
+      .eq("tournament_id", tournamentId)
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    if (error) throw error;
+    return (data || []).map(msg => ({
+      id: msg.id,
+      user: msg.users?.name || "Guest",
+      badge: msg.badge || (msg.users?.role === 'ADMIN' ? 'ADMIN' : null),
+      message: msg.message,
+      time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      avatar: "👤",
+    }));
+  },
+
+  async sendChatMessage(tournamentId: string, userId: string, message: string) {
+    const client = requireSupabase();
+    const { error } = await client.from("chat_messages").insert({
+      tournament_id: tournamentId,
+      user_id: userId,
+      message,
+    });
+    if (error) throw error;
+  },
+
+  async getTournamentStreams(tournamentId: string): Promise<any[]> {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from("live_streams")
+      .select("*")
+      .eq("tournament_id", tournamentId);
+    if (error) throw error;
+    return data || [];
+  },
+
+  async updateTournamentStream(tournamentId: string, url: string) {
+    const client = requireSupabase();
+    
+    // 1. Delete old primary stream if it exists
+    await client.from("live_streams").delete().eq("tournament_id", tournamentId).eq("is_primary", true);
+    
+    // 2. Insert new primary stream
+    if (url.trim()) {
+      const platform = url.includes("twitch") ? "TWITCH" : "YOUTUBE";
+      const { error } = await client.from("live_streams").insert({
+        tournament_id: tournamentId,
+        stream_url: url,
+        platform,
+        is_primary: true,
+        title: "Main Broadcast"
+      });
+      if (error) throw error;
+    }
+  },
+
+  subscribeToChat(tournamentId: string, callback: (payload: any) => void) {
+    const client = requireSupabase();
+    return client
+      .channel(`chat:${tournamentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `tournament_id=eq.${tournamentId}`,
+        },
+        async (payload) => {
+          // Fetch user info for the new message
+          const { data: userData } = await client
+            .from("users")
+            .select("name, role")
+            .eq("id", payload.new.user_id)
+            .single();
+            
+          callback({
+            id: payload.new.id,
+            user: userData?.name || "Guest",
+            badge: payload.new.badge || (userData?.role === 'ADMIN' ? 'ADMIN' : null),
+            message: payload.new.message,
+            time: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: "👤",
+          });
+        }
+      )
+      .subscribe();
   },
 
   async getManagedTournaments(actor: AppUserPayload): Promise<Tournament[]> {
@@ -574,7 +745,7 @@ export const api = {
       .from("tournaments")
       .update(payload)
       .eq("id", tournamentId)
-      .select("*")
+      .select("*, stream_url")
       .single();
 
     if (error) {

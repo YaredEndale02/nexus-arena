@@ -109,9 +109,12 @@ export function TournamentCard({ tournament }: { tournament: Tournament }) {
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : statusLabel === "Live" ? (
-              <button className="w-full py-2.5 rounded-lg font-heading font-bold text-sm tracking-wider bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+              <Link 
+                to={`/live?tournamentId=${tournament.id}`}
+                className="w-full py-2.5 rounded-lg flex items-center justify-center font-heading font-bold text-sm tracking-wider bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:bg-red-600 transition-all animate-pulse"
+              >
                 WATCH LIVE
-              </button>
+              </Link>
             ) : statusLabel === "Completed" ? (
               <button className="w-full py-2.5 rounded-lg font-heading font-bold text-sm tracking-wider bg-white/5 text-muted-foreground border border-border hover:bg-white/10 transition-colors">
                 VIEW RESULTS

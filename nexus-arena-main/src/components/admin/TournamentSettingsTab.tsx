@@ -152,6 +152,14 @@ export function TournamentSettingsTab({
                 </select>
               </div>
               <div className="space-y-2 md:col-span-2">
+                <Label>Stream URL (Twitch Channel or YouTube Link)</Label>
+                <Input 
+                  placeholder="e.g. shroud or https://www.youtube.com/watch?v=..." 
+                  value={editingForm.streamUrl || ""} 
+                  onChange={(e) => setEditingForm((current: any) => ({ ...current, streamUrl: e.target.value }))} 
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <Label>Rules</Label>
                 <textarea
                   value={editingForm.rules || ""}

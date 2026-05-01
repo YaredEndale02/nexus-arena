@@ -66,6 +66,7 @@ type TournamentFormState = {
   prizePool: number;
   waitlistEnabled: boolean;
   visibility: Tournament["visibility"];
+  streamUrl: string;
 };
 
 type MatchFormState = {
@@ -97,6 +98,7 @@ const createTournamentForm = (): TournamentFormState => ({
   prizePool: 0,
   waitlistEnabled: false,
   visibility: "PUBLIC",
+  streamUrl: "",
 });
 
 const createMatchForm = (): MatchFormState => ({
@@ -293,6 +295,7 @@ export default function AdminTournaments() {
       prizePool: tournament.prizePool,
       waitlistEnabled: tournament.waitlistEnabled,
       visibility: tournament.visibility,
+      streamUrl: tournament.streamUrl || "",
     });
   };
 
@@ -309,15 +312,20 @@ export default function AdminTournaments() {
     }
     setBusyTournamentId(tournamentId);
     try {
+      // 1. Update general tournament details
       const updated = await api.updateTournament(tournamentId, {
         ...toTournamentPayload(editingForm),
         actor: user,
       });
+
+      // 2. Update the live stream link in the dedicated table
+      await api.updateTournamentStream(tournamentId, editingForm.streamUrl);
+
       setManagedTournaments((current) => current.map((item) => (item.id === tournamentId ? updated : item)));
       setEditingTournamentId(null);
       toast({
         title: "Tournament updated",
-        description: "Tournament details were saved successfully.",
+        description: "Tournament details and stream link were saved successfully.",
       });
     } catch (error) {
       toast({

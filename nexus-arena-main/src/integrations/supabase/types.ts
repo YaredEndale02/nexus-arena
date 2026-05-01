@@ -120,6 +120,7 @@ export interface SupabaseTournamentRow {
   prize_pool: number;
   organizer_id: string | null;
   published_at?: string | null;
+  stream_url?: string | null;
   created_at?: string;
   updated_at?: string;
 }

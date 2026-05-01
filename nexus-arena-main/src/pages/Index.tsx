@@ -47,6 +47,7 @@ const Index = () => {
   const [tournamentList, setTournamentList] = useState<Tournament[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const [filter, setFilter] = useState("All");
 
   useEffect(() => {
     const fetchTournaments = async () => {
@@ -65,6 +66,14 @@ const Index = () => {
     fetchTournaments();
   }, []);
 
+  const filteredTournaments = tournamentList.filter((t) => {
+    if (filter === "All") return true;
+    if (filter === "Live") return t.status === "LIVE" || t.displayStatus === "Live";
+    if (filter === "Open") return t.status === "REGISTRATION_OPEN" || t.displayStatus === "Registration Open";
+    if (filter === "Upcoming") return ["REGISTRATION_CLOSED", "PUBLISHED"].includes(t.status) || t.displayStatus === "Upcoming" || t.displayStatus === "Published";
+    return true;
+  });
+
   return (
     <Layout>
       {/* Page header */}
@@ -82,7 +91,9 @@ const Index = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-2">
           <Flame className="w-6 h-6 text-primary" />
-          <h2 className="font-heading text-2xl font-bold text-foreground italic">Active Tournaments</h2>
+          <h2 className="font-heading text-2xl font-bold text-foreground italic">
+            {filter === "All" ? "Active" : filter} Tournaments
+          </h2>
         </div>
         {isUsingFallback && (
           <p className="text-xs text-amber-300">
@@ -90,16 +101,17 @@ const Index = () => {
           </p>
         )}
         <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10 w-fit">
-          {["All", "Live", "Open", "Upcoming"].map((filter) => (
+          {["All", "Live", "Open", "Upcoming"].map((f) => (
             <button
-              key={filter}
+              key={f}
+              onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
-                filter === "All"
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)]"
+                filter === f
+                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(239,68,68,0.5)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}
             >
-              {filter.toUpperCase()}
+              {f.toUpperCase()}
             </button>
           ))}
         </div>
@@ -111,9 +123,9 @@ const Index = () => {
           <Loader2 className="w-10 h-10 animate-spin text-primary" />
           <p className="font-heading italic animate-pulse">Gathering tournament data...</p>
         </div>
-      ) : tournamentList.length > 0 ? (
+      ) : filteredTournaments.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-          {tournamentList.map((t, i) => (
+          {filteredTournaments.map((t, i) => (
             <div key={t.id} className="animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
               <TournamentCard tournament={t} />
             </div>
