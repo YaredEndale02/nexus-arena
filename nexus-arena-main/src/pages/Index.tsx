@@ -37,10 +37,12 @@ const fallbackTournaments: Tournament[] = mockTournaments.map((tournament) => ({
   prizePool: tournament.prizePool,
   waitlistEnabled: false,
   visibility: "PUBLIC",
-  status: fallbackStatusMap[tournament.status] ?? "DRAFT",
+  bracketType: "SINGLE_ELIMINATION",
+  status: (fallbackStatusMap[tournament.status] ?? "DRAFT") as any,
   registeredTeams: tournament.registeredTeams,
   gradient: tournament.gradient,
-  displayStatus: fallbackDisplayStatusMap[tournament.status] ?? "Draft",
+  displayStatus: (fallbackDisplayStatusMap[tournament.status] ?? "Draft") as any,
+  streamUrl: null,
 }));
 
 const Index = () => {
@@ -70,7 +72,7 @@ const Index = () => {
     if (filter === "All") return true;
     if (filter === "Live") return t.status === "LIVE" || t.displayStatus === "Live";
     if (filter === "Open") return t.status === "REGISTRATION_OPEN" || t.displayStatus === "Registration Open";
-    if (filter === "Upcoming") return ["REGISTRATION_CLOSED", "PUBLISHED"].includes(t.status) || t.displayStatus === "Upcoming" || t.displayStatus === "Published";
+    if (filter === "Upcoming") return ["REGISTRATION_CLOSED", "PUBLISHED"].includes(t.status) || t.displayStatus === "Registration Closed" || t.displayStatus === "Published";
     return true;
   });
 
