@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -704,6 +705,121 @@ export default function AdminTournaments() {
     }
   };
 
+  const deleteEntry = async (tournamentId: string, entryId: string) => {
+    if (!confirm("Are you sure you want to remove this participant?")) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      await api.deleteTournamentEntry(entryId);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: (current[tournamentId] ?? []).filter((e) => e.id !== entryId),
+      }));
+      toast({ title: "Participant removed" });
+    } catch (error) {
+      toast({ title: "Failed to remove participant", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const updateMatchParticipants = async (tournamentId: string, matchId: string, data: any) => {
+    setBusyTournamentId(matchId);
+    try {
+      await api.updateMatchParticipants(matchId, data);
+      await refreshTournamentOps(tournamentId);
+      toast({ title: "Match updated" });
+    } catch (error) {
+      toast({ title: "Failed to update match", description: (error as any).message, variant: "destructive" });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const simulateFullTournament = async (tournamentId: string) => {
+    setBusyTournamentId(tournamentId);
+    try {
+      let hasMore = true;
+      let totalSimulated = 0;
+
+      while (hasMore) {
+        const currentMatches = await api.getTournamentMatches(tournamentId);
+        const playable = currentMatches.filter(m => 
+          m.status !== "COMPLETED" && 
+          m.team1Name && m.team1Name !== "TBD" && m.team1Name !== "BYE" &&
+          m.team2Name && m.team2Name !== "TBD" && m.team2Name !== "BYE"
+        );
+
+        if (playable.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        for (const match of playable) {
+          const score1 = Math.floor(Math.random() * 3);
+          const score2 = Math.floor(Math.random() * 3);
+          const finalScore1 = score1 === score2 ? score1 + 1 : score1;
+          
+          await reportMatch(tournamentId, {
+            ...match,
+            team1Score: finalScore1,
+            team2Score: score2
+          });
+          totalSimulated++;
+          // Small delay to allow DB/State to catch up and visualize
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Refresh to get new winners in next round slots
+        await refreshTournamentOps(tournamentId);
+      }
+
+      toast({ title: "Simulation Complete", description: `Simulated ${totalSimulated} matches. Tournament finished!` });
+    } catch (error) {
+      toast({ title: "Simulation Error", description: error instanceof Error ? error.message : "Failed to simulate", variant: "destructive" });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const restartTournament = async (tournamentId: string) => {
+    if (!confirm("CRITICAL WARNING: This will DELETE all matches and reset the tournament status. This cannot be undone. Continue?")) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      // 1. Reset bracket (clears matches and stages)
+      await api.resetBracket(tournamentId, user!);
+      
+      // 2. Reset team check-in statuses to NOT_OPEN
+      const { error: entriesError } = await supabase
+        .from("tournament_entries")
+        .update({ 
+          check_in_status: "NOT_OPEN",
+          checked_in_at: null,
+          roster_locked_at: null
+        })
+        .eq("tournament_id", tournamentId);
+      
+      if (entriesError) throw entriesError;
+
+      // 3. Reset tournament status to REGISTRATION_OPEN
+      const { error: tournamentError } = await supabase
+        .from("tournaments")
+        .update({ 
+          status: "REGISTRATION_OPEN",
+          published_at: null 
+        })
+        .eq("id", tournamentId);
+        
+      if (tournamentError) throw tournamentError;
+      
+      await loadManagedTournaments();
+      toast({ title: "Tournament Restarted", description: "Matches cleared, status reset, and check-ins reset." });
+    } catch (error) {
+      toast({ title: "Restart Failed", description: error instanceof Error ? error.message : "Failed to restart", variant: "destructive" });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
   if (!user) {
     return (
       <Layout>
@@ -871,6 +987,10 @@ export default function AdminTournaments() {
                   }}
                   addDelegatedStaff={addDelegatedStaff}
                   removeDelegatedStaff={removeDelegatedStaff}
+                  deleteEntry={deleteEntry}
+                  updateMatchParticipants={updateMatchParticipants}
+                  simulateFullTournament={simulateFullTournament}
+                  restartTournament={restartTournament}
                 />
               );
             })}

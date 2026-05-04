@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Target, Lock, Save, ClipboardCheck, UserPlus, Users as UsersIcon } from "lucide-react";
+import { Target, Lock, Save, ClipboardCheck, UserPlus, Users as UsersIcon, Trash2 } from "lucide-react";
 import { Tournament, TournamentEntry, TournamentEntryCheckInStatus, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,7 @@ export function TournamentPlayersTab({
   saveEntrySeed,
   refreshTournamentOps,
   setBusyTournamentId,
+  deleteEntry,
 }: {
   tournament: Tournament;
   entries: TournamentEntry[];
@@ -37,6 +38,7 @@ export function TournamentPlayersTab({
   saveEntrySeed: (tournamentId: string, entry: TournamentEntry) => void;
   refreshTournamentOps: (tournamentId: string) => void;
   setBusyTournamentId: (id: string | null) => void;
+  deleteEntry: (tournamentId: string, entryId: string) => void;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -69,7 +71,12 @@ export function TournamentPlayersTab({
     let list = [];
     try {
       if (val.trim().startsWith("[")) {
-        list = JSON.parse(val);
+        const rawList = JSON.parse(val);
+        list = rawList.map((item: any) => ({
+          name: item.name || item.fullName || item.playerName || item.Player || item.Name,
+          email: item.email || item.emailAddress || item.Email,
+          phoneNumber: item.phoneNumber || item.phone || item.mobile || item.Phone || item.PhoneNumber
+        })).filter((x: any) => x.name && x.email && x.phoneNumber);
       } else {
         list = val.trim().split("\n").map(line => {
           const parts = line.split(",");
@@ -191,6 +198,15 @@ export function TournamentPlayersTab({
                   >
                     <ClipboardCheck className="w-4 h-4 mr-2" />
                     Quick Check-In
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="h-10 w-10 shrink-0"
+                    disabled={busyTournamentId === tournament.id}
+                    onClick={() => deleteEntry(tournament.id, entry.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               ))}

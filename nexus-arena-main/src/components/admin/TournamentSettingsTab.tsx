@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Save, Trash2, Edit } from "lucide-react";
+import { Save, Trash2, Edit, RefreshCw } from "lucide-react";
 import { Tournament } from "@/lib/api";
 import { TournamentValidationInput } from "@/lib/tournamentLifecycle";
 import { DEFAULT_GAMES } from "@/lib/games";
@@ -25,6 +25,7 @@ export function TournamentSettingsTab({
   saveTournamentEdits: (id: string) => void;
   setEditingTournamentId: (id: string | null) => void;
   deleteTournament: (id: string) => void;
+  restartTournament: (id: string) => void;
 }) {
   return (
     <div className="space-y-6 outline-none">
@@ -183,8 +184,16 @@ export function TournamentSettingsTab({
             </div>
           )}
         </CardContent>
-        <CardFooter className="border-t border-white/5 pt-4">
-          <Button variant="outline" className="border-red-500/20 text-red-300 hover:bg-red-500/10 ml-auto" onClick={() => deleteTournament(tournament.id)}>
+        <CardFooter className="border-t border-white/5 pt-4 flex justify-between">
+          <Button 
+            variant="outline" 
+            className="border-amber-500/20 text-amber-300 hover:bg-amber-500/10" 
+            onClick={() => restartTournament(tournament.id)}
+            disabled={busyTournamentId === tournament.id}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" /> Restart Tournament
+          </Button>
+          <Button variant="outline" className="border-red-500/20 text-red-300 hover:bg-red-500/10" onClick={() => deleteTournament(tournament.id)}>
             <Trash2 className="w-4 h-4 mr-2" /> Delete Tournament
           </Button>
         </CardFooter>

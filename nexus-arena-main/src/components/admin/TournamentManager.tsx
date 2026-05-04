@@ -50,6 +50,10 @@ export function TournamentManager({
   setMatchReportScore,
   addDelegatedStaff,
   removeDelegatedStaff,
+  deleteEntry,
+  updateMatchParticipants,
+  simulateFullTournament,
+  restartTournament,
 }: any) {
   const canManageDelegation = userRole === "ADMIN" || tournament.organizerId === userId;
 
@@ -90,6 +94,7 @@ export function TournamentManager({
           saveEntrySeed={saveEntrySeed}
           refreshTournamentOps={refreshTournamentOps}
           setBusyTournamentId={setBusyTournamentId}
+          deleteEntry={deleteEntry}
         />
       </TabsContent>
 
@@ -109,6 +114,8 @@ export function TournamentManager({
           setMatchReportScore={setMatchReportScore}
           generateBracket={generateBracket}
           resetAndRegenerateBracket={resetAndRegenerateBracket}
+          updateMatchParticipants={updateMatchParticipants}
+          simulateFullTournament={simulateFullTournament}
         />
       </TabsContent>
 
@@ -122,6 +129,7 @@ export function TournamentManager({
           saveTournamentEdits={saveTournamentEdits}
           setEditingTournamentId={setEditingTournamentId}
           deleteTournament={deleteTournament}
+          restartTournament={restartTournament}
         />
       </TabsContent>
 

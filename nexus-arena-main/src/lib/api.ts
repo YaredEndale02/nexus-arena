@@ -120,6 +120,8 @@ export interface MatchReport {
   scheduledAt?: string | null;
   status: string;
   winnerName?: string | null;
+  team1Id?: string | null;
+  team2Id?: string | null;
 }
 
 export type AuditTargetType = "TOURNAMENT" | "MATCH" | "TEAM" | "ENTRY" | "SYSTEM";
@@ -275,6 +277,8 @@ function mapMatch(row: SupabaseMatchRow): MatchReport {
     scheduledAt: row.scheduled_at,
     status: row.status,
     winnerName: row.winner_name,
+    team1Id: row.team1_id ?? null,
+    team2Id: row.team2_id ?? null,
   };
 }
 
@@ -1152,14 +1156,20 @@ export const api = {
     const client = requireSupabase();
     await ensureUser(client, actor);
 
-    // 1. Delete all matches for this tournament
+    // 1. Delete dependent data that might have FKs to matches or stages
+    // We do these as 'maybe' deletes (ignore errors if tables don't have these columns/FKs)
+    try {
+      await client.from("chat_messages").delete().eq("tournament_id", tournamentId);
+    } catch (e) { /* ignore */ }
+
+    // 2. Delete all matches for this tournament
     const { error: matchDeleteError } = await client
       .from("matches")
       .delete()
       .eq("tournament_id", tournamentId);
     if (matchDeleteError) throw new Error(`Failed to delete matches: ${matchDeleteError.message}`);
 
-    // 2. Delete all tournament stages (this also deletes stage seeds via cascade)
+    // 3. Delete all tournament stages
     const { error: stageDeleteError } = await client
       .from("tournament_stages")
       .delete()
@@ -1195,14 +1205,26 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       Pick<SupabaseTournamentEntryRow, "team_id" | "created_at" | "check_in_status" | "roster_locked_at" | "seed_number">
     >;
 
-    const teamIds = entryRows.map((entry) => entry.team_id);
+    // Deduplicate by team_id to prevent a team being placed twice in the bracket
+    const uniqueEntryRows = Array.from(
+      entryRows.reduce((map, entry) => {
+        // Keep the one with a seed if available, otherwise keep the first one
+        const existing = map.get(entry.team_id);
+        if (!existing || (entry.seed_number && !existing.seed_number)) {
+          map.set(entry.team_id, entry);
+        }
+        return map;
+      }, new Map<string, typeof entryRows[0]>()).values()
+    );
+
+    const teamIds = uniqueEntryRows.map((entry) => entry.team_id);
     const { data: teams, error: teamsError } = await client.from("teams").select("*").in("id", teamIds);
     if (teamsError) throw teamsError;
     const teamMap = new Map(((teams ?? []) as SupabaseTeamRow[]).map((team) => [team.id, team]));
 
     const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
     const readiness = getBracketReadiness(
-      entryRows.map((entry) => ({
+      uniqueEntryRows.map((entry) => ({
         teamId: entry.team_id,
         teamName: teamMap.get(entry.team_id)?.name ?? "Unknown Team",
         checkInStatus: entry.check_in_status,
@@ -1230,7 +1252,7 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       .single();
     if (stageError) throw stageError;
 
-    const eligibleEntries = entryRows
+    const eligibleEntries = uniqueEntryRows
       .filter((entry) => !requireCheckIn || entry.check_in_status === "CHECKED_IN")
       .map((entry) => {
         const team = teamMap.get(entry.team_id);
@@ -1242,82 +1264,108 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
           createdAt: entry.created_at ?? null,
         };
       })
-      .filter((entry): entry is { team: SupabaseTeamRow; seedNumber: number | null; createdAt: string | null } => Boolean(entry));
+      .filter((entry): entry is { team: SupabaseTeamRow; seedNumber: number | null; createdAt: string | null } => Boolean(entry))
+      .sort((a, b) => compareEntriesBySeed({
+        teamId: a.team.id,
+        teamName: a.team.name,
+        seedNumber: a.seedNumber,
+        createdAt: a.createdAt
+      }, {
+        teamId: b.team.id,
+        teamName: b.team.name,
+        seedNumber: b.seedNumber,
+        createdAt: b.createdAt
+      }));
+
     if (eligibleEntries.length < 2) {
       throw new Error("At least 2 eligible teams are required to generate a bracket");
     }
 
-    const highestExplicitSeed = eligibleEntries.reduce((max, entry) => Math.max(max, entry.seedNumber ?? 0), 0);
-    const bracketSize = Math.max(nextPowerOfTwo(eligibleEntries.length), nextPowerOfTwo(highestExplicitSeed || eligibleEntries.length));
-    const totalRounds = Math.log2(bracketSize);
-    const seededSlots = createBracketSlots(
-      eligibleEntries.map((entry) => ({
-        teamId: entry.team.id,
-        teamName: entry.team.name,
-        seedNumber: entry.seedNumber,
-        createdAt: entry.createdAt,
-      })),
-      bracketSize,
-    );
-    const slots: Array<SupabaseTeamRow | null> = seededSlots.map((entry) => (entry ? teamMap.get(entry.teamId) ?? null : null));
-
-    const stageSeedRows = seededSlots
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-      .map((entry) => ({
-        stage_id: (stage as SupabaseTournamentStageRow).id,
-        team_id: entry.teamId,
-        seed_number: entry.bracketSeed,
-      }));
-    if (stageSeedRows.length > 0) {
-      const { error: stageSeedError } = await client.from("tournament_stage_seeds").insert(stageSeedRows);
-      if (stageSeedError) throw stageSeedError;
-    }
-
+    // --- NEW MAX-PARTICIPATION LOGIC ---
+    // We pair everyone possible in Round 1.
+    const teamCount = eligibleEntries.length;
     const matchesToInsert: Array<Record<string, string | number | null>> = [];
     
-    // UPPER BRACKET
-    for (let round = 1; round <= totalRounds; round += 1) {
-      const matchesInRound = bracketSize / 2 ** round;
-      for (let position = 1; position <= matchesInRound; position += 1) {
-        const baseMatch = {
+    // Calculate round structures
+    const rounds: Array<{ matchCount: number; hasBye: boolean; teamCount: number }> = [];
+    let currentCount = teamCount;
+    while (currentCount > 1) {
+      const matchCount = Math.ceil(currentCount / 2);
+      const hasBye = currentCount % 2 !== 0;
+      rounds.push({ matchCount, hasBye, teamCount: currentCount });
+      currentCount = matchCount; 
+    }
+
+    const totalRounds = rounds.length;
+
+    // Handle Round 1 Seeding: Pair Top vs Bottom for Full Participation
+    const sortedEntries = [...eligibleEntries]; // Already sorted by seed in code above
+    const r1Matches = rounds[0].matchCount;
+    
+    for (let pos = 1; pos <= r1Matches; pos++) {
+      const t1 = sortedEntries[pos - 1];
+      const t2 = sortedEntries[teamCount - pos]; // Mirror pairing (1 vs 10, 2 vs 9)
+      
+      matchesToInsert.push({
+        tournament_id: tournamentId,
+        stage_id: (stage as SupabaseTournamentStageRow).id,
+        round_label: createRoundLabel(1, totalRounds),
+        round_number: 1,
+        position_in_round: pos,
+        bracket_side: "UPPER",
+        best_of: 1,
+        status: "SCHEDULED",
+        team1_id: t1.team.id,
+        team1_name: t1.team.name,
+        team2_id: t2.team.id,
+        team2_name: t2.team.name,
+      });
+    }
+
+    // Handle Round 1 BYE if odd
+    if (teamCount % 2 !== 0) {
+      const byeTeam = sortedEntries[Math.floor(teamCount / 2)];
+      matchesToInsert.push({
+        tournament_id: tournamentId,
+        stage_id: (stage as SupabaseTournamentStageRow).id,
+        round_label: createRoundLabel(1, totalRounds),
+        round_number: 1,
+        position_in_round: r1Matches + 1,
+        bracket_side: "UPPER",
+        best_of: 1,
+        status: "COMPLETED",
+        team1_id: byeTeam.team.id,
+        team1_name: byeTeam.team.name,
+        team2_id: null,
+        team2_name: "BYE",
+        winner_team_id: byeTeam.team.id,
+        winner_name: byeTeam.team.name,
+      });
+    }
+
+    // Insert Subsequent Rounds (2+)
+    for (let r = 2; r <= totalRounds; r++) {
+      const rMatchCount = rounds[r-1].matchCount;
+      for (let pos = 1; pos <= rMatchCount; pos++) {
+        matchesToInsert.push({
           tournament_id: tournamentId,
           stage_id: (stage as SupabaseTournamentStageRow).id,
-          round_label: isDoubleElim ? `Upper R${round}` : createRoundLabel(round, totalRounds),
-          round_number: round,
-          position_in_round: position,
+          round_label: createRoundLabel(r, totalRounds),
+          round_number: r,
+          position_in_round: pos,
           bracket_side: "UPPER",
           best_of: 1,
           status: "SCHEDULED",
-        };
-
-        if (round === 1) {
-          const team1 = slots[(position - 1) * 2];
-          const team2 = slots[(position - 1) * 2 + 1];
-          matchesToInsert.push({
-            ...baseMatch,
-            team1_id: team1?.id ?? null,
-            team2_id: team2?.id ?? null,
-            team1_name: team1?.name ?? "BYE",
-            team2_name: team2?.name ?? "BYE",
-            status: team1 && team2 ? "SCHEDULED" : "COMPLETED",
-            winner_team_id: team1 && !team2 ? team1.id : !team1 && team2 ? team2.id : null,
-            winner_name: team1 && !team2 ? team1.name : !team1 && team2 ? team2.name : null,
-            loser_team_id: null,
-            completed_at: team1 && !team2 ? new Date().toISOString() : !team1 && team2 ? new Date().toISOString() : null,
-          });
-        } else {
-          matchesToInsert.push({
-            ...baseMatch,
-            team1_id: null,
-            team2_id: null,
-            team1_name: "TBD",
-            team2_name: "TBD",
-          });
-        }
+          team1_id: null,
+          team1_name: "TBD",
+          team2_id: null,
+          team2_name: "TBD",
+        });
       }
     }
 
     if (isDoubleElim) {
+        const bracketSize = Math.pow(2, totalRounds);
         // LOWER BRACKET (2 * totalRounds - 2 rounds)
         const totalLowerRounds = Math.max(1, (totalRounds - 1) * 2);
         let currentMatchesInRound = bracketSize / 4; // R1
@@ -1575,6 +1623,18 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       throw new Error("Tournament is full");
     }
 
+    // Check for existing registration
+    const { data: existingEntry } = await client
+      .from("tournament_entries")
+      .select("id")
+      .eq("tournament_id", tournamentId)
+      .eq("team_id", teamId)
+      .maybeSingle();
+    
+    if (existingEntry) {
+      throw new Error("This team is already registered for this tournament");
+    }
+
     const { error } = await client.from("tournament_entries").insert({
       team_id: teamId,
       tournament_id: tournamentId,
@@ -1591,6 +1651,29 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
       tournamentId, 
       `<b>New Registration!</b>\n\nTeam <b>${teamData?.name || "Unknown"}</b> has registered for your tournament.`
     );
+  },
+
+  async deleteTournamentEntry(entryId: string) {
+    const client = requireSupabase();
+    const { error } = await client.from("tournament_entries").delete().eq("id", entryId);
+    if (error) throw error;
+  },
+
+  async updateMatchParticipants(
+    matchId: string,
+    data: { team1Id?: string | null; team2Id?: string | null; team1Name?: string; team2Name?: string }
+  ) {
+    const client = requireSupabase();
+    const { error } = await client
+      .from("matches")
+      .update({
+        team1_id: data.team1Id,
+        team2_id: data.team2Id,
+        team1_name: data.team1Name,
+        team2_name: data.team2Name,
+      })
+      .eq("id", matchId);
+    if (error) throw error;
   },
 
   async getMyTeams(userId: string): Promise<Team[]> {
@@ -1983,14 +2066,13 @@ async generateBracket(tournamentId: string, actor: AppUserPayload) {
 
         // 2. Check for duplicate registration in this tournament
         if (existingUser) {
-          const { data: existingTeams } = await client
-            .from("teams")
-            .select("id")
-            .eq("captain_id", actor.id);
-
-          if (existingTeams && existingTeams.length > 0) {
-            const teamIds = existingTeams.map((t) => t.id);
-            // Check if any team named after this player already in tournament
+          const { data: userTeams } = await client
+            .from("team_members")
+            .select("team_id")
+            .eq("user_id", existingUser.id);
+          
+          if (userTeams && userTeams.length > 0) {
+            const teamIds = userTeams.map((t: any) => t.team_id);
             const { data: existingEntry } = await client
               .from("tournament_entries")
               .select("id")
