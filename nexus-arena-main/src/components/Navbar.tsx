@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut, ClipboardCheck } from "lucide-react";
+import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut, ClipboardCheck, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthPanel } from "@/components/AuthPanel";
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useState } from "react";
 
 const navItems = [
   { label: "Tournaments", path: "/", icon: Trophy },
@@ -23,52 +24,61 @@ const navItems = [
 export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const canManageTournaments = Boolean(user && ["ORGANIZER", "ADMIN"].includes(user.role));
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (user?.role === "ORGANIZER") {
+      return !["Teams", "Registrations"].includes(item.label);
+    }
+    return true;
+  });
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-white/10">
-      <div className="max-w-[1600px] mx-auto px-6 flex items-center justify-between h-16">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-neon-purple flex items-center justify-center">
-            <Trophy className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <span className="font-heading text-xl font-bold tracking-wider text-foreground">
-            ARENA<span className="text-primary">X</span>
-          </span>
-        </Link>
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
+        <div className="flex items-center gap-4">
+          {/* Mobile Menu Button */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-white/5 transition-colors"
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
 
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-gradient-to-br from-primary to-neon-purple flex items-center justify-center">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+            </div>
+            <span className="font-heading text-lg sm:text-xl font-bold tracking-wider text-foreground">
+              ARENA<span className="text-primary">X</span>
+            </span>
+          </Link>
+        </div>
+
+        {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-1">
-          {navItems
-            .filter((item) => {
-              if (user?.role === "ORGANIZER") {
-                return !["Teams", "Registrations"].includes(item.label);
-              }
-              return true;
-            })
-            .map((item) => {
-              const isActive =
-                location.pathname === item.path &&
-                item.label !== "Tournaments" &&
-                item.label !== "Teams";
-              return (
-                <Link
-                  key={item.label}
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                    isActive
-                      ? "bg-primary/10 text-primary neon-glow-blue"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  )}
-                >
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
-                  {item.label === "Live" && (
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  )}
-                </Link>
-              );
-            })}
+          {filteredNavItems.map((item) => {
+            const isActive = location.pathname === item.path && item.label !== "Tournaments" && item.label !== "Teams";
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-primary/10 text-primary neon-glow-blue"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+                {item.label === "Live" && (
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                )}
+              </Link>
+            );
+          })}
           {canManageTournaments && (
             <Link
               to="/admin/tournaments"
@@ -85,18 +95,19 @@ export function Navbar() {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* User Profile & Notifications */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button className="relative p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-[10px] font-bold flex items-center justify-center text-primary-foreground">3</span>
             <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 hover:bg-white/10 transition-colors">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-neon-purple to-primary flex items-center justify-center">
-                  <User className="w-5 h-5 text-foreground" />
+              <button className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-2 py-1 sm:px-3 sm:py-1.5 hover:bg-white/10 transition-colors">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-neon-purple to-primary flex items-center justify-center">
+                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
                 </div>
-                <div className="hidden md:block text-left">
+                <div className="hidden lg:block text-left">
                   <p className="text-sm font-semibold text-foreground">{user?.name ?? "Guest"}</p>
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
                     {user?.role ?? "Not signed in"}
@@ -130,6 +141,41 @@ export function Navbar() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Mobile Navigation Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t border-white/10 bg-black/40 backdrop-blur-xl animate-in slide-in-from-top duration-300">
+          <div className="p-4 space-y-2">
+            {filteredNavItems.map((item) => (
+              <Link
+                key={item.label}
+                to={item.path}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+                  location.pathname === item.path ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:bg-white/5"
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            ))}
+            {canManageTournaments && (
+              <Link
+                to="/admin/tournaments"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+                  location.pathname === "/admin/tournaments" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-primary hover:bg-primary/5"
+                )}
+              >
+                <Shield className="w-4 h-4" />
+                Tournament Control
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

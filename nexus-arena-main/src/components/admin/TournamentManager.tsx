@@ -59,14 +59,16 @@ export function TournamentManager({
 
   return (
     <Tabs defaultValue="overview" className="w-full space-y-6">
-      <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 bg-white/5 border border-white/10 p-1 h-auto gap-1">
-        <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 gap-2 h-10"><LayoutDashboard className="w-4 h-4" /> Overview</TabsTrigger>
-        <TabsTrigger value="players" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Users className="w-4 h-4" /> Players</TabsTrigger>
-        <TabsTrigger value="matches" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Swords className="w-4 h-4" /> Matches</TabsTrigger>
-        <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
-        <TabsTrigger value="staff" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Shield className="w-4 h-4" /> Staff</TabsTrigger>
-        <TabsTrigger value="broadcast" className="data-[state=active]:bg-primary/20 gap-2 h-10"><Radio className="w-4 h-4" /> Broadcast</TabsTrigger>
-      </TabsList>
+      <div className="overflow-x-auto pb-2 scrollbar-hide">
+        <TabsList className="flex w-max min-w-full bg-white/5 border border-white/10 p-1 h-auto gap-1">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><LayoutDashboard className="w-4 h-4" /> Overview</TabsTrigger>
+          <TabsTrigger value="players" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><Users className="w-4 h-4" /> Players</TabsTrigger>
+          <TabsTrigger value="matches" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><Swords className="w-4 h-4" /> Matches</TabsTrigger>
+          <TabsTrigger value="settings" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><Settings className="w-4 h-4" /> Settings</TabsTrigger>
+          <TabsTrigger value="staff" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><Shield className="w-4 h-4" /> Staff</TabsTrigger>
+          <TabsTrigger value="broadcast" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><Radio className="w-4 h-4" /> Broadcast</TabsTrigger>
+        </TabsList>
+      </div>
 
       <TabsContent value="overview">
         <TournamentOverviewTab

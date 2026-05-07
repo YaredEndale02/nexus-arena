@@ -199,132 +199,166 @@ export function TournamentMatchesTab({
               <p className="text-sm text-muted-foreground">No matches reported yet.</p>
             ) : (
               (() => {
-                const roundLabels = Array.from(new Set(matches.map(m => m.roundLabel)));
+                // 1. Strict Chronological Flow: Sort by Round and Position
+                const sortedMatches = [...matches].sort((a, b) => {
+                  if (a.roundNumber !== b.roundNumber) {
+                    return (a.roundNumber ?? 0) - (b.roundNumber ?? 0);
+                  }
+                  return (a.positionInRound ?? 0) - (b.positionInRound ?? 0);
+                });
+
+                const roundLabels = Array.from(new Set(sortedMatches.map(m => m.roundLabel)));
+                
                 return roundLabels.map(label => {
-                  const roundMatches = matches.filter(m => m.roundLabel === label);
+                  const roundMatches = sortedMatches.filter(m => m.roundLabel === label);
                   return (
                     <div key={label} className="space-y-4">
                       <div className="flex items-center gap-3">
                         <div className="h-px flex-1 bg-white/10" />
-                        <h3 className="text-xs font-black uppercase tracking-widest text-primary/60">{label}</h3>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/40">{label}</h3>
                         <div className="h-px flex-1 bg-white/10" />
                       </div>
-                      <div className="grid gap-4">
-                        {roundMatches.map((match) => (
-                          <div key={match.id} className="rounded-xl border border-white/10 bg-background/30 p-4 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-sm font-semibold text-white/90">{match.team1Name} vs {match.team2Name}</p>
-                                  <p className="text-[10px] text-muted-foreground uppercase tracking-tight">{label} • Match #{match.id.slice(0, 4)}</p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  {tournament.status !== "COMPLETED" && (
-                                    <Button variant="ghost" size="sm" onClick={() => startEditing(match)} className="text-primary hover:text-primary/80 h-7 px-2">
-                                      <Pencil className="w-3 h-3 mr-1" /> Edit
-                                    </Button>
-                                  )}
-                                  <span className={cn(
-                                    "text-[10px] font-black uppercase px-2 py-0.5 rounded-full border",
-                                    match.status === "LIVE" ? "bg-red-500/10 text-red-400 border-red-500/30" :
-                                    match.status === "COMPLETED" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-                                    "bg-white/5 text-white/30 border-white/10"
-                                  )}>{match.status}</span>
-                                </div>
-                              </div>
+                      <div className="grid gap-3">
+                        {roundMatches.map((match) => {
+                          const isMatchReady = match.team1Name !== "TBD" && match.team2Name !== "TBD";
+                          const isCompleted = match.status === "COMPLETED";
+                          const isLive = match.status === "LIVE";
+                          
+                          // Source Match Identification
+                          const getSourceLabel = (pos: number) => {
+                            if (match.roundNumber === 1) return null;
+                            const prevRound = (match.roundNumber ?? 1) - 1;
+                            const sourcePos1 = (match.positionInRound ?? 1) * 2 - 1;
+                            const sourcePos2 = (match.positionInRound ?? 1) * 2;
+                            const sourceMatch = sortedMatches.find(m => m.roundNumber === prevRound && m.positionInRound === (pos === 1 ? sourcePos1 : sourcePos2));
+                            return sourceMatch ? `Winner of Match #${sourceMatch.id.slice(0, 4)}` : "Previous Round Winner";
+                          };
 
-                              {editingMatchId === match.id && (
-                                <div className="grid gap-3 md:grid-cols-2 p-3 bg-primary/5 rounded-xl border border-primary/20 animate-in fade-in zoom-in-95">
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Team 1</Label>
-                                    <select
-                                      className="w-full bg-background border border-white/10 rounded-md px-2 py-1.5 text-sm"
-                                      value={matchEditData?.team1Id || ""}
-                                      onChange={(e) => {
-                                        const teamId = e.target.value || null;
-                                        const team1Name = entries.find(ent => ent.teamId === teamId)?.teamName || "BYE";
-                                        setMatchEditData(prev => prev ? { ...prev, team1Id: teamId, team1Name } : null);
-                                      }}
-                                    >
-                                      <option value="">BYE</option>
-                                      {entries.map(ent => (
-                                        <option key={ent.id} value={ent.teamId}>{ent.teamName}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Team 2</Label>
-                                    <select
-                                      className="w-full bg-background border border-white/10 rounded-md px-2 py-1.5 text-sm"
-                                      value={matchEditData?.team2Id || ""}
-                                      onChange={(e) => {
-                                        const teamId = e.target.value || null;
-                                        const team2Name = entries.find(ent => ent.teamId === teamId)?.teamName || "BYE";
-                                        setMatchEditData(prev => prev ? { ...prev, team2Id: teamId, team2Name } : null);
-                                      }}
-                                    >
-                                      <option value="">BYE</option>
-                                      {entries.map(ent => (
-                                        <option key={ent.id} value={ent.teamId}>{ent.teamName}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                  <div className="flex gap-2 col-span-full pt-1">
-                                    <Button onClick={handleSaveEdit} size="sm" className="h-8 text-xs">Save Changes</Button>
-                                    <Button variant="ghost" onClick={() => setEditingMatchId(null)} size="sm" className="h-8 text-xs">Cancel</Button>
-                                  </div>
-                                </div>
+                          return (
+                            <div 
+                              key={match.id} 
+                              className={cn(
+                                "group relative overflow-hidden rounded-xl border transition-all duration-300",
+                                !isMatchReady ? "bg-white/[0.02] border-white/5 opacity-60" : "bg-white/[0.05] border-white/10 hover:border-primary/30",
+                                isCompleted && "border-emerald-500/20 bg-emerald-500/[0.02]"
                               )}
+                            >
+                              {/* Status Indicator Bar */}
+                              <div className={cn(
+                                "absolute left-0 top-0 bottom-0 w-1",
+                                isLive ? "bg-red-500 animate-pulse" : 
+                                isCompleted ? "bg-emerald-500" : 
+                                isMatchReady ? "bg-primary/40" : "bg-white/10"
+                              )} />
 
-                              {/* Score inputs */}
-                              <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-center">
-                                <div className="relative group">
-                                  <Input
-                                    type="number"
-                                    placeholder={match.team1Name}
-                                    value={match.team1Score}
-                                    onChange={(e) => setMatchReportScore(match.id, 1, Number(e.target.value))}
-                                    disabled={match.status === "COMPLETED"}
-                                    className="pr-10"
-                                  />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground opacity-50">{match.team1Name.slice(0, 3).toUpperCase()}</span>
+                              <div className="p-4 sm:p-5">
+                                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                                  {/* Participants Side */}
+                                  <div className="flex-1 space-y-4">
+                                    {[1, 2].map((idx) => {
+                                      const teamName = idx === 1 ? match.team1Name : match.team2Name;
+                                      const isTbd = teamName === "TBD";
+                                      const isWinner = isCompleted && match.winnerName === teamName;
+                                      
+                                      return (
+                                        <div key={idx} className="flex items-center gap-4">
+                                          <div className={cn(
+                                            "flex-1 flex flex-col justify-center min-h-[48px] px-4 rounded-lg border transition-colors",
+                                            isTbd ? "border-dashed border-white/10 bg-black/20" : 
+                                            isWinner ? "border-emerald-500/30 bg-emerald-500/10" : "border-white/5 bg-white/5"
+                                          )}>
+                                            <div className="flex items-center justify-between">
+                                              <div>
+                                                <p className={cn(
+                                                  "text-sm font-bold tracking-tight",
+                                                  isTbd ? "text-white/20 italic" : 
+                                                  isWinner ? "text-emerald-400" : "text-white/90"
+                                                )}>
+                                                  {teamName}
+                                                </p>
+                                                {isTbd && (
+                                                  <p className="text-[9px] text-primary/30 font-medium uppercase mt-0.5 tracking-wider">
+                                                    {getSourceLabel(idx)}
+                                                  </p>
+                                                )}
+                                              </div>
+                                              
+                                              {/* Compact Score Input */}
+                                              <div className="flex items-center gap-2">
+                                                <Input
+                                                  type="number"
+                                                  value={idx === 1 ? match.team1Score : match.team2Score}
+                                                  onChange={(e) => setMatchReportScore(match.id, idx as 1|2, Number(e.target.value))}
+                                                  disabled={!isMatchReady || isCompleted}
+                                                  className={cn(
+                                                    "w-12 h-8 text-center font-black bg-black/40 border-white/10 p-0 focus-visible:ring-primary/30",
+                                                    isWinner && "text-emerald-400 border-emerald-500/30"
+                                                  )}
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Actions Side */}
+                                  <div className="flex lg:flex-col items-center gap-2 min-w-[160px]">
+                                    {!isMatchReady ? (
+                                      <div className="flex flex-col items-center justify-center p-3 rounded-lg border border-white/5 bg-white/[0.02] w-full">
+                                        <Swords className="w-4 h-4 text-white/10 mb-1" />
+                                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Locked</span>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          className={cn(
+                                            "w-full h-10 font-bold transition-all duration-300 gap-2",
+                                            isCompleted ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20" :
+                                            "bg-primary hover:bg-primary/90 text-primary-foreground"
+                                          )}
+                                          disabled={busyTournamentId === match.id || isCompleted}
+                                          onClick={() => {
+                                            if (confirm(`Finalize results and promote winner?\n${match.team1Name} ${match.team1Score} – ${match.team2Score} ${match.team2Name}`)) {
+                                              reportMatch(tournament.id, match);
+                                            }
+                                          }}
+                                        >
+                                          {isCompleted ? (
+                                            <><CheckCircle2 className="w-4 h-4" /> Finalized</>
+                                          ) : (
+                                            <><Swords className="w-4 h-4" /> Finalize & Promote</>
+                                          )}
+                                        </Button>
+                                        
+                                        {!isCompleted && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full text-[10px] uppercase font-black tracking-widest text-primary/60 hover:text-primary hover:bg-primary/5 h-8"
+                                            disabled={busyTournamentId === match.id}
+                                            onClick={() => updateMatchScore(tournament.id, match)}
+                                          >
+                                            <RefreshCw className={cn("w-3 h-3 mr-2", busyTournamentId === match.id && "animate-spin")} />
+                                            Update Live Score
+                                          </Button>
+                                        )}
+                                      </>
+                                    )}
+                                    
+                                    <div className="flex items-center gap-2 mt-auto">
+                                      <p className="text-[9px] font-medium text-white/20 uppercase tracking-tighter">
+                                        ID: <span className="text-white/40 font-mono">{match.id.slice(0, 8)}</span>
+                                      </p>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="relative group">
-                                  <Input
-                                    type="number"
-                                    placeholder={match.team2Name}
-                                    value={match.team2Score}
-                                    onChange={(e) => setMatchReportScore(match.id, 2, Number(e.target.value))}
-                                    disabled={match.status === "COMPLETED"}
-                                    className="pr-10"
-                                  />
-                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground opacity-50">{match.team2Name.slice(0, 3).toUpperCase()}</span>
-                                </div>
-                                <Button
-                                  variant="outline"
-                                  className="gap-2 border-primary/30 text-primary hover:bg-primary/10"
-                                  disabled={busyTournamentId === match.id || match.status === "COMPLETED"}
-                                  onClick={() => updateMatchScore(tournament.id, match)}
-                                  title="Push score to broadcast overlay"
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                  Update Score
-                                </Button>
-                                <Button
-                                  className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
-                                  disabled={busyTournamentId === match.id || match.status === "COMPLETED"}
-                                  onClick={() => {
-                                    if (confirm(`Mark this match as completed?\n${match.team1Name} ${match.team1Score} – ${match.team2Score} ${match.team2Name}`)) {
-                                      reportMatch(tournament.id, match);
-                                    }
-                                  }}
-                                  title="Mark match as complete and trigger winner animation"
-                                >
-                                  <CheckCircle2 className="w-4 h-4" />
-                                  Complete
-                                </Button>
                               </div>
                             </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   );

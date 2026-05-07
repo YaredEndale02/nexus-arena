@@ -20,6 +20,8 @@ type BracketNode = {
   bracketSide: string;
 };
 
+const cleanName = (name: string) => name.replace(/\s*\(Manual\)\s*/gi, "").trim();
+
 function mapMatchToNode(match: MatchReport): BracketNode {
   const status =
     match.status === "COMPLETED"
@@ -35,13 +37,13 @@ function mapMatchToNode(match: MatchReport): BracketNode {
     roundLabel: match.roundLabel,
     team1:
       match.team1Name && match.team1Name !== "TBD" && match.team1Name !== "BYE"
-        ? { name: match.team1Name, score: match.team1Score }
+        ? { name: cleanName(match.team1Name), score: match.team1Score }
         : null,
     team2:
       match.team2Name && match.team2Name !== "TBD" && match.team2Name !== "BYE"
-        ? { name: match.team2Name, score: match.team2Score }
+        ? { name: cleanName(match.team2Name), score: match.team2Score }
         : null,
-    winner: match.winnerName ?? null,
+    winner: match.winnerName ? cleanName(match.winnerName) : null,
     status,
     scheduledTime: match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : "TBD",
     bracketSide: match.bracketSide ?? "UPPER",
@@ -68,65 +70,71 @@ function MatchNode({
     <div
       onClick={onClick}
       className={cn(
-        "glass-card p-3 w-60 cursor-pointer transition-all duration-300 relative",
+        "glass-card p-5 w-64 cursor-pointer transition-all duration-300 relative",
         isLive && "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]",
         isFinal && match.winner && "animate-golden-pulse border-gold/50",
         isFinal && "w-72",
         isHighlighted && "border-primary/60 bg-primary/5 scale-[1.02] z-10 shadow-[0_0_30px_rgba(var(--primary),0.2)]",
       )}
     >
-      <div className="flex items-center justify-between mb-2">
+      {/* Match ID tucked into corner */}
+      <span className="absolute top-2 right-3 text-[7px] text-muted-foreground/20 font-mono tracking-tighter">#{match.id.slice(0, 4)}</span>
+
+      <div className="flex items-center justify-between mb-4">
         <span
           className={cn(
-            "text-[10px] font-bold uppercase tracking-wider",
+            "text-[10px] font-bold uppercase tracking-widest",
             isLive ? "text-red-400" : isCompleted ? "text-muted-foreground" : "text-neon-purple",
           )}
         >
           {isLive && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse mr-1" />}
           {match.status}
         </span>
-        <span className="text-[9px] text-muted-foreground font-mono opacity-50">#{match.id.slice(0, 4)}</span>
       </div>
 
-      {[match.team1, match.team2].map((team, i) => (
-        <div
-          key={i}
-          onMouseEnter={() => onHoverTeam(team?.name || null)}
-          onMouseLeave={() => onHoverTeam(null)}
-          className={cn(
-            "flex items-center justify-between py-2 px-3 rounded-md mb-1 transition-all duration-200",
-            team && match.winner === team.name && "bg-emerald-500/10 border border-emerald-500/20",
-            team && isHighlighted && "font-bold",
-            !team && "opacity-40 bg-white/5",
-            team && "hover:bg-white/10"
-          )}
-        >
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span
-              className={cn(
-                "text-sm truncate",
-                team && match.winner === team.name ? "text-emerald-400 font-bold" : "text-foreground",
-              )}
-            >
-              {team?.name || "TBD"}
-            </span>
-          </div>
-          <span
+      {[match.team1, match.team2].map((team, i) => {
+        const isWinner = team && match.winner === team.name;
+        const isTBD = !team;
+
+        return (
+          <div
+            key={i}
+            onMouseEnter={() => onHoverTeam(team?.name || null)}
+            onMouseLeave={() => onHoverTeam(null)}
             className={cn(
-              "text-sm font-heading font-black min-w-[20px] text-right",
-              team && match.winner === team.name ? "text-emerald-400" : "text-muted-foreground",
+              "flex items-center justify-between py-3 px-4 rounded-lg mb-2 transition-all duration-200 border",
+              isWinner ? "bg-emerald-500/10 border-emerald-500/30" : "border-transparent",
+              isTBD ? "border-dashed border-white/10 bg-white/2" : "hover:bg-white/5",
+              team && isHighlighted && "font-bold",
             )}
           >
-            {team?.score ?? (match.status === "Upcoming" ? "" : "0")}
-          </span>
-        </div>
-      ))}
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span
+                className={cn(
+                  "text-sm truncate transition-colors",
+                  isWinner ? "text-emerald-400 font-bold" : isTBD ? "text-muted-foreground/40" : "text-foreground",
+                )}
+              >
+                {team?.name || "TBD"}
+              </span>
+            </div>
+            <span
+              className={cn(
+                "text-sm font-heading font-black min-w-[24px] text-right transition-colors",
+                isWinner ? "text-emerald-400" : isTBD ? "text-muted-foreground/10" : "text-muted-foreground",
+              )}
+            >
+              {team?.score ?? (match.status === "Upcoming" ? "" : "0")}
+            </span>
+          </div>
+        );
+      })}
 
-      <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{match.roundLabel}</span>
+      <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
+        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">{match.roundLabel}</span>
         {match.scheduledTime !== "TBD" && (
-           <span className="text-[9px] text-muted-foreground/60 flex items-center gap-1">
-             <Clock className="w-2 h-2" /> {new Date(match.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+           <span className="text-[9px] text-muted-foreground/30 flex items-center gap-1">
+             <Clock className="w-2.5 h-2.5" /> {new Date(match.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
            </span>
         )}
       </div>
@@ -136,35 +144,37 @@ function MatchNode({
 
 function MatchDetailPanel({ match, onClose }: { match: BracketNode; onClose: () => void }) {
   return (
-    <div className="glass p-6 rounded-xl animate-scale-in">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-heading text-lg font-bold text-foreground">Match Details</h3>
-        <button onClick={onClose} className="p-1 rounded-md hover:bg-white/10 transition-colors">
+    <div className="glass p-6 rounded-xl animate-scale-in relative">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="font-heading text-lg font-bold text-foreground">Match Details</h3>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">{match.roundLabel} • #{match.id.slice(0, 8)}</p>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
           <X className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
-      <div className="flex items-center justify-center gap-6 mb-6">
-        <div className="text-center">
-          <p className="font-heading font-bold text-foreground mt-1">{match.team1?.name || "TBD"}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="font-heading text-3xl font-bold text-foreground">{match.team1?.score ?? 0}</span>
-          <span className="text-muted-foreground text-xl">-</span>
-          <span className="font-heading text-3xl font-bold text-foreground">{match.team2?.score ?? 0}</span>
-        </div>
-        <div className="text-center">
-          <p className="font-heading font-bold text-foreground mt-1">{match.team2?.name || "TBD"}</p>
-        </div>
+      <div className="flex flex-col gap-6 mb-8">
+        {[match.team1, match.team2].map((team, i) => (
+          <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+            <span className="font-bold text-white/90">{team?.name || "TBD"}</span>
+            <span className="text-2xl font-black text-primary">{team?.score ?? 0}</span>
+          </div>
+        ))}
       </div>
 
-      <div className="space-y-3 text-sm">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Clock className="w-4 h-4" /> Scheduled: {match.scheduledTime}
+      <div className="space-y-4 pt-4 border-t border-white/10">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground flex items-center gap-2"><Clock className="w-4 h-4" /> Scheduled</span>
+          <span className="text-foreground font-medium">{match.scheduledTime}</span>
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Swords className="w-4 h-4" /> Status:{" "}
-          <span className={cn(match.status === "Live" ? "text-red-400" : "text-foreground")}>{match.status}</span>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground flex items-center gap-2"><Swords className="w-4 h-4" /> Status</span>
+          <span className={cn(
+            "font-black uppercase tracking-wider px-2 py-0.5 rounded text-[10px]",
+            match.status === "Live" ? "bg-red-500/20 text-red-400" : "bg-white/10 text-muted-foreground"
+          )}>{match.status}</span>
         </div>
       </div>
     </div>
@@ -346,12 +356,12 @@ export default function Bracket() {
       {hasMatches && (
         <div className="space-y-4 mb-8">
           {/* Stage Tabs */}
-          <div className="flex p-1 bg-white/5 border border-white/10 rounded-xl w-fit">
+          <div className="flex flex-wrap p-1 bg-white/5 border border-white/10 rounded-xl w-full sm:w-fit">
             {[
               { id: "ALL", label: "Full View", icon: Wifi },
-              { id: "UPPER", label: "Upper Bracket", icon: Swords },
-              { id: "LOWER", label: "Lower Bracket", icon: Swords },
-              { id: "GRAND_FINAL", label: "Grand Finals", icon: Clock },
+              { id: "UPPER", label: "Upper", icon: Swords },
+              { id: "LOWER", label: "Lower", icon: Swords },
+              { id: "GRAND_FINAL", label: "Finals", icon: Clock },
             ].map((stage) => {
               if (stage.id === "LOWER" && lowerRounds.length === 0) return null;
               if (stage.id === "GRAND_FINAL" && grandFinalRounds.length === 0) return null;
@@ -362,7 +372,7 @@ export default function Bracket() {
                   key={stage.id}
                   onClick={() => setActiveStage(stage.id as any)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                    "flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all",
                     active ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   )}
                 >
@@ -439,10 +449,10 @@ export default function Bracket() {
         </div>
 
         {selectedTournamentId && (
-          <div className="flex items-center gap-3 pb-1">
+          <div className="flex flex-wrap items-center gap-3 pb-1">
             {/* Live connection status */}
             <div className={cn(
-              "flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border",
+              "flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full border",
               isLiveConnected
                 ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
                 : "text-muted-foreground border-white/10 bg-white/5"
@@ -450,14 +460,14 @@ export default function Bracket() {
               <Wifi className="w-3 h-3" />
               {isLiveConnected ? "Live" : "Connecting..."}
               {isLiveConnected && (
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-block w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
               )}
             </div>
 
             {/* Last updated */}
             {lastUpdated && (
-              <span className="text-xs text-muted-foreground">
-                Updated {lastUpdated.toLocaleTimeString()}
+              <span className="text-[10px] text-muted-foreground">
+                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
 
@@ -465,17 +475,23 @@ export default function Bracket() {
             <button
               onClick={() => void loadMatches(true)}
               disabled={isRefreshing}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/5 border border-white/10 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/5 border border-white/10 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
-              {isRefreshing ? "Refreshing..." : "Refresh"}
+              {isRefreshing ? "..." : "Refresh"}
             </button>
           </div>
         )}
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6">
-        <div className="flex-1 overflow-x-auto">
+      <div className="flex flex-col xl:flex-row gap-6 relative">
+        <div className="flex-1 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+          {/* Mobile Scroll Hint */}
+          <div className="md:hidden flex items-center justify-center gap-2 mb-4 text-[10px] font-bold text-primary/40 uppercase tracking-widest animate-pulse">
+            <RefreshCw className="w-3 h-3 rotate-90" />
+            Swipe to view rounds
+          </div>
+
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-4">
               <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -487,7 +503,7 @@ export default function Bracket() {
             </div>
           ) : (
             <div className="space-y-12 pb-12">
-              <div className="flex items-start gap-8 min-w-[900px]">
+              <div className="flex items-start gap-8 sm:gap-32 px-4">
                 {upperRounds
                   .filter(r => {
                     const stageMatch = activeStage === "ALL" || activeStage === "UPPER";
@@ -498,7 +514,6 @@ export default function Bracket() {
                   const isFolded = foldedRounds.has(roundGroup.round);
                   const matchHeight = 180;
                   
-                  // Reset spacing if we are in single-round view
                   const roundScale = activeRound === null ? Math.pow(2, roundGroup.round - 1) : 1;
                   const cellHeight = matchHeight * roundScale;
 
@@ -507,14 +522,11 @@ export default function Bracket() {
                       <div 
                         key={`folded-${roundGroup.round}`}
                         onClick={() => toggleRoundFold(roundGroup.round)}
-                        className="w-12 h-full min-h-[400px] bg-white/5 border border-white/10 rounded-xl flex flex-col items-center py-6 cursor-pointer hover:bg-white/10 transition-all group self-stretch"
+                        className="w-10 sm:w-12 h-full min-h-[400px] bg-white/5 border border-white/10 rounded-xl flex flex-col items-center py-6 cursor-pointer hover:bg-white/10 transition-all group self-stretch snap-start"
                       >
                         <span className="[writing-mode:vertical-lr] rotate-180 text-[10px] font-bold uppercase tracking-widest text-muted-foreground group-hover:text-primary transition-colors">
-                          {roundGroup.label} (Folded)
+                          {roundGroup.label}
                         </span>
-                        <div className="mt-auto p-2 bg-primary/20 rounded-full group-hover:scale-110 transition-transform">
-                          <RefreshCw className="w-3 h-3 text-primary" />
-                        </div>
                       </div>
                     );
                   }
@@ -522,17 +534,22 @@ export default function Bracket() {
                   return (
                     <div
                       key={`round-${roundGroup.round}`}
-                      className="flex flex-col"
+                      id={`round-column-${roundGroup.round}`}
+                      className="flex flex-col snap-start"
                       style={{ 
-                        width: isFolded ? '48px' : '260px',
+                        width: isFolded ? '40px' : '260px',
                         transition: 'all 0.3s ease'
                       }}
                     >
-                      <div className="flex items-center justify-between mb-4 px-2 group cursor-pointer" onClick={() => toggleRoundFold(roundGroup.round)}>
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors">
-                          {roundGroup.label}
-                        </span>
-                        {!isFolded && <span className="text-[8px] text-primary opacity-0 group-hover:opacity-100 uppercase font-bold tracking-tighter">Fold</span>}
+                      <div className="flex items-center justify-between mb-10 px-2 group cursor-pointer border-b-2 border-white/10 pb-6" onClick={() => toggleRoundFold(roundGroup.round)}>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] sm:text-[12px] font-black text-primary uppercase tracking-[0.4em] mb-2">
+                            {roundGroup.label.split(' ')[0]}
+                          </span>
+                          <span className="text-xl sm:text-2xl font-heading font-black text-foreground leading-none tracking-tight">
+                            {roundGroup.label}
+                          </span>
+                        </div>
                       </div>
                       
                       {roundGroup.matches.map((match, index) => {
@@ -559,26 +576,22 @@ export default function Bracket() {
                               />
                             </div>
                           
-                            {/* Connection Lines (Refined) */}
                             {roundGroup.round < Math.max(...upperRounds.map(r => r.round)) && !foldedRounds.has(roundGroup.round + 1) && (
                               <>
-                                {/* Horizontal Out */}
                                 <div className={cn(
-                                  "absolute -right-12 w-12 h-[3px] bg-white/30 transition-all duration-300",
-                                  isPathHighlighted && "bg-primary shadow-[0_0_15px_rgba(var(--primary),1)] scale-y-150 z-10"
+                                  "absolute -right-8 sm:-right-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
+                                  isPathHighlighted && "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] h-[4px] z-10"
                                 )} />
                                 
-                                {/* Vertical Connector (Elbow) */}
                                 {(() => {
                                   const hasPartner = index % 2 === 0 ? index + 1 < roundGroup.matches.length : true;
-                                  if (!hasPartner) return null; // No vertical line for solo matches
+                                  if (!hasPartner) return null;
 
-                                  const verticalHeight = cellHeight / 2;
                                   return (
                                     <div 
                                       className={cn(
-                                        "absolute -right-12 w-[3px] bg-white/30 transition-all duration-300 z-10",
-                                        isPathHighlighted && "bg-primary shadow-[0_0_15px_rgba(var(--primary),1)] scale-x-150"
+                                        "absolute -right-8 sm:-right-16 w-[3px] bg-white/10 transition-all duration-300 z-10",
+                                        isPathHighlighted && "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] w-[4px]"
                                       )} 
                                       style={{ 
                                         height: `${cellHeight / 2}px`,
@@ -593,8 +606,8 @@ export default function Bracket() {
                             
                             {roundGroup.round > 1 && !foldedRounds.has(roundGroup.round - 1) && (
                                <div className={cn(
-                                 "absolute -left-12 w-12 h-[3px] bg-white/30 transition-all duration-300",
-                                 isHighlighted && "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.8)]"
+                                 "absolute -left-8 sm:-left-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
+                                 isHighlighted && "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.8)] h-[4px]"
                                )} />
                             )}
                         </div>
@@ -604,19 +617,10 @@ export default function Bracket() {
                 );
               })}
                 
-                {grandFinalRounds
+                {grandFinalRounds.length > 0 && grandFinalRounds
                   .filter(r => {
                     if (activeStage === "GRAND_FINAL") return true;
-                    if (activeStage === "ALL") {
-                      return matches.some(m => m.bracketSide === "GRAND_FINAL");
-                    }
-                    if (activeStage === "UPPER") {
-                      return !matches.some(m => m.bracketSide === "GRAND_FINAL");
-                    }
-                    if (activeStage === "LOWER") {
-                      // Show in LOWER tab only if it's a true separate GRAND_FINAL
-                      return matches.some(m => m.bracketSide === "GRAND_FINAL");
-                    }
+                    if (activeStage === "ALL") return matches.some(m => m.bracketSide === "GRAND_FINAL");
                     return false;
                   })
                   .map((roundGroup) => {
@@ -625,7 +629,7 @@ export default function Bracket() {
                   const firstMatchTopMargin = (roundScale - 1) * (matchHeight / 2);
 
                   return (
-                    <div key="grand-final" className="flex flex-col" style={{ marginTop: `${firstMatchTopMargin}px` }}>
+                    <div key="grand-final" className="flex flex-col snap-start" style={{ marginTop: `${firstMatchTopMargin}px` }}>
                       <span className="text-[10px] text-gold uppercase tracking-wider mb-2 ml-2">Grand Finals</span>
                       {roundGroup.matches.map((match, index) => {
                         const matchKey = `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`;
@@ -650,13 +654,12 @@ export default function Bracket() {
 
               {lowerRounds.length > 0 && (activeStage === "ALL" || activeStage === "LOWER") && (
                 <div id="lower-bracket-section" className="pt-8 border-t border-white/10">
-                  <h3 className="font-heading text-lg font-bold text-muted-foreground mb-4">Lower Bracket</h3>
-                  <div className="flex items-start gap-24 min-w-[1200px]">
+                  <h3 className="font-heading text-xl font-black text-muted-foreground mb-6 uppercase tracking-widest">Lower Bracket</h3>
+                  <div className="flex items-start gap-8 sm:gap-32">
                     {lowerRounds
                       .filter(r => activeRound === null || r.round === activeRound)
                       .map((roundGroup) => {
                       const matchHeight = 180;
-                      // In lower bracket, scaling is different, but for now we keep it consistent
                       const roundScale = activeRound === null ? Math.pow(2, Math.floor((roundGroup.round - 1) / 2)) : 1;
                       const firstMatchTopMargin = activeRound === null ? (roundScale - 1) * (matchHeight / 2) : 0;
                       const matchGap = activeRound === null ? (roundScale - 1) * matchHeight : 0;
@@ -664,7 +667,7 @@ export default function Bracket() {
                       return (
                         <div
                           key={`lower-${roundGroup.round}`}
-                          className="flex flex-col"
+                          className="flex flex-col snap-start"
                           style={{ 
                             marginTop: `${firstMatchTopMargin}px`,
                             gap: `${matchGap + 24}px` 
@@ -696,11 +699,16 @@ export default function Bracket() {
           )}
         </div>
 
-        <div className="xl:w-80 shrink-0">
+        {/* Floating/Bottom Sheet Panel for Mobile */}
+        <div className={cn(
+          "xl:w-80 shrink-0",
+          "fixed inset-x-4 bottom-4 z-40 xl:relative xl:inset-auto xl:z-0 xl:block",
+          !selectedMatch && "hidden xl:block"
+        )}>
           {selectedMatch ? (
             <MatchDetailPanel match={selectedMatch} onClose={() => setSelectedMatch(null)} />
           ) : (
-            <div className="glass p-6 rounded-xl text-center">
+            <div className="hidden xl:block glass p-6 rounded-xl text-center">
               <Swords className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">Click a match to view details</p>
             </div>
