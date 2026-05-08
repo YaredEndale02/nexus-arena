@@ -42,13 +42,17 @@ function AnimatedCounter({ value, prefix = "", suffix = "", delay }: { value: nu
 
 function StatItem({ icon, label, value, prefix, suffix, delay }: StatItemProps) {
   return (
-    <div className="glass-card p-4 lg:p-5 flex items-center gap-4 animate-count-up" style={{ animationDelay: `${delay}ms` }}>
-      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+    <div className="glass-card p-3 sm:p-5 flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4 animate-count-up" style={{ animationDelay: `${delay}ms` }}>
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
         {icon}
       </div>
-      <div>
-        <AnimatedCounter value={value} prefix={prefix} suffix={suffix} delay={delay} />
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mt-0.5">{label}</p>
+      <div className="text-center sm:text-left min-w-0 flex-1">
+        <div className="flex flex-col">
+          <AnimatedCounter value={value} prefix={prefix} suffix={suffix} delay={delay} />
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 truncate w-full">
+            {label}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -56,11 +60,11 @@ function StatItem({ icon, label, value, prefix, suffix, delay }: StatItemProps) 
 
 export function StatsBar() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <StatItem icon={<Trophy className="w-6 h-6 text-primary" />} label="Active Tournaments" value={24} delay={0} />
-      <StatItem icon={<Users className="w-6 h-6 text-neon-purple" />} label="Active Players" value={3847} delay={150} />
-      <StatItem icon={<DollarSign className="w-6 h-6 text-gold" />} label="Prize Pool" value={535000} prefix="$" delay={300} />
-      <StatItem icon={<Zap className="w-6 h-6 text-primary" />} label="Matches Today" value={42} delay={450} />
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
+      <StatItem icon={<Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Active Tournaments" value={24} delay={0} />
+      <StatItem icon={<Users className="w-5 h-5 sm:w-6 sm:h-6 text-neon-purple" />} label="Active Players" value={3847} delay={150} />
+      <StatItem icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />} label="Prize Pool" value={535000} prefix="$" delay={300} />
+      <StatItem icon={<Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Matches Today" value={42} delay={450} />
     </div>
   );
 }

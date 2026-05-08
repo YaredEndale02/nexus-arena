@@ -3,6 +3,7 @@ import { Layout } from "@/components/Layout";
 import { StatsBar } from "@/components/StatsBar";
 import { TournamentCard } from "@/components/TournamentCard";
 import { api, Tournament } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
 import { tournaments as mockTournaments } from "@/data/mockData";
 import { Trophy, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
 
@@ -51,11 +52,19 @@ const Index = () => {
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const [filter, setFilter] = useState("All");
 
+  const { user } = useAuth();
+
   useEffect(() => {
     const fetchTournaments = async () => {
       try {
-        const data = await api.getTournaments();
-        setTournamentList(data);
+        const [tournaments, registrations] = await Promise.all([
+          api.getTournaments(),
+          user ? api.getMyRegistrations(user.id) : Promise.resolve([])
+        ]);
+        setTournamentList(tournaments.map(t => ({
+          ...t,
+          isUserRegistered: registrations.some(r => r.tournament.id === t.id)
+        })));
         setIsUsingFallback(false);
       } catch (error) {
         console.error("Error fetching tournaments:", error);
@@ -66,7 +75,7 @@ const Index = () => {
       }
     };
     fetchTournaments();
-  }, []);
+  }, [user]);
 
   const filteredTournaments = tournamentList.filter((t) => {
     if (filter === "All") return true;
@@ -102,12 +111,12 @@ const Index = () => {
             Showing fallback tournament data while the API connection is unavailable.
           </p>
         )}
-        <div className="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/10 w-fit">
+        <div className="flex gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 w-fit overflow-x-auto no-scrollbar max-w-full">
           {["All", "Live", "Open", "Upcoming"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all ${
+              className={`px-5 py-3 min-h-[44px] min-w-[80px] rounded-xl text-xs font-bold tracking-wider transition-all whitespace-nowrap ${
                 filter === f
                   ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(239,68,68,0.5)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"

@@ -6,17 +6,18 @@
 
 @layer base {
   :root {
-    --background: 216 28% 7%;
-    --foreground: 210 40% 98%;
+    /* FC Esports Theme Global Overrides */
+    --background: 0 0% 3%;     /* #050505 */
+    --foreground: 0 0% 100%;
 
-    --card: 215 25% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 7%;           /* #111111 */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 215 25% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 190 100% 50%;
-    --primary-foreground: 216 28% 7%;
+    --primary: 71 100% 53%;    /* Volt Green #d2ff0d */
+    --primary-foreground: 0 0% 0%; /* Black text on volt */
 
     --secondary: 263 70% 50%;
     --secondary-foreground: 210 40% 98%;
@@ -30,11 +31,12 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 215 20% 18%;
-    --input: 215 20% 18%;
-    --ring: 190 100% 50%;
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 71 100% 53%;
 
-    --radius: 0.75rem;
+    /* Sharp corners globally */
+    --radius: 0rem;
 
     --gold: 51 100% 50%;
     --gold-foreground: 216 28% 7%;
@@ -67,8 +69,10 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    font-weight: 900; /* Extra black */
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: -0.02em; /* Tight tracking for FC vibe */
   }
 }
 
@@ -179,5 +183,32 @@
   .animate-shimmer {
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
+  }
+
+  /* FC Esports Global Utilities */
+  .fc-skew {
+    transform: skewX(-12deg);
+  }
+  
+  .fc-unskew {
+    transform: skewX(12deg);
+  }
+
+  .fc-button-wrapper {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+  }
+
+  .fc-button-bg {
+    position: absolute;
+    inset: 0;
+    transform: skewX(-12deg);
+    z-index: -1;
+    transition: all 0.2s ease;
+  }
+  
+  .fc-button-wrapper:hover .fc-button-bg {
+    transform: skewX(-12deg) scale(1.05);
   }
 }
