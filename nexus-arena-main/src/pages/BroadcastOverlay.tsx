@@ -611,12 +611,12 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
   const col2 = teams.slice(8, 16);
 
   return (
-    <div className="fixed inset-0 bg-[#040b0e] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
+    <div className="fixed inset-0 bg-[#050505] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
       <style>{`
         .pubg-bg-pattern { 
           background-image: 
-            linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            linear-gradient(rgba(230, 36, 41, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(230, 36, 41, 0.03) 1px, transparent 1px);
           background-size: 40px 40px;
         }
         .row-anim { animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -624,45 +624,59 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
           0% { opacity: 0; transform: translateY(20px); } 
           100% { opacity: 1; transform: translateY(0); } 
         }
-        .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%); }
       `}</style>
       
       {/* Background Elements */}
       <div className="absolute inset-0 pubg-bg-pattern opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#040b0e]/90 to-[#040b0e]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/90 to-[#050505]" />
       
-      <div className="absolute -top-40 right-[-10%] w-[800px] h-[800px] bg-[#00f0ff] opacity-[0.04] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
-      <div className="absolute -bottom-40 left-[-10%] w-[800px] h-[800px] bg-[#00f0ff] opacity-[0.04] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
+      {/* Subtle Red Glows */}
+      <div className="absolute -top-40 right-[-10%] w-[800px] h-[800px] bg-[#e62429] opacity-[0.03] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
+      <div className="absolute -bottom-40 left-[-10%] w-[800px] h-[800px] bg-[#e62429] opacity-[0.03] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-[1700px] px-12 h-full flex flex-col py-12 justify-between">
         
-        {/* Header Section */}
-        <div className="flex flex-col items-center w-full mb-12 mt-4 relative">
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00f0ff]/30 to-transparent -z-10" />
+        {/* Header Section matching Live Sidebar */}
+        <div className="flex justify-center w-full mb-12 mt-4 relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-[#e62429]/30 to-transparent -z-10" />
           
-          <div className="bg-[#00f0ff] text-black px-8 py-1.5 text-xs font-black uppercase tracking-[0.4em] mb-4 shadow-[0_0_20px_rgba(0,240,255,0.3)]">
-            Official Standings
+          <div className="flex bg-[#0a0a0a] border-t-[6px] border-[#e62429] shadow-2xl min-w-[600px]">
+            {/* Logo Box */}
+            <div className="w-32 bg-white flex items-center justify-center p-4 relative">
+              <div className="text-black font-black leading-none text-center">
+                <span className="text-5xl tracking-tighter">PAS</span><br/>
+                <span className="text-[10px] tracking-widest text-[#e62429]">SERIES 1</span>
+              </div>
+              <div className="absolute top-0 right-0 bottom-0 w-4 bg-[#e62429]" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
+            </div>
+            
+            {/* Info Box */}
+            <div className="flex-1 flex flex-col justify-center px-8 py-4 bg-[#e62429] text-white text-center">
+              <span className="text-xs font-black uppercase tracking-[0.3em] text-white/80 drop-shadow mb-1">
+                {tournamentName || "OVERALL STANDINGS"}
+              </span>
+              <span className="text-4xl font-black uppercase tracking-tighter drop-shadow-md">
+                LEADERBOARD
+              </span>
+            </div>
           </div>
-          <h1 className="text-7xl font-black text-white tracking-tighter uppercase drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)] px-12 bg-[#040b0e]">
-            {tournamentName || "ARENAX CHAMPIONSHIP"}
-          </h1>
         </div>
         
         {/* Leaderboard Grid */}
         <div className="flex-1 w-full grid grid-cols-2 gap-16 items-start relative">
           
           {[col1, col2].map((col, cIdx) => (
-            <div key={cIdx} className="flex flex-col gap-2 w-full">
+            <div key={cIdx} className="flex flex-col gap-0 w-full bg-black/70 backdrop-blur-md shadow-[0_10px_40px_rgba(0,0,0,0.8)] border border-white/5 border-t-0 pb-1">
               
               {/* Table Headers */}
-              <div className="grid items-center mb-3 px-4 border-b border-white/10 pb-3" 
+              <div className="grid items-center bg-[#e62429] px-4 py-2 shadow-md relative z-10" 
                 style={{ gridTemplateColumns: '3.5rem 1fr 4rem 4rem 4rem 5rem' }}>
-                <span className="text-[11px] font-black text-[#00f0ff] uppercase tracking-widest text-center drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]">Rank</span>
-                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest pl-4">Team Name</span>
-                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">WWCD</span>
-                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">Place</span>
-                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">Kills</span>
-                <span className="text-[11px] font-black text-[#00f0ff] uppercase tracking-widest text-center">Total</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest text-center drop-shadow-md">Rank</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest pl-4 drop-shadow-md">Team Name</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest text-center drop-shadow-md">WWCD</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest text-center drop-shadow-md">Place</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest text-center drop-shadow-md">Kills</span>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest text-center drop-shadow-md">Total</span>
               </div>
               
               {/* Rows */}
@@ -676,18 +690,18 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
                     className={cn(
                       "row-anim grid items-center h-14 bg-gradient-to-r relative overflow-hidden",
                       isTop1 
-                        ? "from-[#00f0ff]/20 to-transparent border-l-[4px] border-[#00f0ff]" 
-                        : "from-white/[0.03] to-transparent border-l-[4px] border-transparent hover:border-white/20 transition-colors"
+                        ? "from-[#e62429]/20 to-transparent border-l-[4px] border-[#e62429]" 
+                        : "from-white/[0.03] to-transparent border-l-[4px] border-transparent hover:bg-white/5 transition-colors border-b border-white/5"
                     )}
                     style={{ animationDelay: `${(cIdx * 8 + rIdx) * 0.05}s`, gridTemplateColumns: '3.5rem 1fr 4rem 4rem 4rem 5rem' }}
                   >
-                    {isTop1 && <div className="absolute inset-0 bg-gradient-to-r from-[#00f0ff]/10 to-transparent animate-pulse" />}
+                    {isTop1 && <div className="absolute inset-0 bg-gradient-to-r from-[#e62429]/10 to-transparent animate-pulse" />}
                     
                     {/* Rank */}
                     <div className="flex items-center justify-center h-full bg-black/40 border-r border-white/5 relative">
                       <span className={cn(
                         "text-xl font-black italic tabular-nums relative z-10",
-                        isTop1 ? "text-[#00f0ff] drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]" : "text-white"
+                        isTop1 ? "text-[#e62429] drop-shadow-[0_0_8px_rgba(230,36,41,0.8)]" : "text-white"
                       )}>
                         {String(team.rank).padStart(2, '0')}
                       </span>
@@ -696,12 +710,12 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
                     {/* Team Name */}
                     <div className="flex items-center pl-5 h-full relative border-r border-white/5">
                       <span className={cn(
-                        "font-black text-2xl tracking-tight uppercase truncate",
+                        "font-black text-2xl tracking-tight uppercase truncate drop-shadow-sm",
                         isTop1 ? "text-white" : "text-white/90"
                       )}>
                         {team.name}
                       </span>
-                      {isTop1 && <Trophy className="w-5 h-5 ml-4 text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.6)]" />}
+                      {isTop1 && <Trophy className="w-5 h-5 ml-4 text-[#e62429] drop-shadow-[0_0_5px_rgba(230,36,41,0.6)]" />}
                     </div>
                     
                     {/* Stats */}
@@ -717,10 +731,10 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
                     
                     {/* Total Points */}
                     <div className="flex items-center justify-center h-full bg-black/60 relative">
-                      {isTop1 && <div className="absolute inset-0 bg-[#00f0ff]/20" />}
+                      {isTop1 && <div className="absolute inset-0 bg-[#e62429]/20" />}
                       <span className={cn(
                         "font-black text-3xl italic tabular-nums relative z-10",
-                        isTop3 ? "text-[#00f0ff] drop-shadow-[0_0_10px_rgba(0,240,255,0.4)]" : "text-white"
+                        isTop3 ? "text-[#e62429] drop-shadow-[0_0_10px_rgba(230,36,41,0.4)]" : "text-white"
                       )}>
                         {String(team.total).padStart(2, '0')}
                       </span>
@@ -736,7 +750,7 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
         {/* Footer */}
         <div className="flex justify-between items-end mt-12 pt-6 border-t border-white/10 relative">
           <div className="flex items-center gap-3 bg-black/50 px-4 py-2 rounded-full border border-white/10">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#00f0ff] animate-pulse shadow-[0_0_10px_rgba(0,240,255,0.8)]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#e62429] animate-pulse shadow-[0_0_10px_rgba(230,36,41,0.8)]" />
             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Live Broadcast Data</span>
           </div>
           
