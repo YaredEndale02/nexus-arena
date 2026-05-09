@@ -56,6 +56,26 @@ const scenes: SceneCard[] = [
     hint: "Standings are computed from all COMPLETED matches. Shows leader badge for the top team.",
     sceneParam: "table",
   },
+  {
+    id: "pubg",
+    label: "PUBG Mobile Leaderboard",
+    description: "Full-screen 16-team leaderboard featuring WWCD, Place, Kills, and Total points. Designed with a premium dark cyan aesthetic.",
+    icon: Tv2,
+    color: "text-cyan-400",
+    glowColor: "bg-cyan-500/10 border-cyan-500/20",
+    hint: "Uses static layout data. Connects via ?scene=pubg parameter.",
+    sceneParam: "pubg",
+  },
+  {
+    id: "pubg-live",
+    label: "PUBG Live Match Sidebar",
+    description: "Left-aligned sidebar showing alive players per team, total teams alive, and kills. Designed with a Red/Black aesthetic for live gameplay.",
+    icon: Radio,
+    color: "text-red-500",
+    glowColor: "bg-red-500/10 border-red-500/20",
+    hint: "Has transparent background for game feed. Connects via ?scene=pubg-live.",
+    sceneParam: "pubg-live",
+  },
 ];
 
 export function TournamentBroadcastTab({ tournament }: { tournament: Tournament }) {

@@ -586,6 +586,339 @@ function IntermissionView({ tournamentName, matches }: { tournamentName: string;
   );
 }
 
+/** Full-screen PUBG Mobile Leaderboard Overlay */
+function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
+  const teams = [
+    { rank: 1, name: "NOVA ESPORTS", wwcd: 3, place: 45, kills: 60, total: 105 },
+    { rank: 2, name: "ALPHA 7", wwcd: 2, place: 40, kills: 55, total: 95 },
+    { rank: 3, name: "VAMPIRE ESPORTS", wwcd: 2, place: 38, kills: 50, total: 88 },
+    { rank: 4, name: "STALWART ESPORTS", wwcd: 1, place: 35, kills: 48, total: 83 },
+    { rank: 5, name: "REJECT", wwcd: 1, place: 32, kills: 45, total: 77 },
+    { rank: 6, name: "D'XAVIER", wwcd: 1, place: 30, kills: 40, total: 70 },
+    { rank: 7, name: "FAZE CLAN", wwcd: 0, place: 28, kills: 41, total: 69 },
+    { rank: 8, name: "BIGETRON RA", wwcd: 0, place: 25, kills: 42, total: 67 },
+    { rank: 9, name: "FOUR ANGRY MEN", wwcd: 0, place: 22, kills: 38, total: 60 },
+    { rank: 10, name: "GODLIKE ESPORTS", wwcd: 0, place: 20, kills: 35, total: 55 },
+    { rank: 11, name: "NIGMA GALAXY", wwcd: 0, place: 18, kills: 32, total: 50 },
+    { rank: 12, name: "TEAM FALCONS", wwcd: 0, place: 15, kills: 30, total: 45 },
+    { rank: 13, name: "GHOST GAMING", wwcd: 0, place: 12, kills: 25, total: 37 },
+    { rank: 14, name: "DRX", wwcd: 0, place: 10, kills: 20, total: 30 },
+    { rank: 15, name: "TEAM SECRET", wwcd: 0, place: 8, kills: 15, total: 23 },
+    { rank: 16, name: "YALLA ESPORTS", wwcd: 0, place: 5, kills: 10, total: 15 },
+  ];
+
+  const col1 = teams.slice(0, 8);
+  const col2 = teams.slice(8, 16);
+
+  return (
+    <div className="fixed inset-0 bg-[#040b0e] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
+      <style>{`
+        .pubg-bg-pattern { 
+          background-image: 
+            linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
+        .row-anim { animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @keyframes fade-in-up { 
+          0% { opacity: 0; transform: translateY(20px); } 
+          100% { opacity: 1; transform: translateY(0); } 
+        }
+        .clip-slant { clip-path: polygon(0 0, 100% 0, 95% 100%, 0% 100%); }
+      `}</style>
+      
+      {/* Background Elements */}
+      <div className="absolute inset-0 pubg-bg-pattern opacity-50" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#040b0e]/90 to-[#040b0e]" />
+      
+      <div className="absolute -top-40 right-[-10%] w-[800px] h-[800px] bg-[#00f0ff] opacity-[0.04] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
+      <div className="absolute -bottom-40 left-[-10%] w-[800px] h-[800px] bg-[#00f0ff] opacity-[0.04] blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
+
+      <div className="relative z-10 w-full max-w-[1700px] px-12 h-full flex flex-col py-12 justify-between">
+        
+        {/* Header Section */}
+        <div className="flex flex-col items-center w-full mb-12 mt-4 relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-gradient-to-r from-transparent via-[#00f0ff]/30 to-transparent -z-10" />
+          
+          <div className="bg-[#00f0ff] text-black px-8 py-1.5 text-xs font-black uppercase tracking-[0.4em] mb-4 shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+            Official Standings
+          </div>
+          <h1 className="text-7xl font-black text-white tracking-tighter uppercase drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)] px-12 bg-[#040b0e]">
+            {tournamentName || "ARENAX CHAMPIONSHIP"}
+          </h1>
+        </div>
+        
+        {/* Leaderboard Grid */}
+        <div className="flex-1 w-full grid grid-cols-2 gap-16 items-start relative">
+          
+          {[col1, col2].map((col, cIdx) => (
+            <div key={cIdx} className="flex flex-col gap-2 w-full">
+              
+              {/* Table Headers */}
+              <div className="grid items-center mb-3 px-4 border-b border-white/10 pb-3" 
+                style={{ gridTemplateColumns: '3.5rem 1fr 4rem 4rem 4rem 5rem' }}>
+                <span className="text-[11px] font-black text-[#00f0ff] uppercase tracking-widest text-center drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]">Rank</span>
+                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest pl-4">Team Name</span>
+                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">WWCD</span>
+                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">Place</span>
+                <span className="text-[11px] font-black text-white/50 uppercase tracking-widest text-center">Kills</span>
+                <span className="text-[11px] font-black text-[#00f0ff] uppercase tracking-widest text-center">Total</span>
+              </div>
+              
+              {/* Rows */}
+              {col.map((team, rIdx) => {
+                const isTop1 = team.rank === 1;
+                const isTop3 = team.rank <= 3;
+                
+                return (
+                  <div 
+                    key={team.rank}
+                    className={cn(
+                      "row-anim grid items-center h-14 bg-gradient-to-r relative overflow-hidden",
+                      isTop1 
+                        ? "from-[#00f0ff]/20 to-transparent border-l-[4px] border-[#00f0ff]" 
+                        : "from-white/[0.03] to-transparent border-l-[4px] border-transparent hover:border-white/20 transition-colors"
+                    )}
+                    style={{ animationDelay: `${(cIdx * 8 + rIdx) * 0.05}s`, gridTemplateColumns: '3.5rem 1fr 4rem 4rem 4rem 5rem' }}
+                  >
+                    {isTop1 && <div className="absolute inset-0 bg-gradient-to-r from-[#00f0ff]/10 to-transparent animate-pulse" />}
+                    
+                    {/* Rank */}
+                    <div className="flex items-center justify-center h-full bg-black/40 border-r border-white/5 relative">
+                      <span className={cn(
+                        "text-xl font-black italic tabular-nums relative z-10",
+                        isTop1 ? "text-[#00f0ff] drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]" : "text-white"
+                      )}>
+                        {String(team.rank).padStart(2, '0')}
+                      </span>
+                    </div>
+                    
+                    {/* Team Name */}
+                    <div className="flex items-center pl-5 h-full relative border-r border-white/5">
+                      <span className={cn(
+                        "font-black text-2xl tracking-tight uppercase truncate",
+                        isTop1 ? "text-white" : "text-white/90"
+                      )}>
+                        {team.name}
+                      </span>
+                      {isTop1 && <Trophy className="w-5 h-5 ml-4 text-[#00f0ff] drop-shadow-[0_0_5px_rgba(0,240,255,0.6)]" />}
+                    </div>
+                    
+                    {/* Stats */}
+                    <div className="flex items-center justify-center h-full border-r border-white/5 font-black text-xl text-white/80 tabular-nums bg-white/[0.01]">
+                      {String(team.wwcd).padStart(2, '0')}
+                    </div>
+                    <div className="flex items-center justify-center h-full border-r border-white/5 font-bold text-xl text-white/60 tabular-nums">
+                      {String(team.place).padStart(2, '0')}
+                    </div>
+                    <div className="flex items-center justify-center h-full border-r border-white/5 font-bold text-xl text-white/60 tabular-nums bg-white/[0.01]">
+                      {String(team.kills).padStart(2, '0')}
+                    </div>
+                    
+                    {/* Total Points */}
+                    <div className="flex items-center justify-center h-full bg-black/60 relative">
+                      {isTop1 && <div className="absolute inset-0 bg-[#00f0ff]/20" />}
+                      <span className={cn(
+                        "font-black text-3xl italic tabular-nums relative z-10",
+                        isTop3 ? "text-[#00f0ff] drop-shadow-[0_0_10px_rgba(0,240,255,0.4)]" : "text-white"
+                      )}>
+                        {String(team.total).padStart(2, '0')}
+                      </span>
+                    </div>
+                    
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        
+        {/* Footer */}
+        <div className="flex justify-between items-end mt-12 pt-6 border-t border-white/10 relative">
+          <div className="flex items-center gap-3 bg-black/50 px-4 py-2 rounded-full border border-white/10">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00f0ff] animate-pulse shadow-[0_0_10px_rgba(0,240,255,0.8)]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Live Broadcast Data</span>
+          </div>
+          
+          <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 flex items-center gap-4">
+            <span>{tournamentName || "ArenaX Championship"}</span>
+            <span className="w-1 h-1 rounded-full bg-white/20" />
+            <span>PUBG Mobile</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Live PUBG Mobile Sidebar Overlay */
+function PubgLiveSidebarView({ tournamentName }: { tournamentName: string }) {
+  const teams = [
+    { rank: 1, name: "TL", alivePlayers: [true, true, true, true], pts: 29, kills: 0 },
+    { rank: 2, name: "FUR", alivePlayers: [true, false, true, true], pts: 28, kills: 1 },
+    { rank: 3, name: "TOYO", alivePlayers: [true, true, true, true], pts: 18, kills: 0 },
+    { rank: 4, name: "FLC", alivePlayers: [true, true, true, true], pts: 18, kills: 0 },
+    { rank: 5, name: "ROC", alivePlayers: [true, true, false, false], pts: 17, kills: 4 },
+    { rank: 6, name: "NW", alivePlayers: [true, true, true, true], pts: 14, kills: 0 },
+    { rank: 7, name: "WOLF", alivePlayers: [true, true, true, true], pts: 13, kills: 0 },
+    { rank: 8, name: "DUEL", alivePlayers: [true, true, true, true], pts: 10, kills: 0 },
+    { rank: 9, name: "GodL", alivePlayers: [true, true, true, true], pts: 8, kills: 0 },
+    { rank: 10, name: "X10", alivePlayers: [false, true, true, true], pts: 8, kills: 0 },
+    { rank: 11, name: "FATE", alivePlayers: [true, true, false, true], pts: 7, kills: 0 },
+    { rank: 12, name: "INSK", alivePlayers: [true, true, true, true], pts: 4, kills: 0 },
+    { rank: 13, name: "BST", alivePlayers: [true, true, true, true], pts: 3, kills: 0 },
+    { rank: 14, name: "BO", alivePlayers: [false, false, false, false], pts: 1, kills: 1 },
+    { rank: 15, name: "NA", alivePlayers: [true, true, true, true], pts: 1, kills: 0 },
+    { rank: 16, name: "FR", alivePlayers: [true, false, false, false], pts: 1, kills: 0 },
+  ];
+
+  const totalTeamsAlive = teams.filter(t => t.alivePlayers.some(a => a)).length;
+  const totalPlayersAlive = teams.reduce((acc, t) => acc + t.alivePlayers.filter(a => a).length, 0);
+
+  return (
+    <div className="fixed inset-0 bg-transparent flex overflow-hidden font-heading select-none text-white p-8">
+      <style>{`
+        .sidebar-anim { animation: slide-in-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .row-stagger { animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        @keyframes slide-in-left { 
+          0% { opacity: 0; transform: translateX(-40px); } 
+          100% { opacity: 1; transform: translateX(0); } 
+        }
+      `}</style>
+      
+      {/* Sidebar Container */}
+      <div className="w-[420px] flex flex-col h-full sidebar-anim">
+        
+        {/* Header section (Red/Black) */}
+        <div className="flex bg-[#0a0a0a] border-t-4 border-[#e62429] shadow-2xl">
+          {/* Logo Box */}
+          <div className="w-24 bg-white flex items-center justify-center p-3 relative">
+            <div className="text-black font-black leading-none text-center">
+              <span className="text-3xl tracking-tighter">PAS</span><br/>
+              <span className="text-[8px] tracking-widest text-[#e62429]">SERIES 1</span>
+            </div>
+            <div className="absolute top-0 right-0 bottom-0 w-3 bg-[#e62429]" style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }} />
+          </div>
+          
+          {/* Match Info Box */}
+          <div className="flex-1 flex flex-col justify-center px-6 py-4 bg-[#e62429] text-white">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/80 drop-shadow">
+              FINALS DAY 1
+            </span>
+            <span className="text-2xl font-black uppercase tracking-tighter drop-shadow-md">
+              MATCH 3
+            </span>
+          </div>
+        </div>
+
+        {/* Global Stats Summary */}
+        <div className="flex justify-between items-center bg-[#111] px-5 py-2.5 border-b border-white/10 shadow-md relative z-10">
+           <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-[#e62429] animate-pulse" />
+             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Teams Alive</span>
+             <span className="font-black text-white text-base ml-1">{totalTeamsAlive}</span>
+           </div>
+           <div className="flex items-center gap-2">
+             <span className="w-2 h-2 rounded-full bg-[#e62429] animate-pulse" />
+             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60">Players Alive</span>
+             <span className="font-black text-white text-base ml-1">{totalPlayersAlive}</span>
+           </div>
+        </div>
+        
+        {/* Table Columns Header */}
+        <div className="flex items-center bg-[#e62429] px-3 py-1.5 shadow-md z-10 relative">
+          <div className="w-10 text-center text-[9px] font-black uppercase tracking-widest">Rank</div>
+          <div className="flex-1 pl-4 text-[9px] font-black uppercase tracking-widest">Team</div>
+          <div className="w-20 text-center text-[9px] font-black uppercase tracking-widest">Alive</div>
+          <div className="w-12 text-center text-[9px] font-black uppercase tracking-widest">Pts</div>
+          <div className="w-12 text-center text-[9px] font-black uppercase tracking-widest">Kills</div>
+        </div>
+        
+        {/* Team Rows Container (Glassmorphism) */}
+        <div className="flex-1 bg-black/70 backdrop-blur-md flex flex-col border border-white/5 border-t-0 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
+          
+          {teams.map((team, rIdx) => {
+            const isEliminated = team.alivePlayers.every(p => !p);
+            
+            return (
+              <div 
+                key={team.rank}
+                className={cn(
+                  "row-stagger flex items-center flex-1 px-3 relative border-b border-white/5",
+                  isEliminated ? "bg-black/90" : "hover:bg-white/5 transition-colors"
+                )}
+                style={{ animationDelay: `${0.1 + (rIdx * 0.03)}s` }}
+              >
+                {/* Active Indicator on Left */}
+                {!isEliminated && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#e62429]" />}
+
+                {/* Rank */}
+                <div className="w-10 text-center">
+                  <span className={cn(
+                    "font-black text-base italic",
+                    isEliminated ? "text-white/20" : "text-white"
+                  )}>
+                    {team.rank}
+                  </span>
+                </div>
+                
+                {/* Team Name */}
+                <div className="flex-1 pl-4 flex items-center">
+                  <span className={cn(
+                    "font-black text-lg tracking-tight uppercase truncate",
+                    isEliminated ? "text-white/30 line-through decoration-[#e62429]/50 decoration-2" : "text-white drop-shadow-sm"
+                  )}>
+                    {team.name}
+                  </span>
+                </div>
+                
+                {/* Alive Players Indicator */}
+                <div className="w-20 flex justify-center gap-1.5 items-center">
+                  {team.alivePlayers.map((isAlive, pIdx) => (
+                    <div 
+                      key={pIdx} 
+                      className={cn(
+                        "w-1.5 h-4 transform -skew-x-12 transition-all duration-300",
+                        isAlive 
+                          ? "bg-white shadow-[0_0_5px_rgba(255,255,255,0.5)]" 
+                          : isEliminated 
+                            ? "bg-transparent" 
+                            : "bg-[#e62429]"
+                      )}
+                    />
+                  ))}
+                </div>
+                
+                {/* PTS */}
+                <div className="w-12 text-center">
+                  <span className={cn(
+                    "font-bold text-base",
+                    isEliminated ? "text-white/30" : "text-white/80"
+                  )}>
+                    {team.pts}
+                  </span>
+                </div>
+                
+                {/* Kills */}
+                <div className="w-12 text-center">
+                  <span className={cn(
+                    "font-bold text-base",
+                    isEliminated ? "text-white/30" : "text-white/80"
+                  )}>
+                    {team.kills}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+      </div>
+    </div>
+  );
+}
+
 export default function BroadcastOverlay() {
   const { id: tournamentId } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -835,6 +1168,12 @@ export default function BroadcastOverlay() {
     }
     if (scene === "table") {
       return <GroupStageTableView tournamentName={tournament?.title || ""} tournamentId={tournamentId!} />;
+    }
+    if (scene === "pubg") {
+      return <PubgLeaderboardView tournamentName={tournament?.title || ""} />;
+    }
+    if (scene === "pubg-live") {
+      return <PubgLiveSidebarView tournamentName={tournament?.title || ""} />;
     }
     return null; // Signals to render the live scene below
   };
