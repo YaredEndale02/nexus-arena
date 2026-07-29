@@ -7,7 +7,7 @@ import { Play, Send, Smile, Trophy, Target, Shield, Coins, Star, TrendingUp, Tre
 import { useAuth } from "@/hooks/useAuth";
 import { useSearchParams } from "react-router-dom";
 import { api, Tournament, MatchReport } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 function StreamPlayer({ tournament }: { tournament: Tournament }) {
   const streamUrl = tournament?.streamUrl || "";
@@ -325,10 +325,12 @@ function ChatWidget({ tournamentId }: { tournamentId: string }) {
   );
 }
 
+
 export default function Live() {
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [searchParams] = useSearchParams();
   const tournamentId = searchParams.get("tournamentId");
+  const queryClient = useQueryClient();
 
   const { data: activeTournaments } = useQuery({
     queryKey: ["active-tournaments"],
@@ -362,6 +364,17 @@ export default function Live() {
     enabled: !!tournament?.id,
     queryFn: () => api.getTournamentStreams(tournament!.id),
   });
+
+  useEffect(() => {
+    if (!tournament?.id) return;
+    const channel = api.subscribeToMatches(tournament.id, () => {
+      queryClient.invalidateQueries({ queryKey: ["tournament-matches", tournament.id] });
+      queryClient.invalidateQueries({ queryKey: ["tournament-standings", tournament.id] });
+    });
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [tournament?.id, queryClient]);
 
   if (isLoading) {
     return (

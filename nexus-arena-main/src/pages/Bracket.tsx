@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { X, Clock, Swords, Loader2, RefreshCw, Wifi } from "lucide-react";
+import { X, Clock, Swords, Loader2, RefreshCw, Wifi, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { cn } from "@/lib/utils";
 import { api, type MatchReport, type Tournament } from "@/lib/api";
@@ -197,6 +197,7 @@ export default function Bracket() {
   const [activeStage, setActiveStage] = useState<"ALL" | "UPPER" | "LOWER" | "GRAND_FINAL">("ALL");
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [foldedRounds, setFoldedRounds] = useState<Set<number>>(new Set());
+  const [zoomLevel, setZoomLevel] = useState(1.0);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const toggleRoundFold = (round: number) => {
@@ -471,6 +472,31 @@ export default function Bracket() {
               </span>
             )}
 
+            {/* Zoom Controls */}
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
+              <button
+                onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.15))}
+                title="Zoom Out"
+                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+              >
+                <ZoomOut className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => setZoomLevel(1.0)}
+                title="Reset Zoom"
+                className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+              >
+                {Math.round(zoomLevel * 100)}%
+              </button>
+              <button
+                onClick={() => setZoomLevel((z) => Math.min(1.6, z + 0.15))}
+                title="Zoom In"
+                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+              >
+                <ZoomIn className="w-3 h-3" />
+              </button>
+            </div>
+
             {/* Manual refresh */}
             <button
               onClick={() => void loadMatches(true)}
@@ -502,7 +528,7 @@ export default function Bracket() {
               No generated bracket yet. Create registrations, then generate the bracket from Tournament Control.
             </div>
           ) : (
-            <div className="space-y-12 pb-12">
+            <div className="space-y-12 pb-12 transition-transform duration-200" style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}>
               <div className="flex items-start gap-8 sm:gap-32 px-4">
                 {upperRounds
                   .filter(r => {
