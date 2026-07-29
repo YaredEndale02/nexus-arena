@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session, Provider } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/integrations/supabase/client";
+import { toAuthEmailCredential, normalizePhoneNumber } from "@/lib/phoneAuth";
 
 export type UserRole = "ADMIN" | "ORGANIZER" | "PLAYER";
 
@@ -12,22 +13,29 @@ export interface User {
   riotId?: string;
   phoneNumber?: string;
   telegramChatId?: string;
+  organizationName?: string;
+  venueLocation?: string;
 }
 
-interface SignUpInput {
-  email: string;
+export interface SignUpInput {
+  identifier: string; // Phone number or Email
   password: string;
   name: string;
   role: Exclude<UserRole, "ADMIN">;
   riotId?: string;
   phoneNumber?: string;
+  organizationName?: string;
+  venueLocation?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (identifier: string, password: string) => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ pendingConfirmation: boolean }>;
+  signInWithProvider: (provider: Provider) => Promise<void>;
+  resetPassword: (identifier: string) => Promise<void>;
+  updateProfile: (updates: { name?: string; phoneNumber?: string; riotId?: string; telegramChatId?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -47,7 +55,6 @@ function requireSupabaseAuth() {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error("Supabase auth is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
   }
-
   return supabase;
 }
 
@@ -119,23 +126,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (identifier: string, password: string) => {
     const client = requireSupabaseAuth();
-    const { error } = await client.auth.signInWithPassword({ email, password });
+    const emailCredential = toAuthEmailCredential(identifier);
+    const { error } = await client.auth.signInWithPassword({ email: emailCredential, password });
     if (error) throw error;
   };
 
   const signUp = async (input: SignUpInput) => {
     const client = requireSupabaseAuth();
+    const emailCredential = toAuthEmailCredential(input.identifier);
+    const phone = input.phoneNumber || (input.identifier.includes("@") ? undefined : normalizePhoneNumber(input.identifier));
+
     const { data, error } = await client.auth.signUp({
-      email: input.email,
+      email: emailCredential,
       password: input.password,
       options: {
         data: {
           name: input.name,
           role: input.role,
           riot_id: input.riotId ?? null,
-          phone_number: input.phoneNumber ?? null,
+          phone_number: phone ?? null,
+          organization_name: input.organizationName ?? null,
+          venue_location: input.venueLocation ?? null,
         },
       },
     });
@@ -149,6 +162,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       pendingConfirmation: !data.session,
     };
+  };
+
+  const signInWithProvider = async (provider: Provider) => {
+    const client = requireSupabaseAuth();
+    const { error } = await client.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  };
+
+  const resetPassword = async (identifier: string) => {
+    const client = requireSupabaseAuth();
+    const emailCredential = toAuthEmailCredential(identifier);
+    const { error } = await client.auth.resetPasswordForEmail(emailCredential, {
+      redirectTo: `${window.location.origin}/settings`,
+    });
+    if (error) throw error;
+  };
+
+  const updateProfile = async (updates: { name?: string; phoneNumber?: string; riotId?: string; telegramChatId?: string }) => {
+    if (!user) return;
+    const client = requireSupabaseAuth();
+
+    const payload: Partial<ProfileRow> = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
+    if (updates.riotId !== undefined) payload.riot_id = updates.riotId;
+    if (updates.telegramChatId !== undefined) payload.telegram_chat_id = updates.telegramChatId;
+
+    const { error } = await client.from("users").update(payload).eq("id", user.id);
+    if (error) throw error;
+
+    setUser((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
   const logout = async () => {
@@ -167,7 +216,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signUp, logout, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        signIn,
+        signUp,
+        signInWithProvider,
+        resetPassword,
+        updateProfile,
+        logout,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

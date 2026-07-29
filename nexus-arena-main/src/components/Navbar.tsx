@@ -2,8 +2,9 @@ import { Link, useLocation } from "react-router-dom";
 import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut, ClipboardCheck, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { AuthPanel } from "@/components/AuthPanel";
+import { AuthModal } from "./AuthModal";
 import { NotificationBell } from "./NotificationBell";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const canManageTournaments = Boolean(user && ["ORGANIZER", "ADMIN"].includes(user.role));
 
   const filteredNavItems = navItems.filter((item) => {
@@ -99,44 +101,48 @@ export function Navbar() {
         {/* User Profile & Notifications */}
         <div className="flex items-center gap-1.5 sm:gap-3">
           <NotificationBell />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-2 py-1 sm:px-3 sm:py-1.5 hover:bg-white/10 transition-colors">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-neon-purple to-primary flex items-center justify-center">
-                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
-                </div>
-                <div className="hidden lg:block text-left">
-                  <p className="text-sm font-semibold text-foreground">{user?.name ?? "Guest"}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {user?.role ?? "Not signed in"}
-                  </p>
-                </div>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {user ? (
-                <>
-                  <DropdownMenuLabel>{user.email}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/settings" className="cursor-pointer">
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <div className="p-2">
-                  <AuthPanel title="Sign in" description="Access your organizer workspace." />
-                </div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-2 py-1 sm:px-3 sm:py-1.5 hover:bg-white/10 transition-colors">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-neon-purple to-primary flex items-center justify-center">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
+                  </div>
+                  <div className="hidden lg:block text-left">
+                    <p className="text-sm font-semibold text-foreground">{user.name}</p>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      {user.role}
+                    </p>
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 glass border-white/10">
+                <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="cursor-pointer">
+                    <BarChart3 className="mr-2 h-4 w-4 text-primary" />
+                    Settings & Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400 cursor-pointer">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="font-bold bg-primary text-primary-foreground text-xs h-9 sm:h-10 px-3 sm:px-4 rounded-xl shadow-lg hover:brightness-110"
+            >
+              <User className="w-4 h-4 mr-1.5" />
+              Sign In / Register
+            </Button>
+          )}
+
+          <AuthModal isOpen={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
         </div>
       </div>
 

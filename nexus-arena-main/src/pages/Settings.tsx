@@ -7,29 +7,35 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { Send, Bell, Shield, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { Send, Bell, Shield, User, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [name, setName] = useState(user?.name || "");
+  const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+  const [riotId, setRiotId] = useState(user?.riotId || "");
   const [telegramId, setTelegramId] = useState(user?.telegramChatId || "");
 
-  const handleUpdateTelegram = async () => {
+  const handleSaveProfile = async () => {
     if (!user) return;
     setIsUpdating(true);
     try {
-      await api.updateUserProfile(user.id, {
-        telegram_chat_id: telegramId,
+      await updateProfile({
+        name,
+        phoneNumber,
+        riotId,
+        telegramChatId: telegramId,
       });
       toast({
-        title: "Settings updated",
-        description: "Your Telegram ID has been saved.",
+        title: "Profile updated",
+        description: "Your gamer profile and contact details have been saved successfully.",
       });
     } catch (error: any) {
       toast({
         title: "Update failed",
-        description: error.message || "Failed to update settings",
+        description: error.message || "Failed to update profile settings",
         variant: "destructive",
       });
     } finally {
@@ -61,11 +67,77 @@ export default function Settings() {
     <Layout>
       <div className="max-w-4xl mx-auto py-10 px-6">
         <div className="mb-8">
-          <h1 className="font-heading text-3xl font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground">Manage your profile and notification preferences.</p>
+          <h1 className="font-heading text-3xl font-bold text-foreground">Settings & Gamer Profile</h1>
+          <p className="text-muted-foreground">Manage your phone number, game tags, and alert preferences.</p>
         </div>
 
         <div className="grid gap-6">
+          {/* Gamer Profile Card */}
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                Gamer Identity & Contact Profile
+              </CardTitle>
+              <CardDescription>
+                Update your display name, phone number, and game tags used for tournament registration.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="prof-name">Display Name / Gamer Tag</Label>
+                  <Input
+                    id="prof-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="bg-white/5 border-white/10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prof-phone">Primary Phone Number</Label>
+                  <Input
+                    id="prof-phone"
+                    placeholder="e.g. 0911223344"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="bg-white/5 border-white/10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prof-riot">Riot ID / In-Game Handle</Label>
+                  <Input
+                    id="prof-riot"
+                    placeholder="e.g. Player#1234"
+                    value={riotId}
+                    onChange={(e) => setRiotId(e.target.value)}
+                    className="bg-white/5 border-white/10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prof-role">Account Role</Label>
+                  <Input
+                    id="prof-role"
+                    value={user?.role ?? "PLAYER"}
+                    disabled
+                    className="bg-white/5 border-white/10 text-muted-foreground uppercase"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSaveProfile}
+                disabled={isUpdating}
+                className="w-full font-bold bg-primary text-primary-foreground mt-2"
+              >
+                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Save Profile Changes
+              </Button>
+            </CardContent>
+          </Card>
           <Card className="glass border-white/10">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -110,7 +182,7 @@ export default function Settings() {
                       onChange={(e) => setTelegramId(e.target.value)}
                       className="bg-white/5 border-white/10"
                     />
-                    <Button onClick={handleUpdateTelegram} disabled={isUpdating}>
+                    <Button onClick={handleSaveProfile} disabled={isUpdating}>
                       {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                     </Button>
                   </div>
