@@ -19,6 +19,11 @@ export interface TournamentValidationInput {
   maxPlayersPerTeam?: number | null;
   entryFee: number;
   prizePool: number;
+  stationCount?: number | null;
+  matchDurationMinutes?: number | null;
+  restGapMinutes?: number | null;
+  tournamentType?: string | null;
+  bracketType?: string | null;
 }
 
 export interface BracketReadinessEntry {
@@ -80,6 +85,18 @@ export function validateTournamentConfiguration(input: TournamentValidationInput
   }
   if (input.entryFee < 0) errors.push("Entry fee cannot be negative.");
   if (input.prizePool < 0) errors.push("Prize pool cannot be negative.");
+
+  if (["LAN", "HYBRID"].includes(input.tournamentType ?? "")) {
+    if (input.stationCount !== undefined && input.stationCount !== null && input.stationCount < 1) {
+      errors.push("Station count for LAN/Hybrid tournaments must be at least 1.");
+    }
+    if (input.matchDurationMinutes !== undefined && input.matchDurationMinutes !== null && input.matchDurationMinutes < 1) {
+      errors.push("Match duration must be at least 1 minute.");
+    }
+    if (input.restGapMinutes !== undefined && input.restGapMinutes !== null && input.restGapMinutes < 0) {
+      errors.push("Rest gap cannot be negative.");
+    }
+  }
 
   return errors;
 }

@@ -118,6 +118,9 @@ export interface SupabaseTournamentRow {
   entry_fee: number;
   currency_code?: string;
   prize_pool: number;
+  station_count?: number | null;
+  match_duration_minutes?: number | null;
+  rest_gap_minutes?: number | null;
   organizer_id: string | null;
   published_at?: string | null;
   stream_url?: string | null;

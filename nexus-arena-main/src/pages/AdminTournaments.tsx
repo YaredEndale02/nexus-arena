@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/hooks/useAuth";
+import { scrollToFocus } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,6 +69,9 @@ type TournamentFormState = {
   waitlistEnabled: boolean;
   visibility: Tournament["visibility"];
   streamUrl: string;
+  stationCount?: number | null;
+  matchDurationMinutes?: number | null;
+  restGapMinutes?: number | null;
 };
 
 type MatchFormState = {
@@ -100,6 +104,9 @@ const createTournamentForm = (): TournamentFormState => ({
   waitlistEnabled: false,
   visibility: "PUBLIC",
   streamUrl: "",
+  stationCount: null,
+  matchDurationMinutes: null,
+  restGapMinutes: null,
 });
 
 const createMatchForm = (): MatchFormState => ({
@@ -297,7 +304,11 @@ export default function AdminTournaments() {
       waitlistEnabled: tournament.waitlistEnabled,
       visibility: tournament.visibility,
       streamUrl: tournament.streamUrl || "",
+      stationCount: tournament.stationCount ?? null,
+      matchDurationMinutes: tournament.matchDurationMinutes ?? null,
+      restGapMinutes: tournament.restGapMinutes ?? null,
     });
+    setTimeout(() => scrollToFocus("tournament-editor-form"), 50);
   };
 
   const saveTournamentEdits = async (tournamentId: string) => {
@@ -322,11 +333,17 @@ export default function AdminTournaments() {
       // 2. Update the live stream link in the dedicated table
       await api.updateTournamentStream(tournamentId, editingForm.streamUrl);
 
+      const oldTournament = managedTournaments.find((t) => t.id === tournamentId);
+      const bracketChanged = oldTournament && oldTournament.bracketType !== editingForm.bracketType;
+      const hasMatches = (matchReports[tournamentId]?.length ?? 0) > 0;
+
       setManagedTournaments((current) => current.map((item) => (item.id === tournamentId ? updated : item)));
       setEditingTournamentId(null);
       toast({
         title: "Tournament updated",
-        description: "Tournament details and stream link were saved successfully.",
+        description: bracketChanged && hasMatches
+          ? "Settings saved. Since bracket format was changed, click 'Reset & Regenerate Bracket' under Bracket Control to generate the new format."
+          : "Tournament details and settings were saved successfully.",
       });
     } catch (error) {
       toast({

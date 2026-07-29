@@ -51,6 +51,9 @@ export interface Tournament {
   status: ApiTournamentStatus;
   organizerId?: string | null;
   streamUrl?: string | null;
+  stationCount?: number | null;
+  matchDurationMinutes?: number | null;
+  restGapMinutes?: number | null;
   gradient?: string;
   _count?: {
     entries: number;
@@ -163,4 +166,7 @@ export type TournamentMutationInput = Pick<
   | "waitlistEnabled"
   | "visibility"
   | "streamUrl"
+  | "stationCount"
+  | "matchDurationMinutes"
+  | "restGapMinutes"
 >;

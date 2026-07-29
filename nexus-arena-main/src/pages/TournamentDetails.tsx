@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ShieldCheck, Trophy, Users, Play } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { RegistrationWizard } from "@/components/RegistrationWizard";
+import { RegistrationCountdown } from "@/components/RegistrationCountdown";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
@@ -172,6 +173,17 @@ export default function TournamentDetails() {
                 {tournament.tournamentType} | {tournament.format}
               </span>
             </div>
+            
+            {tournament.displayStatus === "Registration Open" && (
+              <RegistrationCountdown
+                registrationCloseAt={tournament.registrationCloseAt}
+                registrationOpenAt={tournament.registrationOpenAt}
+                registeredTeams={registeredTeams}
+                maxTeams={tournament.maxTeams}
+                variant="banner"
+                className="mt-4"
+              />
+            )}
           </div>
 
           <Card className="glass border-white/10 lg:w-[360px]">

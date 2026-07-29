@@ -1,5 +1,6 @@
 import { Trophy, Users, DollarSign, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 
 interface StatItemProps {
   icon: React.ReactNode;
@@ -15,8 +16,8 @@ function AnimatedCounter({ value, prefix = "", suffix = "", delay }: { value: nu
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const duration = 1500;
-      const steps = 40;
+      const duration = 1200;
+      const steps = 30;
       const increment = value / steps;
       let current = 0;
       const interval = setInterval(() => {
@@ -59,12 +60,41 @@ function StatItem({ icon, label, value, prefix, suffix, delay }: StatItemProps) 
 }
 
 export function StatsBar() {
+  const [stats, setStats] = useState({
+    activeTournaments: 0,
+    registeredTeams: 0,
+    totalPrizePool: 0,
+    totalMatches: 0,
+  });
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const tournaments = await api.getTournaments();
+        const activeCount = tournaments.filter((t) => ["REGISTRATION_OPEN", "CHECK_IN", "LIVE"].includes(t.status)).length || tournaments.length;
+        const totalPrize = tournaments.reduce((sum, t) => sum + (t.prizePool || 0), 0);
+        const totalTeams = tournaments.reduce((sum, t) => sum + (t.registeredTeams || t._count?.entries || 0), 0);
+        const totalMatches = tournaments.reduce((sum, t) => sum + (t._count?.matches || 0), 0);
+
+        setStats({
+          activeTournaments: activeCount,
+          registeredTeams: totalTeams,
+          totalPrizePool: totalPrize,
+          totalMatches,
+        });
+      } catch (err) {
+        console.error("Failed to load live stats:", err);
+      }
+    }
+    void loadStats();
+  }, []);
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-      <StatItem icon={<Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Active Tournaments" value={24} delay={0} />
-      <StatItem icon={<Users className="w-5 h-5 sm:w-6 sm:h-6 text-neon-purple" />} label="Active Players" value={3847} delay={150} />
-      <StatItem icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />} label="Prize Pool" value={535000} prefix="$" delay={300} />
-      <StatItem icon={<Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Matches Today" value={42} delay={450} />
+      <StatItem icon={<Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Active Tournaments" value={stats.activeTournaments} delay={0} />
+      <StatItem icon={<Users className="w-5 h-5 sm:w-6 sm:h-6 text-neon-purple" />} label="Registered Teams" value={stats.registeredTeams} delay={150} />
+      <StatItem icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />} label="Total Prize Pool" value={stats.totalPrizePool} prefix="$" delay={300} />
+      <StatItem icon={<Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Total Matches" value={stats.totalMatches} delay={450} />
     </div>
   );
 }

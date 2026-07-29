@@ -311,11 +311,64 @@ export default function Bracket() {
         round,
         label: roundMatches[0]?.roundLabel ?? `Round ${round}`,
         matches: roundMatches.sort((a, b) => a.position - b.position),
-      }));
+}));
   };
 
   const upperRounds = useMemo(() => getGroupedRounds('UPPER'), [matches]);
   const lowerRounds = useMemo(() => getGroupedRounds('LOWER'), [matches]);
+  const isGroupFormat = useMemo(() => {
+    return (
+      selectedTournament?.bracketType === "ROUND_ROBIN" ||
+      selectedTournament?.bracketType === "SWISS" ||
+      matches.some((m) => m.bracketSide === "GROUP")
+    );
+  }, [selectedTournament, matches]);
+
+  const standings = useMemo(() => {
+    if (!matches || matches.length === 0) return [];
+    const map = new Map<
+      string,
+      { name: string; mp: number; w: number; l: number; d: number; pts: number; sf: number; sa: number; diff: number }
+    >();
+
+    for (const m of matches) {
+      if (m.team1?.name && m.team1.name !== "TBD" && m.team1.name !== "BYE" && !map.has(m.team1.name)) {
+        map.set(m.team1.name, { name: m.team1.name, mp: 0, w: 0, l: 0, d: 0, pts: 0, sf: 0, sa: 0, diff: 0 });
+      }
+      if (m.team2?.name && m.team2.name !== "TBD" && m.team2.name !== "BYE" && !map.has(m.team2.name)) {
+        map.set(m.team2.name, { name: m.team2.name, mp: 0, w: 0, l: 0, d: 0, pts: 0, sf: 0, sa: 0, diff: 0 });
+      }
+      if (m.status === "Completed" && m.team1?.name && m.team2?.name && m.team1.name !== "BYE" && m.team2.name !== "BYE") {
+        const t1 = map.get(m.team1.name);
+        const t2 = map.get(m.team2.name);
+        const s1 = m.team1.score ?? 0;
+        const s2 = m.team2.score ?? 0;
+        if (t1 && t2) {
+          t1.mp += 1;
+          t2.mp += 1;
+          t1.sf += s1;
+          t1.sa += s2;
+          t1.diff = t1.sf - t1.sa;
+          t2.sf += s2;
+          t2.sa += s1;
+          t2.diff = t2.sf - t2.sa;
+          if (s1 > s2) {
+            t1.w += 1; t1.pts += 3;
+            t2.l += 1;
+          } else if (s2 > s1) {
+            t2.w += 1; t2.pts += 3;
+            t1.l += 1;
+          } else {
+            t1.d += 1; t1.pts += 1;
+            t2.d += 1; t2.pts += 1;
+          }
+        }
+      }
+    }
+
+    return [...map.values()].sort((a, b) => b.pts - a.pts || b.diff - a.diff || b.sf - a.sf || a.name.localeCompare(b.name));
+  }, [matches]);
+
   const grandFinalRounds = useMemo(() => {
     const gf = getGroupedRounds('GRAND_FINAL');
     if (gf.length === 0 && upperRounds.length > 0) {
@@ -517,6 +570,46 @@ export default function Bracket() {
             <RefreshCw className="w-3 h-3 rotate-90" />
             Swipe to view rounds
           </div>
+
+          {/* Standings Table for Round Robin / Swiss / Group Formats */}
+          {isGroupFormat && standings.length > 0 && (
+            <div className="mb-8 rounded-xl border border-white/10 glass p-4 sm:p-6">
+              <h3 className="font-heading text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                Tournament Standings
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-white/10 text-muted-foreground text-xs uppercase tracking-wider">
+                      <th className="py-2 px-3">#</th>
+                      <th className="py-2 px-3">Team</th>
+                      <th className="py-2 px-3 text-center">MP</th>
+                      <th className="py-2 px-3 text-center">W</th>
+                      <th className="py-2 px-3 text-center">L</th>
+                      <th className="py-2 px-3 text-center">D</th>
+                      <th className="py-2 px-3 text-center">PTS</th>
+                      <th className="py-2 px-3 text-center">DIFF</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {standings.map((row, idx) => (
+                      <tr key={row.name} className="hover:bg-white/5 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-primary">{idx + 1}</td>
+                        <td className="py-2.5 px-3 font-semibold text-foreground">{row.name}</td>
+                        <td className="py-2.5 px-3 text-center">{row.mp}</td>
+                        <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">{row.w}</td>
+                        <td className="py-2.5 px-3 text-center text-rose-400">{row.l}</td>
+                        <td className="py-2.5 px-3 text-center text-muted-foreground">{row.d}</td>
+                        <td className="py-2.5 px-3 text-center font-bold text-gold">{row.pts}</td>
+                        <td className="py-2.5 px-3 text-center text-xs font-mono">{row.diff > 0 ? `+${row.diff}` : row.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center text-muted-foreground gap-4">

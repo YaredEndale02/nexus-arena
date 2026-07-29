@@ -1,13 +1,12 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LayoutDashboard, Users, Swords, Settings, Shield } from "lucide-react";
-import { Tournament, MatchReport, TournamentAdminAssignment, TournamentEntry, ApiTournamentStatus } from "@/lib/api";
+import { LayoutDashboard, Users, Swords, Settings, Shield, Radio } from "lucide-react";
 import { TournamentOverviewTab } from "./TournamentOverviewTab";
 import { TournamentPlayersTab } from "./TournamentPlayersTab";
 import { TournamentMatchesTab } from "./TournamentMatchesTab";
 import { TournamentSettingsTab } from "./TournamentSettingsTab";
 import { TournamentStaffTab } from "./TournamentStaffTab";
 import { TournamentBroadcastTab } from "./TournamentBroadcastTab";
-import { Radio } from "lucide-react";
+import { scrollToFocus } from "@/lib/utils";
 
 export function isCheckInRequired(status: string) {
   return ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(status);
@@ -15,8 +14,8 @@ export function isCheckInRequired(status: string) {
 
 export function TournamentManager({
   tournament,
-  userRole,
   userId,
+  userRole,
   entries,
   matches,
   admins,
@@ -58,7 +57,12 @@ export function TournamentManager({
   const canManageDelegation = userRole === "ADMIN" || tournament.organizerId === userId;
 
   return (
-    <Tabs defaultValue="overview" className="w-full space-y-6">
+    <Tabs
+      id="tournament-manager-container"
+      defaultValue="overview"
+      onValueChange={() => setTimeout(() => scrollToFocus("tournament-manager-container"), 50)}
+      className="w-full space-y-6"
+    >
       <div className="overflow-x-auto pb-2 scrollbar-hide">
         <TabsList className="flex w-max min-w-full bg-white/5 border border-white/10 p-1 h-auto gap-1">
           <TabsTrigger value="overview" className="data-[state=active]:bg-primary/20 gap-2 h-10 px-4 whitespace-nowrap"><LayoutDashboard className="w-4 h-4" /> Overview</TabsTrigger>
@@ -147,6 +151,7 @@ export function TournamentManager({
           removeDelegatedStaff={removeDelegatedStaff}
         />
       </TabsContent>
+
       <TabsContent value="broadcast">
         <TournamentBroadcastTab tournament={tournament} />
       </TabsContent>

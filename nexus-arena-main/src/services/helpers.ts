@@ -81,6 +81,9 @@ export function mapTournament(row: SupabaseTournamentRow, entryCount = 0, matchC
     status: row.status as ApiTournamentStatus,
     organizerId: row.organizer_id,
     streamUrl: row.stream_url,
+    stationCount: row.station_count ?? null,
+    matchDurationMinutes: row.match_duration_minutes ?? null,
+    restGapMinutes: row.rest_gap_minutes ?? null,
     registeredTeams: entryCount,
     _count: {
       entries: entryCount,
@@ -137,6 +140,11 @@ export function buildTournamentValidationInput(data: TournamentMutationInput): T
     maxPlayersPerTeam: data.maxPlayersPerTeam ?? null,
     entryFee: data.entryFee,
     prizePool: data.prizePool,
+    stationCount: data.stationCount ?? null,
+    matchDurationMinutes: data.matchDurationMinutes ?? null,
+    restGapMinutes: data.restGapMinutes ?? null,
+    tournamentType: data.tournamentType ?? null,
+    bracketType: data.bracketType ?? null,
   };
 }
 
@@ -159,6 +167,9 @@ export function mergeTournamentInput(base: Tournament, patch: Partial<Tournament
     waitlistEnabled: patch.waitlistEnabled ?? base.waitlistEnabled,
     visibility: patch.visibility ?? base.visibility,
     streamUrl: patch.streamUrl !== undefined ? patch.streamUrl : base.streamUrl ?? null,
+    stationCount: patch.stationCount !== undefined ? patch.stationCount : base.stationCount ?? null,
+    matchDurationMinutes: patch.matchDurationMinutes !== undefined ? patch.matchDurationMinutes : base.matchDurationMinutes ?? null,
+    restGapMinutes: patch.restGapMinutes !== undefined ? patch.restGapMinutes : base.restGapMinutes ?? null,
   };
 }
 
@@ -201,6 +212,9 @@ export function mapTournamentPayload(data: Partial<TournamentMutationInput>) {
   if (data.streamUrl !== undefined) {
     payload.stream_url = data.streamUrl;
   }
+  if (data.stationCount !== undefined) payload.station_count = data.stationCount ?? null;
+  if (data.matchDurationMinutes !== undefined) payload.match_duration_minutes = data.matchDurationMinutes ?? null;
+  if (data.restGapMinutes !== undefined) payload.rest_gap_minutes = data.restGapMinutes ?? null;
 
   return payload;
 }

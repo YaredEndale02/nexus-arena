@@ -92,6 +92,21 @@ export const broadcastService = {
       .subscribe();
   },
 
+  async sendInAppNotification(userId: string, title: string, message: string, type: "MATCH_CALL" | "CHECK_IN" | "ANNOUNCEMENT" | "DISPUTE" | "SYSTEM" = "SYSTEM", link?: string) {
+    const client = requireSupabase();
+    try {
+      await client.from("notifications").insert({
+        user_id: userId,
+        title,
+        message,
+        type,
+        link,
+      });
+    } catch (err) {
+      console.error("Failed to insert in-app notification:", err);
+    }
+  },
+
   async sendTelegramNotification(chatId: string, message: string) {
     const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
     if (!token) {
@@ -118,23 +133,34 @@ export const broadcastService = {
     const client = requireSupabase();
     const { data: users, error } = await client
       .from("users")
-      .select("telegram_chat_id")
-      .not("telegram_chat_id", "is", null);
+      .select("id, telegram_chat_id");
 
-    if (error) {
+    if (error || !users) {
       console.error("Failed to fetch users for broadcast:", error);
       return;
     }
 
     const baseUrl = window.location.origin;
     const tournamentUrl = `${baseUrl}/tournaments/${tournament.id}`;
-    const message = `🏆 <b>New Tournament Alert!</b>\n\n<b>${tournament.title}</b> is now open for registration! Check it out and secure your spot.\n\n<a href="${tournamentUrl}">View Tournament Details</a>`;
+    const telegramMessage = `🏆 <b>New Tournament Alert!</b>\n\n<b>${tournament.title}</b> is now open for registration! Check it out and secure your spot.\n\n<a href="${tournamentUrl}">View Tournament Details</a>`;
 
-    const notifications = users.map((u) =>
-      this.sendTelegramNotification(u.telegram_chat_id, message)
-    );
+    const tasks = users.map(async (u) => {
+      // 1. In-App Notification Bell
+      await this.sendInAppNotification(
+        u.id,
+        "New Tournament Alert",
+        `${tournament.title} is now open for registration!`,
+        "ANNOUNCEMENT",
+        `/tournaments/${tournament.id}`
+      );
 
-    await Promise.allSettled(notifications);
+      // 2. Telegram Bot Notification
+      if (u.telegram_chat_id) {
+        await this.sendTelegramNotification(u.telegram_chat_id, telegramMessage);
+      }
+    });
+
+    await Promise.allSettled(tasks);
   },
 
   async notifyTournamentOrganizers(tournamentId: string, message: string) {
@@ -142,38 +168,47 @@ export const broadcastService = {
     try {
       const { data: admins, error } = await client
         .from("tournament_admins")
-        .select("user_id, users(telegram_chat_id)")
+        .select("user_id, users(id, telegram_chat_id)")
         .eq("tournament_id", tournamentId);
 
       if (error) throw error;
 
-      const chatIds = admins
-        .map((a: any) => {
-          const userData = Array.isArray(a.users) ? a.users[0] : a.users;
-          return userData?.telegram_chat_id;
-        })
-        .filter(Boolean);
+      const userRecords: Array<{ id: string; telegramChatId?: string }> = (admins || []).map((a: any) => {
+        const u = Array.isArray(a.users) ? a.users[0] : a.users;
+        return { id: u?.id || a.user_id, telegramChatId: u?.telegram_chat_id };
+      });
 
       const { data: tournament } = await client
         .from("tournaments")
-        .select("organizer_id, users!organizer_id(telegram_chat_id)")
+        .select("organizer_id, users!organizer_id(id, telegram_chat_id)")
         .eq("id", tournamentId)
         .single();
 
       const organizerUser = Array.isArray(tournament?.users) ? tournament.users[0] : tournament?.users;
-      if (organizerUser?.telegram_chat_id) {
-        chatIds.push(organizerUser.telegram_chat_id);
+      if (organizerUser?.id) {
+        userRecords.push({ id: organizerUser.id, telegramChatId: organizerUser.telegram_chat_id });
       }
 
-      const uniqueChatIds = [...new Set(chatIds)];
+      const uniqueUsers = Array.from(new Map(userRecords.map((item) => [item.id, item])).values());
 
-      const notifications = uniqueChatIds.map((id) =>
-        this.sendTelegramNotification(id, `📢 <b>Organizer Alert</b>\n\n${message}`)
-      );
+      const tasks = uniqueUsers.map(async (u) => {
+        // 1. In-App Notification Bell
+        await this.sendInAppNotification(u.id, "Organizer Alert", message.replace(/<[^>]*>?/gm, ""), "SYSTEM", `/admin/tournaments`);
 
-      await Promise.allSettled(notifications);
+        // 2. Telegram Bot Notification
+        if (u.telegramChatId) {
+          await this.sendTelegramNotification(u.telegramChatId, `📢 <b>Organizer Alert</b>\n\n${message}`);
+        }
+      });
+
+      await Promise.allSettled(tasks);
     } catch (err) {
       console.error("Failed to notify organizers:", err);
     }
+  },
+
+  async notifyMatchCallout(match: any, tournamentTitle: string) {
+    const message = `⚔️ <b>Match Callout: ${tournamentTitle}</b>\n\n<b>${match.team1Name || "Team 1"}</b> vs <b>${match.team2Name || "Team 2"}</b>\nRound: <b>${match.roundLabel || "Match"}</b>\n\nPlease prepare for your upcoming match!`;
+    await this.notifyTournamentOrganizers(match.tournamentId || match.tournament_id, message);
   },
 };

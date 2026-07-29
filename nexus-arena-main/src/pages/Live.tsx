@@ -1,6 +1,5 @@
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { leaderboard, chatMessages, matchStats } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 import { Play, Send, Smile, Trophy, Target, Shield, Coins, Star, TrendingUp, TrendingDown, Loader2 } from "lucide-react";

@@ -16,6 +16,10 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
   const [form, setForm] = useState({
     title: "",
     gameTitle: "",
+    bracketType: "SINGLE_ELIMINATION" as "SINGLE_ELIMINATION" | "DOUBLE_ELIMINATION" | "ROUND_ROBIN" | "SWISS" | "GROUP_STAGE",
+    tournamentType: "ONLINE" as "ONLINE" | "LAN" | "HYBRID",
+    maxTeams: 16,
+    stationCount: 4,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,13 +31,14 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
         title: form.title,
         gameTitle: form.gameTitle,
         format: "TEAM",
-        bracketType: "SINGLE_ELIMINATION",
-        tournamentType: "ONLINE",
+        bracketType: form.bracketType,
+        tournamentType: form.tournamentType,
+        stationCount: ["LAN", "HYBRID"].includes(form.tournamentType) ? form.stationCount : undefined,
         rules: "",
         startDate: new Date(Date.now() + 86400000).toISOString(),
         registrationOpenAt: new Date().toISOString(),
         registrationCloseAt: new Date(Date.now() + 86400000).toISOString(),
-        maxTeams: 16,
+        maxTeams: form.maxTeams,
         minPlayersPerTeam: 1,
         maxPlayersPerTeam: 5,
         entryFee: 0,
@@ -60,7 +65,7 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
           Create Tournament
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] glass border-white/10">
+      <DialogContent className="sm:max-w-[480px] glass border-white/10">
         <DialogHeader>
           <DialogTitle>Create New Tournament</DialogTitle>
           <DialogDescription>
@@ -96,6 +101,46 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
               ))}
             </datalist>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Bracket Format</Label>
+              <select
+                value={form.bracketType}
+                onChange={e => setForm({...form, bracketType: e.target.value as any})}
+                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+              >
+                <option value="SINGLE_ELIMINATION">Single Elimination</option>
+                <option value="DOUBLE_ELIMINATION">Double Elimination</option>
+                <option value="ROUND_ROBIN">Round Robin</option>
+                <option value="SWISS">Swiss System</option>
+                <option value="GROUP_STAGE">Group Stage + Knockout</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Event Type</Label>
+              <select
+                value={form.tournamentType}
+                onChange={e => setForm({...form, tournamentType: e.target.value as any})}
+                className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+              >
+                <option value="ONLINE">Online</option>
+                <option value="LAN">LAN Event</option>
+                <option value="HYBRID">Hybrid</option>
+              </select>
+            </div>
+          </div>
+          {["LAN", "HYBRID"].includes(form.tournamentType) && (
+            <div className="space-y-2">
+              <Label>Stations / PC Setups</Label>
+              <Input
+                type="number"
+                value={form.stationCount}
+                onChange={e => setForm({...form, stationCount: Number(e.target.value)})}
+                placeholder="Number of parallel setups"
+                className="bg-white/5 border-white/10"
+              />
+            </div>
+          )}
           <div className="pt-4 flex justify-end gap-2">
             <Button type="button" variant="outline" className="border-white/10" onClick={() => setOpen(false)}>
               Cancel

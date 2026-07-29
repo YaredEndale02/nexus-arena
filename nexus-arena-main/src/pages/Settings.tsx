@@ -126,6 +126,63 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {/* Notification Preferences Matrix */}
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-primary" />
+                Notification Channels & Alert Types
+              </CardTitle>
+              <CardDescription>
+                Customize which live updates trigger instant push and Telegram notifications.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {[
+                  {
+                    id: "match-calls",
+                    label: "Match Calls & Station Assignments",
+                    desc: "Receive instant alerts when your match is called and assigned to a LAN station or server lobby.",
+                    enabled: true,
+                  },
+                  {
+                    id: "check-in",
+                    label: "Check-In & Registration Open Reminders",
+                    desc: "Get notified as soon as tournament check-in opens so your team doesn't lose its spot.",
+                    enabled: true,
+                  },
+                  {
+                    id: "announcements",
+                    label: "Tournament Announcements & Results",
+                    desc: "Recieve stage advancement updates, winner callouts, and broadcast stream links.",
+                    enabled: true,
+                  },
+                  {
+                    id: "disputes",
+                    label: "Referee Score Conflict Alerts (Organizers Only)",
+                    desc: "Receive instant alerts when opposing teams submit conflicting match scores.",
+                    enabled: user?.role === "ADMIN" || user?.role === "ORGANIZER",
+                  },
+                ].map((pref) => (
+                  <div
+                    key={pref.id}
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-white/5"
+                  >
+                    <div className="space-y-0.5 max-w-lg">
+                      <p className="text-sm font-bold text-foreground">{pref.label}</p>
+                      <p className="text-xs text-muted-foreground">{pref.desc}</p>
+                    </div>
+
+                    <span className="text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1 rounded-full uppercase tracking-wider">
+                      Active
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="glass border-white/10 opacity-50 pointer-events-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { Users, Calendar, DollarSign, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { RegistrationWizard } from "./RegistrationWizard";
+import { RegistrationCountdown } from "./RegistrationCountdown";
 
 const statusColors: Record<string, string> = {
   Live: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -92,9 +93,14 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
                 style={{ width: `${fillPct}%` }}
               />
             </div>
-            {spotsLeft > 0 && spotsLeft <= 5 && (
-              <p className="text-[10px] font-bold text-primary mt-1.5 uppercase tracking-wider">{spotsLeft} SPOTS LEFT!</p>
-            )}
+            <RegistrationCountdown
+              registrationCloseAt={tournament.registrationCloseAt}
+              registrationOpenAt={tournament.registrationOpenAt}
+              registeredTeams={registeredTeams}
+              maxTeams={tournament.maxTeams}
+              variant="card"
+              className="mt-2"
+            />
             {isFull && !tournament.isUserRegistered && (
               <p className="text-[10px] font-bold text-amber-400 mt-1.5 uppercase tracking-wider">
                 {tournament.waitlistEnabled ? "Waitlist Available" : "Tournament Full"}

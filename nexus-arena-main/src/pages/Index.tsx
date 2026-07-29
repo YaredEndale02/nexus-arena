@@ -4,47 +4,9 @@ import { StatsBar } from "@/components/StatsBar";
 import { TournamentCard } from "@/components/TournamentCard";
 import { api, Tournament } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-import { tournaments as mockTournaments } from "@/data/mockData";
 import { Trophy, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
 
-const fallbackStatusMap: Record<string, Tournament["status"]> = {
-  "Registration Open": "REGISTRATION_OPEN",
-  Upcoming: "REGISTRATION_CLOSED",
-  Live: "LIVE",
-  Completed: "COMPLETED",
-};
-
-const fallbackDisplayStatusMap: Record<string, NonNullable<Tournament["displayStatus"]>> = {
-  "Registration Open": "Registration Open",
-  Upcoming: "Registration Closed",
-  Live: "Live",
-  Completed: "Completed",
-};
-
-const fallbackTournaments: Tournament[] = mockTournaments.map((tournament) => ({
-  id: tournament.id,
-  title: tournament.title,
-  gameTitle: tournament.gameTitle,
-  format: "TEAM",
-  tournamentType: "ONLINE",
-  rules: null,
-  startDate: tournament.startDate,
-  registrationOpenAt: null,
-  registrationCloseAt: null,
-  maxTeams: tournament.maxTeams,
-  minPlayersPerTeam: 5,
-  maxPlayersPerTeam: 5,
-  entryFee: tournament.entryFee,
-  prizePool: tournament.prizePool,
-  waitlistEnabled: false,
-  visibility: "PUBLIC",
-  bracketType: "SINGLE_ELIMINATION",
-  status: (fallbackStatusMap[tournament.status] ?? "DRAFT") as any,
-  registeredTeams: tournament.registeredTeams,
-  gradient: tournament.gradient,
-  displayStatus: (fallbackDisplayStatusMap[tournament.status] ?? "Draft") as any,
-  streamUrl: null,
-}));
+const fallbackTournaments: Tournament[] = [];
 
 const Index = () => {
   const [tournamentList, setTournamentList] = useState<Tournament[]>([]);

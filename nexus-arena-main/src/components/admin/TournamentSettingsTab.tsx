@@ -7,6 +7,8 @@ import { Tournament } from "@/lib/api";
 import { TournamentValidationInput } from "@/lib/tournamentLifecycle";
 import { DEFAULT_GAMES } from "@/lib/games";
 
+import { scrollToFocus } from "@/lib/utils";
+
 export function TournamentSettingsTab({
   tournament,
   isEditing,
@@ -16,6 +18,7 @@ export function TournamentSettingsTab({
   saveTournamentEdits,
   setEditingTournamentId,
   deleteTournament,
+  restartTournament,
 }: {
   tournament: Tournament;
   isEditing: boolean;
@@ -28,7 +31,7 @@ export function TournamentSettingsTab({
   restartTournament: (id: string) => void;
 }) {
   return (
-    <div className="space-y-6 outline-none">
+    <div id="tournament-editor-form" className="space-y-6 outline-none">
       <Card className="glass border-white/10">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -36,7 +39,14 @@ export function TournamentSettingsTab({
             <CardDescription>Update tournament details and rules.</CardDescription>
           </div>
           {!isEditing && (
-            <Button variant="outline" className="border-white/10" onClick={() => setEditingTournamentId(tournament.id)}>
+            <Button
+              variant="outline"
+              className="border-white/10"
+              onClick={() => {
+                setEditingTournamentId(tournament.id);
+                setTimeout(() => scrollToFocus("tournament-editor-form"), 50);
+              }}
+            >
               <Edit className="w-4 h-4 mr-2" />
               Edit Settings
             </Button>
@@ -83,6 +93,9 @@ export function TournamentSettingsTab({
                 >
                   <option value="SINGLE_ELIMINATION">Single Elimination</option>
                   <option value="DOUBLE_ELIMINATION">Double Elimination</option>
+                  <option value="ROUND_ROBIN">Round Robin</option>
+                  <option value="SWISS">Swiss System</option>
+                  <option value="GROUP_STAGE">Group Stage + Knockout</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -97,6 +110,37 @@ export function TournamentSettingsTab({
                   <option value="HYBRID">Hybrid</option>
                 </select>
               </div>
+              {["LAN", "HYBRID"].includes(editingForm.tournamentType || "") && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Stations / PC Setups</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 4"
+                      value={editingForm.stationCount || ""}
+                      onChange={(e) => setEditingForm((current: any) => ({ ...current, stationCount: e.target.value ? Number(e.target.value) : null }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Match Duration (Minutes)</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 30"
+                      value={editingForm.matchDurationMinutes || ""}
+                      onChange={(e) => setEditingForm((current: any) => ({ ...current, matchDurationMinutes: e.target.value ? Number(e.target.value) : null }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Rest Gap (Minutes)</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 10"
+                      value={editingForm.restGapMinutes || ""}
+                      onChange={(e) => setEditingForm((current: any) => ({ ...current, restGapMinutes: e.target.value ? Number(e.target.value) : null }))}
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-2">
                 <Label>Start Date</Label>
                 <Input type="datetime-local" value={editingForm.startDate} onChange={(e) => setEditingForm((current: any) => ({ ...current, startDate: e.target.value }))} />

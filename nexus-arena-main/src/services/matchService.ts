@@ -1,6 +1,9 @@
 import type { SupabaseMatchRow, SupabaseTeamRow, SupabaseTournamentStageRow } from "@/integrations/supabase/types";
 import { assertValidMatchScores } from "@/lib/tournamentLifecycle";
 import { createBracketSlots } from "@/lib/bracketSeeding";
+import { generateRoundRobinRounds } from "@/lib/roundRobinGenerator";
+import { generateSwissPairings } from "@/lib/swissPairing";
+import { scheduleMatches } from "@/lib/matchScheduler";
 import type { AppUserPayload, MatchReport } from "./types";
 import {
   auditLog,
@@ -92,22 +95,6 @@ export const matchService = {
 
     const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
 
-    const isDoubleElim = ((tournament as unknown as Record<string, unknown>).bracketType) === "DOUBLE_ELIMINATION";
-
-    const { data: stage, error: stageError } = await client
-      .from("tournament_stages")
-      .insert({
-        tournament_id: tournamentId,
-        name: isDoubleElim ? "Double Elimination" : "Main Bracket",
-        stage_order: 1,
-        stage_type: "MAIN",
-        format: isDoubleElim ? "DOUBLE_ELIMINATION" : "SINGLE_ELIMINATION",
-        best_of: 1,
-      })
-      .select("*")
-      .single();
-    if (stageError) throw stageError;
-
     const eligibleEntries = uniqueEntryRows
       .filter((entry) => !requireCheckIn || entry.check_in_status === "CHECKED_IN")
       .map((entry) => {
@@ -126,91 +113,290 @@ export const matchService = {
       throw new Error("At least 2 eligible teams are required to generate a bracket");
     }
 
-    const teamCount = eligibleEntries.length;
-    const bracketSize = nextPowerOfTwo(teamCount);
-    const totalRounds = Math.log2(bracketSize);
+    const bracketType = (tournament.bracket_type as string) || "SINGLE_ELIMINATION";
+    let insertedMatches: SupabaseMatchRow[] = [];
 
-    const slots = createBracketSlots(
-      eligibleEntries.map((e) => ({
-        teamId: e.team.id,
-        teamName: e.team.name,
-        seedNumber: e.seedNumber,
-        createdAt: e.createdAt,
-      })),
-      bracketSize
-    );
-
-    const matchGrid: Record<string, any> = {};
-
-    for (let r = 1; r <= totalRounds; r++) {
-      const matchCountInRound = bracketSize / Math.pow(2, r);
-      for (let pos = 1; pos <= matchCountInRound; pos++) {
-        matchGrid[`${r}-${pos}`] = {
+    if (bracketType === "ROUND_ROBIN") {
+      const { data: stage, error: stageError } = await client
+        .from("tournament_stages")
+        .insert({
           tournament_id: tournamentId,
-          stage_id: (stage as SupabaseTournamentStageRow).id,
-          round_label: createRoundLabel(r, totalRounds),
-          round_number: r,
-          position_in_round: pos,
-          bracket_side: "UPPER",
-          status: "SCHEDULED",
-          team1_id: null,
-          team1_name: "TBD",
-          team2_id: null,
-          team2_name: "TBD",
-        };
-      }
-    }
+          name: "Round Robin Stage",
+          stage_order: 1,
+          stage_type: "GROUP",
+          format: "ROUND_ROBIN",
+          best_of: 1,
+        })
+        .select("*")
+        .single();
+      if (stageError) throw stageError;
 
-    const r1ActiveMatches = new Set<string>();
+      const rrRounds = generateRoundRobinRounds(eligibleEntries.length);
+      const matchesToInsert: any[] = [];
 
-    for (let i = 0; i < bracketSize; i += 2) {
-      const pos = i / 2 + 1;
-      const t1 = slots[i];
-      const t2 = slots[i + 1];
-      const matchKey = `1-${pos}`;
-      const match = matchGrid[matchKey];
-
-      if (t1 && t2) {
-        match.team1_id = t1.teamId;
-        match.team1_name = cleanName(t1.teamName);
-        match.team2_id = t2.teamId;
-        match.team2_name = cleanName(t2.teamName);
-        r1ActiveMatches.add(matchKey);
-      } else if (t1 || t2) {
-        const winner = t1 || t2;
-        const nextRound = 2;
-        const nextPos = Math.ceil(pos / 2);
-        const nextSlot = pos % 2 === 1 ? "team1" : "team2";
-        const nextMatchKey = `${nextRound}-${nextPos}`;
-
-        if (matchGrid[nextMatchKey]) {
-          matchGrid[nextMatchKey][`${nextSlot}_id`] = winner?.teamId;
-          matchGrid[nextMatchKey][`${nextSlot}_name`] = cleanName(winner?.teamName || "BYE");
+      for (const round of rrRounds) {
+        let pos = 1;
+        for (const match of round.matches) {
+          const t1 = eligibleEntries[match.team1Index];
+          const t2 = eligibleEntries[match.team2Index];
+          matchesToInsert.push({
+            tournament_id: tournamentId,
+            stage_id: (stage as SupabaseTournamentStageRow).id,
+            round_label: `Round ${round.round}`,
+            round_number: round.round,
+            position_in_round: pos++,
+            bracket_side: "GROUP",
+            status: "SCHEDULED",
+            team1_id: t1.team.id,
+            team1_name: cleanName(t1.team.name),
+            team2_id: t2.team.id,
+            team2_name: cleanName(t2.team.name),
+          });
         }
       }
+
+      const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
+      if (insertError) throw insertError;
+      insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
+    } else if (bracketType === "SWISS") {
+      const { data: stage, error: stageError } = await client
+        .from("tournament_stages")
+        .insert({
+          tournament_id: tournamentId,
+          name: "Swiss Stage",
+          stage_order: 1,
+          stage_type: "MAIN",
+          format: "SWISS",
+          best_of: 1,
+        })
+        .select("*")
+        .single();
+      if (stageError) throw stageError;
+
+      const standings = eligibleEntries.map((e) => ({
+        teamId: e.team.id,
+        teamName: cleanName(e.team.name),
+        points: 0,
+        matchesPlayed: 0,
+        buchholz: 0,
+        headToHead: new Map<string, number>(),
+        hadBye: false,
+      }));
+
+      const round1 = generateSwissPairings(standings, new Set(), 1);
+      const matchesToInsert: any[] = [];
+      let pos = 1;
+
+      for (const match of round1.pairings) {
+        matchesToInsert.push({
+          tournament_id: tournamentId,
+          stage_id: (stage as SupabaseTournamentStageRow).id,
+          round_label: "Round 1",
+          round_number: 1,
+          position_in_round: pos++,
+          bracket_side: "UPPER",
+          status: "SCHEDULED",
+          team1_id: match.team1Id,
+          team1_name: match.team1Name,
+          team2_id: match.team2Id,
+          team2_name: match.team2Name,
+        });
+      }
+
+      const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
+      if (insertError) throw insertError;
+      insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
+    } else if (bracketType === "GROUP_STAGE") {
+      const groupCount = Math.min(4, Math.max(2, Math.floor(eligibleEntries.length / 2)));
+      const groupLabels = ["Group A", "Group B", "Group C", "Group D"].slice(0, groupCount);
+      const matchesToInsert: any[] = [];
+
+      const { data: stage, error: stageError } = await client
+        .from("tournament_stages")
+        .insert({
+          tournament_id: tournamentId,
+          name: "Group Stage",
+          stage_order: 1,
+          stage_type: "GROUP",
+          format: "GROUP_STAGE",
+          best_of: 1,
+        })
+        .select("*")
+        .single();
+      if (stageError) throw stageError;
+
+      // Distribute teams snake-style into groups
+      const groups: typeof eligibleEntries[] = Array.from({ length: groupCount }, () => []);
+      eligibleEntries.forEach((entry, idx) => {
+        const groupIdx = idx % groupCount;
+        groups[groupIdx].push(entry);
+      });
+
+      // Generate round robin per group
+      groups.forEach((groupTeams, gIdx) => {
+        const gLabel = groupLabels[gIdx];
+        const rrRounds = generateRoundRobinRounds(groupTeams.length);
+
+        for (const round of rrRounds) {
+          let pos = 1;
+          for (const match of round.matches) {
+            const t1 = groupTeams[match.team1Index];
+            const t2 = groupTeams[match.team2Index];
+            matchesToInsert.push({
+              tournament_id: tournamentId,
+              stage_id: (stage as SupabaseTournamentStageRow).id,
+              round_label: `${gLabel} R${round.round}`,
+              round_number: round.round,
+              position_in_round: pos++,
+              bracket_side: gLabel,
+              status: "SCHEDULED",
+              team1_id: t1.team.id,
+              team1_name: cleanName(t1.team.name),
+              team2_id: t2.team.id,
+              team2_name: cleanName(t2.team.name),
+            });
+          }
+        }
+      });
+
+      const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
+      if (insertError) throw insertError;
+      insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
+    } else {
+      // Single or Double Elimination
+      const isDoubleElim = bracketType === "DOUBLE_ELIMINATION";
+
+      const { data: stage, error: stageError } = await client
+        .from("tournament_stages")
+        .insert({
+          tournament_id: tournamentId,
+          name: isDoubleElim ? "Double Elimination" : "Main Bracket",
+          stage_order: 1,
+          stage_type: "MAIN",
+          format: isDoubleElim ? "DOUBLE_ELIMINATION" : "SINGLE_ELIMINATION",
+          best_of: 1,
+        })
+        .select("*")
+        .single();
+      if (stageError) throw stageError;
+
+      const teamCount = eligibleEntries.length;
+      const bracketSize = nextPowerOfTwo(teamCount);
+      const totalRounds = Math.log2(bracketSize);
+
+      const slots = createBracketSlots(
+        eligibleEntries.map((e) => ({
+          teamId: e.team.id,
+          teamName: e.team.name,
+          seedNumber: e.seedNumber,
+          createdAt: e.createdAt,
+        })),
+        bracketSize
+      );
+
+      const matchGrid: Record<string, any> = {};
+
+      for (let r = 1; r <= totalRounds; r++) {
+        const matchCountInRound = bracketSize / Math.pow(2, r);
+        for (let pos = 1; pos <= matchCountInRound; pos++) {
+          matchGrid[`${r}-${pos}`] = {
+            tournament_id: tournamentId,
+            stage_id: (stage as SupabaseTournamentStageRow).id,
+            round_label: createRoundLabel(r, totalRounds),
+            round_number: r,
+            position_in_round: pos,
+            bracket_side: "UPPER",
+            status: "SCHEDULED",
+            team1_id: null,
+            team1_name: "TBD",
+            team2_id: null,
+            team2_name: "TBD",
+          };
+        }
+      }
+
+      const r1ActiveMatches = new Set<string>();
+
+      for (let i = 0; i < bracketSize; i += 2) {
+        const pos = i / 2 + 1;
+        const t1 = slots[i];
+        const t2 = slots[i + 1];
+        const matchKey = `1-${pos}`;
+        const match = matchGrid[matchKey];
+
+        if (t1 && t2) {
+          match.team1_id = t1.teamId;
+          match.team1_name = cleanName(t1.teamName);
+          match.team2_id = t2.teamId;
+          match.team2_name = cleanName(t2.teamName);
+          r1ActiveMatches.add(matchKey);
+        } else if (t1 || t2) {
+          const winner = t1 || t2;
+          const nextRound = 2;
+          const nextPos = Math.ceil(pos / 2);
+          const nextSlot = pos % 2 === 1 ? "team1" : "team2";
+          const nextMatchKey = `${nextRound}-${nextPos}`;
+
+          if (matchGrid[nextMatchKey]) {
+            matchGrid[nextMatchKey][`${nextSlot}_id`] = winner?.teamId;
+            matchGrid[nextMatchKey][`${nextSlot}_name`] = cleanName(winner?.teamName || "BYE");
+          }
+        }
+      }
+
+      const matchesToInsert: any[] = [];
+
+      r1ActiveMatches.forEach((key) => {
+        matchesToInsert.push(matchGrid[key]);
+      });
+
+      for (let r = 2; r <= totalRounds; r++) {
+        const matchCountInRound = bracketSize / Math.pow(2, r);
+        for (let pos = 1; pos <= matchCountInRound; pos++) {
+          matchesToInsert.push(matchGrid[`${r}-${pos}`]);
+        }
+      }
+
+      const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
+      if (insertError) throw insertError;
+      insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
     }
 
-    const matchesToInsert: any[] = [];
+    // Auto-schedule for LAN / HYBRID tournaments if station_count is provided
+    if (["LAN", "HYBRID"].includes(tournament.tournament_type as string) && tournament.station_count) {
+      try {
+        const schedulable = insertedMatches.map((m) => ({
+          id: m.id,
+          roundNumber: m.round_number ?? 1,
+          team1Id: m.team1_id ?? null,
+          team2Id: m.team2_id ?? null,
+        }));
+        const scheduleResult = scheduleMatches(schedulable, {
+          stationCount: tournament.station_count,
+          matchDurationMinutes: tournament.match_duration_minutes || 30,
+          restGapMinutes: tournament.rest_gap_minutes || 10,
+          startTime: new Date(tournament.start_date),
+        });
 
-    r1ActiveMatches.forEach((key) => {
-      matchesToInsert.push(matchGrid[key]);
-    });
+        for (const sm of scheduleResult.scheduledMatches) {
+          await client
+            .from("matches")
+            .update({ scheduled_at: sm.scheduledAt.toISOString() })
+            .eq("id", sm.id);
 
-    for (let r = 2; r <= totalRounds; r++) {
-      const matchCountInRound = bracketSize / Math.pow(2, r);
-      for (let pos = 1; pos <= matchCountInRound; pos++) {
-        matchesToInsert.push(matchGrid[`${r}-${pos}`]);
+          const found = insertedMatches.find((m) => m.id === sm.id);
+          if (found) {
+            found.scheduled_at = sm.scheduledAt.toISOString();
+          }
+        }
+      } catch (err) {
+        console.error("Auto-scheduling failed:", err);
       }
     }
 
-    const { data: insertedMatches, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
-    if (insertError) throw insertError;
+    await auditLog(client, actor.id, "TOURNAMENT", tournamentId, "GENERATE_BRACKET", { matchCount: insertedMatches.length });
 
-    const finalMatches = (insertedMatches ?? []) as SupabaseMatchRow[];
-
-    await auditLog(client, actor.id, "TOURNAMENT", tournamentId, "GENERATE_BRACKET", { matchCount: finalMatches.length });
-
-    return finalMatches.map(mapMatch);
+    return insertedMatches.map(mapMatch);
   },
 
   async createMatchReport(
