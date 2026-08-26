@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ShieldCheck, Trophy, Users, Play } from "lucide-react";
+import { AlertTriangle, CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ScrollText, ShieldCheck, Trophy, Users, Play } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { RegistrationWizard } from "@/components/RegistrationWizard";
 import { RegistrationCountdown } from "@/components/RegistrationCountdown";
@@ -183,6 +183,35 @@ export default function TournamentDetails() {
                 variant="banner"
                 className="mt-4"
               />
+            )}
+          </div>
+
+          {/* Pay-at-check-in banner */}
+          {tournament.entryFee > 0 && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                This tournament has an entry fee of{" "}
+                <span className="font-bold text-amber-200">${tournament.entryFee}</span>.{" "}
+                Payment is collected manually by the organizer at check-in.
+              </span>
+            </div>
+          )}
+
+          {/* Rules — always visible above the fold */}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <h2 className="font-heading text-xl font-bold mb-3 flex items-center gap-2">
+              <ScrollText className="w-5 h-5 text-primary" />
+              Tournament Rules
+            </h2>
+            {tournament.rules?.trim() ? (
+              <p className="text-sm leading-7 text-muted-foreground whitespace-pre-wrap">
+                {tournament.rules.trim()}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                Rules will be posted by the organizer before the tournament begins.
+              </p>
             )}
           </div>
 

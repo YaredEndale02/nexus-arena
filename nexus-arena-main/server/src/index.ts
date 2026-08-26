@@ -4,6 +4,7 @@ import cors from 'cors';
 import tournamentRoutes from './routes/tournaments';
 import teamRoutes from './routes/teams';
 import webhookRoutes from './routes/webhooks';
+import notifyRoutes from './routes/notify';
 import { pollTelegram } from './services/telegramPolling';
 
 const app = express();
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/webhooks/telegram', webhookRoutes);
+app.use('/api/notify', notifyRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', server: 'running' });

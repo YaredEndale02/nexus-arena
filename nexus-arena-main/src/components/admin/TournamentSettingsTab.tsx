@@ -167,7 +167,9 @@ export function TournamentSettingsTab({
               </div>
               <div className="space-y-2">
                 <Label>Entry Fee</Label>
-                <Input type="number" value={editingForm.entryFee} onChange={(e) => setEditingForm((current: any) => ({ ...current, entryFee: Number(e.target.value) }))} />
+                <div className="flex h-10 w-full items-center rounded-md border border-white/5 bg-white/5 px-3 py-2 text-sm text-muted-foreground cursor-not-allowed select-none">
+                  $0 — Free only (payment gateway coming soon)
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Prize Pool</Label>

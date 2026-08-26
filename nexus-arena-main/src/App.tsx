@@ -14,6 +14,8 @@ import TournamentDetails from "./pages/TournamentDetails.tsx";
 import Teams from "./pages/Teams.tsx";
 import Settings from "./pages/Settings.tsx";
 import BroadcastOverlay from "./pages/BroadcastOverlay.tsx";
+import AuthConfirm from "./pages/AuthConfirm.tsx";
+import AuthResetPassword from "./pages/AuthResetPassword.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="/bracket" element={<Bracket />} />
             <Route path="/live" element={<Live />} />
             <Route path="/broadcast/:id" element={<BroadcastOverlay />} />
+            <Route path="/auth/confirm" element={<AuthConfirm />} />
+            <Route path="/auth/reset-password" element={<AuthResetPassword />} />
             <Route
               path="/teams"
               element={

@@ -108,21 +108,13 @@ export const broadcastService = {
   },
 
   async sendTelegramNotification(chatId: string, message: string) {
-    const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    if (!token) {
-      console.warn("Telegram Token missing. Skipping notification.");
-      return;
-    }
-
+    // Proxy through the Express server so the bot token is never in the client bundle.
+    const base = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
     try {
-      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      await fetch(`${base}/api/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: message,
-          parse_mode: "HTML",
-        }),
+        body: JSON.stringify({ chatId, message }),
       });
     } catch (err) {
       console.error("Telegram delivery failed:", err);

@@ -3,10 +3,21 @@ import { Link } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { api, type MyRegistration } from "@/lib/api";
-import { CalendarDays, ClipboardCheck, ExternalLink, Loader2, ShieldCheck, Trophy, Users } from "lucide-react";
+import { api, type MatchReport, type MyRegistration } from "@/lib/api";
+import { CalendarDays, ClipboardCheck, ExternalLink, Loader2, Swords, ShieldCheck, Trophy, Users, LogOut, AlertTriangle } from "lucide-react";
 
 const statusTone: Record<string, string> = {
   Draft: "text-muted-foreground",
@@ -55,6 +66,70 @@ export default function MyRegistrations() {
       checkedIn: registrations.filter((item) => item.entry.checkInStatus === "CHECKED_IN").length,
     };
   }, [registrations]);
+
+  // Map of tournamentId -> matches (for "My Next Match" display)
+  const [matchMap, setMatchMap] = useState<Record<string, MatchReport[]>>({});
+
+  useEffect(() => {
+    const ids = registrations.map((r) => r.tournament.id);
+    ids.forEach(async (id) => {
+      if (matchMap[id]) return;
+      try {
+        const matches = await api.getTournamentMatches(id);
+        setMatchMap((prev) => ({ ...prev, [id]: matches }));
+      } catch {
+        setMatchMap((prev) => ({ ...prev, [id]: [] }));
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrations]);
+
+  const getNextMatch = (registration: MyRegistration): MatchReport | null => {
+    const matches = matchMap[registration.tournament.id] ?? [];
+    const teamName = registration.entry.teamName;
+    return (
+      matches.find(
+        (m) =>
+          m.status !== "COMPLETED" &&
+          (m.team1Name === teamName || m.team2Name === teamName),
+      ) ?? null
+    );
+  };
+
+  // Withdraw handler
+  const [withdrawingEntryId, setWithdrawingEntryId] = useState<string | null>(null);
+
+  const handleWithdraw = async (registration: MyRegistration) => {
+    setWithdrawingEntryId(registration.entry.id);
+    try {
+      await api.deleteTournamentEntry(registration.entry.id);
+      setRegistrations((current) =>
+        current.filter((r) => r.entry.id !== registration.entry.id),
+      );
+      toast({
+        title: "Registration withdrawn",
+        description: `${registration.entry.teamName} has been removed from ${registration.tournament.title}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Could not withdraw",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setWithdrawingEntryId(null);
+    }
+  };
+
+  const checkInLabel = (status: string) => {
+    switch (status) {
+      case "CHECKED_IN": return "✅ Confirmed";
+      case "PENDING": return "⚠️ Check in now!";
+      case "MISSED": return "❌ Missed check-in";
+      case "NOT_OPEN": return "Check-in not open yet";
+      default: return status;
+    }
+  };
 
   const handleCheckIn = async (registration: MyRegistration) => {
     setBusyEntryId(registration.entry.id);
@@ -150,6 +225,11 @@ export default function MyRegistrations() {
             {registrations.map((registration) => {
               const { tournament, entry } = registration;
               const canCheckIn = tournament.status === "CHECK_IN" && entry.checkInStatus !== "CHECKED_IN";
+              const canWithdraw =
+                tournament.status === "REGISTRATION_OPEN" &&
+                entry.checkInStatus === "NOT_OPEN";
+              const nextMatch = getNextMatch(registration);
+              const bracketGenerated = (matchMap[tournament.id] ?? []).length > 0;
 
               return (
                 <Card key={entry.id} className="glass border-white/10">
@@ -163,10 +243,11 @@ export default function MyRegistrations() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-5">
+                    {/* Stats row */}
                     <div className="grid gap-3 md:grid-cols-4 text-sm">
                       <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                         <p className="text-muted-foreground">Check-In</p>
-                        <p className="font-semibold">{entry.checkInStatus}</p>
+                        <p className="font-semibold">{checkInLabel(entry.checkInStatus)}</p>
                       </div>
                       <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                         <p className="text-muted-foreground">Roster Lock</p>
@@ -178,10 +259,60 @@ export default function MyRegistrations() {
                       </div>
                       <div className="rounded-xl bg-white/5 border border-white/10 p-4">
                         <p className="text-muted-foreground">Entry Fee</p>
-                        <p className="font-semibold">${tournament.entryFee}</p>
+                        <p className="font-semibold">
+                          {tournament.entryFee > 0 ? (
+                            entry.paymentStatus === "PENDING" ? (
+                              <span className="text-amber-400">Pay at check-in (${tournament.entryFee})</span>
+                            ) : (
+                              `$${tournament.entryFee}`
+                            )
+                          ) : (
+                            <span className="text-emerald-400">Free</span>
+                          )}
+                        </p>
                       </div>
                     </div>
 
+                    {/* Your Next Match card */}
+                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
+                        <Swords className="w-4 h-4" />
+                        Your Next Match
+                      </div>
+                      {!bracketGenerated ? (
+                        <p className="text-sm text-muted-foreground">
+                          Bracket not generated yet — check back after registration closes.
+                        </p>
+                      ) : nextMatch ? (
+                        <div className="space-y-1">
+                          <p className="font-semibold text-foreground">
+                            {nextMatch.team1Name} <span className="text-primary">vs</span> {nextMatch.team2Name}
+                          </p>
+                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <CalendarDays className="w-3 h-3" />
+                              {nextMatch.scheduledAt
+                                ? new Date(nextMatch.scheduledAt).toLocaleString()
+                                : "Time TBD"}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                              {nextMatch.roundLabel}
+                            </span>
+                            {nextMatch.stationNumber && (
+                              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                                Station {nextMatch.stationNumber}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-emerald-400 font-semibold">
+                          All your matches are complete 🏆
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions row */}
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-2">
@@ -191,7 +322,7 @@ export default function MyRegistrations() {
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <CalendarDays className="w-4 h-4" />
-                            Registration status: {entry.registrationStatus}
+                            Registration: {entry.registrationStatus}
                           </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <ShieldCheck className="w-4 h-4" />
@@ -223,6 +354,48 @@ export default function MyRegistrations() {
                           <Button asChild variant="outline" className="border-white/10">
                             <Link to={`/tournaments/${tournament.id}`}>Open Tournament</Link>
                           </Button>
+                          {canWithdraw && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                  disabled={withdrawingEntryId === entry.id}
+                                >
+                                  {withdrawingEntryId === entry.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                  ) : (
+                                    <LogOut className="w-4 h-4 mr-2" />
+                                  )}
+                                  Withdraw
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="glass border-white/10">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="font-heading flex items-center gap-2">
+                                    <AlertTriangle className="w-5 h-5 text-amber-400" />
+                                    Withdraw from Tournament?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to withdraw{" "}
+                                    <span className="font-semibold text-foreground">{entry.teamName}</span>{" "}
+                                    from{" "}
+                                    <span className="font-semibold text-foreground">{tournament.title}</span>?
+                                    This cannot be undone — you will need to re-register if spots are still available.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="border-white/10">Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => void handleWithdraw(registration)}
+                                    className="bg-red-500 hover:bg-red-600 text-white"
+                                  >
+                                    Yes, Withdraw
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
                         </div>
                       </div>
                     </div>

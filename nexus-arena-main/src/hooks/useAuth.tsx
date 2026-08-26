@@ -142,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: emailCredential,
       password: input.password,
       options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
         data: {
           name: input.name,
           role: input.role,
@@ -179,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const client = requireSupabaseAuth();
     const emailCredential = toAuthEmailCredential(identifier);
     const { error } = await client.auth.resetPasswordForEmail(emailCredential, {
-      redirectTo: `${window.location.origin}/settings`,
+      redirectTo: `${window.location.origin}/auth/reset-password`,
     });
     if (error) throw error;
   };
