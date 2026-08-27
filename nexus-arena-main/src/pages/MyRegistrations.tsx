@@ -274,9 +274,9 @@ export default function MyRegistrations() {
                     </div>
 
                     {/* Your Next Match card */}
-                    <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
-                        <Swords className="w-4 h-4" />
+                    <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#D4AF37]">
+                        <Swords className="w-4 h-4 text-[#D4AF37]" />
                         Your Next Match
                       </div>
                       {!bracketGenerated ? (
@@ -286,34 +286,34 @@ export default function MyRegistrations() {
                       ) : nextMatch ? (
                         <div className="space-y-1">
                           <p className="font-semibold text-foreground">
-                            {nextMatch.team1Name} <span className="text-primary">vs</span> {nextMatch.team2Name}
+                            {nextMatch.team1Name} <span className="text-[#D4AF37] font-bold">vs</span> {nextMatch.team2Name}
                           </p>
                           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <CalendarDays className="w-3 h-3" />
+                            <span className="flex items-center gap-1 text-foreground">
+                              <CalendarDays className="w-3 h-3 text-[#D4AF37]" />
                               {nextMatch.scheduledAt
                                 ? new Date(nextMatch.scheduledAt).toLocaleString()
                                 : "Time TBD"}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                            <span className="px-2.5 py-0.5 rounded-full bg-[#1A1C1F] border border-[#2B2E33] text-[#F8E297]">
                               {nextMatch.roundLabel}
                             </span>
                             {nextMatch.stationNumber && (
-                              <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
+                              <span className="px-2.5 py-0.5 rounded-full bg-[#1A1C1F] border border-[#2B2E33] text-foreground">
                                 Station {nextMatch.stationNumber}
                               </span>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-emerald-400 font-semibold">
+                        <p className="text-sm text-[#CCFF00] font-semibold">
                           All your matches are complete 🏆
                         </p>
                       )}
                     </div>
 
                     {/* Actions row */}
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="rounded-2xl border border-[#2B2E33] bg-[#1A1C1F] p-4">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -335,12 +335,12 @@ export default function MyRegistrations() {
                             <Button
                               onClick={() => void handleCheckIn(registration)}
                               disabled={busyEntryId === entry.id}
-                              className="bg-emerald-500 hover:bg-emerald-500/90 text-black"
+                              className="bg-[#CCFF00] text-black font-extrabold hover:bg-[#b8e600] shadow-[0_0_20px_rgba(204,255,0,0.3)]"
                             >
                               {busyEntryId === entry.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
                               ) : (
-                                <ClipboardCheck className="w-4 h-4 mr-2" />
+                                <ClipboardCheck className="w-4 h-4 mr-2 text-black stroke-[2.5]" />
                               )}
                               Check In Team
                             </Button>

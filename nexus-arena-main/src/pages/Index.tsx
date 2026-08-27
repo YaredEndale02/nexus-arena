@@ -136,14 +136,14 @@ const Index = () => {
             Showing fallback tournament data while the API connection is unavailable.
           </p>
         )}
-        <div className="flex gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 w-fit overflow-x-auto no-scrollbar max-w-full">
+        <div className="flex gap-2 bg-[#1A1C1F] p-1.5 rounded-2xl border border-[#2B2E33] w-fit overflow-x-auto no-scrollbar max-w-full">
           {["All", "Live", "Open", "Upcoming"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-5 py-3 min-h-[44px] min-w-[80px] rounded-xl text-xs font-bold tracking-wider transition-all whitespace-nowrap ${
                 filter === f
-                  ? "bg-primary text-primary-foreground shadow-[0_0_15px_rgba(239,68,68,0.5)]"
+                  ? "bg-[#D4AF37] text-black font-extrabold shadow-[0_0_20px_rgba(212,175,55,0.35)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}
             >

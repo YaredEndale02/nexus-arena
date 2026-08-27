@@ -6,54 +6,49 @@
 
 @layer base {
   :root {
-    /* FC Esports Theme Global Overrides */
-    --background: 0 0% 3%;     /* #050505 */
+    /* ADWA ARENA Theme Palette */
+    --background: 225 10% 6%;       /* Deep Black #0D0E10 */
     --foreground: 0 0% 100%;
 
-    --card: 0 0% 7%;           /* #111111 */
+    --card: 216 9% 11%;             /* Dark Charcoal #1A1C1F */
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 7%;
+    --popover: 216 9% 11%;          /* Dark Charcoal #1A1C1F */
     --popover-foreground: 0 0% 100%;
 
-    --primary: 71 100% 53%;    /* Volt Green #d2ff0d */
-    --primary-foreground: 0 0% 0%; /* Black text on volt */
+    --primary: 46 65% 52%;          /* Base Gold #D4AF37 */
+    --primary-foreground: 225 10% 6%; /* Deep Black on Gold */
 
-    --secondary: 263 70% 50%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 258 52% 52%;       /* Muted Purple #6B46C1 */
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 215 20% 16%;
-    --muted-foreground: 215 15% 55%;
+    --muted: 218 8% 18%;            /* Metallic Slate #2B2E33 */
+    --muted-foreground: 215 15% 65%;
 
-    --accent: 263 70% 50%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 72 100% 50%;          /* Electric Lime #CCFF00 */
+    --accent-foreground: 0 0% 0%;   /* Black on Electric Lime */
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 71 100% 53%;
+    --border: 218 8% 18%;           /* Metallic Slate #2B2E33 */
+    --input: 218 8% 18%;            /* Metallic Slate #2B2E33 */
+    --ring: 46 65% 52%;             /* Base Gold #D4AF37 */
 
     /* Sharp corners globally */
-    --radius: 0rem;
+    --radius: 0.75rem;
 
-    --gold: 51 100% 50%;
-    --gold-foreground: 216 28% 7%;
+    /* Brand Specific Colors */
+    --gold-light: 45 89% 78%;       /* Light Gold #F8E297 */
+    --gold: 46 65% 52%;             /* Base Gold #D4AF37 */
+    --gold-dark: 42 55% 37%;        /* Deep Gold #92722A */
 
-    --neon-blue: 190 100% 50%;
-    --neon-purple: 263 70% 50%;
-    --surface: 215 25% 11%;
-    --surface-elevated: 215 22% 14%;
+    --electric-lime: 72 100% 50%;   /* Electric Lime #CCFF00 */
+    --muted-purple: 258 52% 52%;    /* Muted Purple #6B46C1 */
 
-    --sidebar-background: 216 28% 7%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 190 100% 50%;
-    --sidebar-primary-foreground: 216 28% 7%;
-    --sidebar-accent: 215 20% 16%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 20% 18%;
-    --sidebar-ring: 190 100% 50%;
+    --surface-black: 225 10% 6%;    /* Deep Black #0D0E10 */
+    --surface-charcoal: 216 9% 11%; /* Dark Charcoal #1A1C1F */
+    --surface-slate: 218 8% 18%;    /* Metallic Slate #2B2E33 */
   }
 }
 
@@ -72,38 +67,78 @@
     font-weight: 900; /* Extra black */
     font-style: italic;
     text-transform: uppercase;
-    letter-spacing: -0.02em; /* Tight tracking for FC vibe */
+    letter-spacing: -0.02em; /* Tight tracking for esports vibe */
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl;
+    background-color: rgba(26, 28, 31, 0.75);
+    backdrop-filter: blur(16px);
+    border: 1px solid #2B2E33;
+    border-radius: 0.75rem;
   }
 
   .glass-card {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl transition-all duration-300;
+    background-color: #1A1C1F;
+    border: 1px solid #2B2E33;
+    border-radius: 0.75rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .glass-card:hover {
-    @apply border-white/20 shadow-lg;
-    box-shadow: 0 0 30px hsl(var(--neon-blue) / 0.15);
+    border-color: #D4AF37;
+    box-shadow: 0 0 25px rgba(212, 175, 55, 0.2);
   }
 
-  .neon-glow-blue {
-    box-shadow: 0 0 20px hsl(var(--neon-blue) / 0.3), 0 0 60px hsl(var(--neon-blue) / 0.1);
+  .gold-gradient-bg {
+    background: linear-gradient(135deg, #F8E297 0%, #D4AF37 50%, #92722A 100%);
   }
 
-  .neon-glow-purple {
-    box-shadow: 0 0 20px hsl(var(--neon-purple) / 0.3), 0 0 60px hsl(var(--neon-purple) / 0.1);
+  .gold-gradient-text {
+    background: linear-gradient(135deg, #F8E297 0%, #D4AF37 60%, #92722A 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.35), 0 0 50px rgba(212, 175, 55, 0.15);
+  }
+
+  .lime-glow {
+    box-shadow: 0 0 20px rgba(204, 255, 0, 0.4), 0 0 50px rgba(204, 255, 0, 0.15);
+  }
+
+  .purple-glow {
+    box-shadow: 0 0 20px rgba(107, 70, 193, 0.35), 0 0 50px rgba(107, 70, 193, 0.15);
   }
 
   .text-gold {
-    color: hsl(var(--gold));
+    color: #D4AF37;
+  }
+
+  .text-gold-light {
+    color: #F8E297;
   }
 
   .bg-gold {
-    background-color: hsl(var(--gold));
+    background-color: #D4AF37;
+  }
+
+  .bg-lime {
+    background-color: #CCFF00;
+  }
+
+  .text-lime {
+    color: #CCFF00;
+  }
+
+  .bg-purple-muted {
+    background-color: #6B46C1;
+  }
+
+  .text-purple-muted {
+    color: #6B46C1;
   }
 }
 

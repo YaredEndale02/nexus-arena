@@ -292,8 +292,11 @@ export default function TournamentDetails() {
                     </Link>
                   </Button>
                 ) : (
-                  <Button onClick={() => setIsWizardOpen(true)} className="w-full">
-                    {canCheckIn ? <ClipboardCheck className="w-4 h-4 mr-2" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+                  <Button 
+                    onClick={() => setIsWizardOpen(true)} 
+                    className="w-full bg-[#CCFF00] text-black font-extrabold shadow-[0_0_20px_rgba(204,255,0,0.35)] hover:bg-[#b8e600] hover:shadow-[0_0_30px_rgba(204,255,0,0.5)] py-6 text-base tracking-wider transition-all"
+                  >
+                    {canCheckIn ? <ClipboardCheck className="w-5 h-5 mr-2 text-black stroke-[2.5]" /> : <ShieldCheck className="w-5 h-5 mr-2 text-black stroke-[2.5]" />}
                     {actionLabel}
                   </Button>
                 )

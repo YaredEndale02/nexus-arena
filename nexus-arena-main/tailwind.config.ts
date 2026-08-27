@@ -29,15 +29,52 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        base: {
-          900: "#0f172a", // slate-900 (Cards/Panels)
-          950: "#020617", // slate-950 (Global Body Background)
+        
+        // Dark Background Palette (UI & Surfaces)
+        canvas: "#0D0E10", // Deep Black
+        charcoal: "#1A1C1F", // Dark Charcoal
+        slate: {
+          DEFAULT: "#2B2E33", // Metallic Slate
+          metallic: "#2B2E33",
         },
-        accent: {
-          DEFAULT: "#00E0FF",
-          foreground: "hsl(var(--accent-foreground))",
-          hover: "#00b8e6",
+        surface: {
+          DEFAULT: "#1A1C1F",
+          black: "#0D0E10",
+          charcoal: "#1A1C1F",
+          slate: "#2B2E33",
+          elevated: "#2B2E33",
         },
+
+        // Primary Gold Palette (Shield & Branding)
+        gold: {
+          DEFAULT: "#D4AF37", // Base Gold (Primary)
+          light: "#F8E297", // Light Gold (Highlight)
+          highlight: "#F8E297",
+          primary: "#D4AF37",
+          dark: "#92722A", // Deep Gold (Shadow)
+          shadow: "#92722A",
+          foreground: "#0D0E10",
+        },
+
+        // Accent Palette (UI Elements & Statuses)
+        electric: {
+          DEFAULT: "#CCFF00", // Electric Lime/Yellow (CTA buttons)
+          lime: "#CCFF00",
+          foreground: "#000000",
+        },
+        lime: {
+          DEFAULT: "#CCFF00",
+          500: "#CCFF00",
+          600: "#b8e600",
+        },
+        purple: {
+          DEFAULT: "#6B46C1", // Muted Purple
+          muted: "#6B46C1",
+          400: "#9F7AEA",
+          500: "#6B46C1",
+          600: "#553C9A",
+        },
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -45,6 +82,11 @@ export default {
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+        },
+        accent: {
+          DEFAULT: "#CCFF00",
+          foreground: "#000000",
+          hover: "#b8e600",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -62,27 +104,19 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        gold: {
-          DEFAULT: "hsl(var(--gold))",
-          foreground: "hsl(var(--gold-foreground))",
-        },
         neon: {
           blue: "hsl(var(--neon-blue))",
-          purple: "hsl(var(--neon-purple))",
-        },
-        surface: {
-          DEFAULT: "hsl(var(--surface))",
-          elevated: "hsl(var(--surface-elevated))",
+          purple: "#6B46C1",
         },
         sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
+          DEFAULT: "#1A1C1F",
           foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
+          primary: "#D4AF37",
+          "primary-foreground": "#0D0E10",
+          accent: "#2B2E33",
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+          border: "#2B2E33",
+          ring: "#D4AF37",
         },
       },
       borderRadius: {
