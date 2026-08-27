@@ -83,7 +83,7 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
     authUser.email?.split("@")[0] ||
     "Arena Player";
 
-  // Check DB profile
+  // Check DB profile by ID first
   let dbProfile: ProfileRow | null = null;
   try {
     const { data } = await client
@@ -93,14 +93,34 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
       .maybeSingle();
     if (data) dbProfile = data as ProfileRow;
   } catch (err) {
-    console.warn("DB profile lookup warning:", err);
+    console.warn("DB profile lookup by ID warning:", err);
   }
 
-  // If no DB profile exists yet, create one
+  // If not found by ID, check if an existing record exists with the same email
+  if (!dbProfile && authUser.email) {
+    try {
+      const { data: emailMatch } = await client
+        .from("users")
+        .select("*")
+        .eq("email", authUser.email)
+        .maybeSingle();
+
+      if (emailMatch) {
+        // Re-link the existing email record to the new auth user ID
+        await client.from("users").update({ id: authUser.id }).eq("email", authUser.email);
+        dbProfile = { ...(emailMatch as ProfileRow), id: authUser.id };
+      }
+    } catch (err) {
+      console.warn("DB profile lookup by email warning:", err);
+    }
+  }
+
+  // If no DB profile exists yet, create one cleanly
   if (!dbProfile) {
     const initialRole = typeof metadata.role === "string" ? metadata.role : "PLAYER";
     const payload = {
       id: authUser.id,
+      email: authUser.email,
       name: resolvedName,
       role: initialRole,
       riot_id: typeof metadata.riot_id === "string" ? metadata.riot_id : null,

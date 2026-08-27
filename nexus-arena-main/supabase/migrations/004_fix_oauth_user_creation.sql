@@ -1,6 +1,6 @@
 -- Migration: 004_fix_oauth_user_creation.sql
 -- Fixes Google OAuth / OAuth registration errors: "Database error saving new user"
--- Ensures all columns exist on public.users, handles RLS, and makes public.handle_new_auth_user() fail-safe.
+-- and "duplicate key value violates unique constraint 'users_email_key'"
 
 -- 1. Ensure all expected profile columns exist in public.users
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone_number TEXT;
@@ -14,7 +14,7 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS discord_handle TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country_code TEXT;
 
--- 2. Replace handle_new_auth_user with a robust, fail-safe implementation
+-- 2. Create or replace the handle_new_auth_user function with robust email conflict resolution
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -28,8 +28,8 @@ DECLARE
   v_phone text;
   v_riot_id text;
   v_avatar text;
+  v_existing_id text;
 BEGIN
-  -- Extract and sanitize values safely from auth metadata
   v_email := NEW.email;
   
   v_name := COALESCE(
@@ -52,7 +52,54 @@ BEGIN
     NULLIF(TRIM(NEW.raw_user_meta_data->>'picture'), '')
   );
 
-  -- Upsert into public.users safely
+  -- Case A: Check if a user already exists with this exact auth UID
+  IF EXISTS (SELECT 1 FROM public.users WHERE id = NEW.id::text) THEN
+    UPDATE public.users
+    SET
+      email = COALESCE(v_email, public.users.email),
+      name = COALESCE(NULLIF(v_name, 'Arena Player'), public.users.name),
+      role = COALESCE(public.users.role, v_role),
+      avatar_url = COALESCE(v_avatar, public.users.avatar_url),
+      phone_number = COALESCE(v_phone, public.users.phone_number),
+      riot_id = COALESCE(v_riot_id, public.users.riot_id),
+      updated_at = NOW()
+    WHERE id = NEW.id::text;
+    RETURN NEW;
+  END IF;
+
+  -- Case B: Check if a user already exists with this EMAIL under an older ID
+  IF v_email IS NOT NULL AND v_email <> '' THEN
+    SELECT id INTO v_existing_id FROM public.users WHERE email = v_email LIMIT 1;
+    
+    IF v_existing_id IS NOT NULL AND v_existing_id <> NEW.id::text THEN
+      -- Re-link existing foreign key references to the new auth user ID
+      BEGIN
+        UPDATE public.team_members SET user_id = NEW.id::text WHERE user_id = v_existing_id;
+        UPDATE public.tournament_entries SET user_id = NEW.id::text WHERE user_id = v_existing_id;
+        UPDATE public.teams SET captain_id = NEW.id::text WHERE captain_id = v_existing_id;
+        UPDATE public.teams SET created_by = NEW.id::text WHERE created_by = v_existing_id;
+        UPDATE public.tournaments SET organizer_id = NEW.id::text WHERE organizer_id = v_existing_id;
+      EXCEPTION WHEN OTHERS THEN
+        NULL;
+      END;
+
+      -- Update the existing profile record with the new ID and latest info
+      UPDATE public.users
+      SET
+        id = NEW.id::text,
+        name = COALESCE(NULLIF(v_name, 'Arena Player'), public.users.name),
+        role = COALESCE(public.users.role, v_role),
+        avatar_url = COALESCE(v_avatar, public.users.avatar_url),
+        phone_number = COALESCE(v_phone, public.users.phone_number),
+        riot_id = COALESCE(v_riot_id, public.users.riot_id),
+        updated_at = NOW()
+      WHERE id = v_existing_id;
+
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  -- Case C: Completely new user profile
   INSERT INTO public.users (
     id,
     email,
@@ -89,8 +136,8 @@ BEGIN
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Never block auth user creation if profile sync encounters an unhandled error
-  RAISE WARNING 'handle_new_auth_user exception: %', SQLERRM;
+  -- Never crash auth transactions
+  RAISE WARNING 'handle_new_auth_user caught error: %', SQLERRM;
   RETURN NEW;
 END;
 $$;
@@ -101,7 +148,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_auth_user();
 
--- 4. Ensure RLS policies allow authenticated users to view and update their own profile
+-- 4. Row Level Security policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view all profiles" ON public.users;
