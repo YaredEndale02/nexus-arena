@@ -4,6 +4,7 @@ import { Tournament } from "@/lib/api";
 import { Users, Calendar, DollarSign, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/context/LanguageContext";
 import { RegistrationWizard } from "./RegistrationWizard";
 import { RegistrationCountdown } from "./RegistrationCountdown";
 
@@ -20,13 +21,28 @@ const statusColors: Record<string, string> = {
 };
 
 export function TournamentCard({ tournament }: { tournament: Tournament & { isUserRegistered?: boolean } }) {
+  const { t } = useLanguage();
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const registeredTeams = tournament.registeredTeams ?? tournament._count?.entries ?? 0;
   const isFull = registeredTeams >= tournament.maxTeams;
   const waitlistCount = isFull ? registeredTeams - tournament.maxTeams : 0;
   const fillPct = tournament.maxTeams > 0 ? (Math.min(registeredTeams, tournament.maxTeams) / tournament.maxTeams) * 100 : 0;
   const spotsLeft = Math.max(0, tournament.maxTeams - registeredTeams);
-  const statusLabel = tournament.displayStatus ?? "Upcoming";
+  const rawStatus = tournament.displayStatus ?? "Upcoming";
+
+  const statusLabelMap: Record<string, string> = {
+    Live: t("statusLive"),
+    "Registration Open": t("statusRegistrationOpen"),
+    "Registration Closed": t("statusRegistrationClosed"),
+    "Check-In": t("statusCheckIn"),
+    Published: t("statusPublished"),
+    Upcoming: t("statusUpcoming"),
+    Completed: t("statusCompleted"),
+    Draft: t("statusDraft"),
+    Cancelled: t("statusCancelled"),
+  };
+
+  const localizedStatus = statusLabelMap[rawStatus] ?? rawStatus;
 
   return (
     <>
@@ -41,18 +57,18 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
 
         <div className="relative p-5 flex flex-col h-full min-h-[280px]">
           <div className="flex items-start justify-between mb-3">
-            <Badge className={cn("text-[10px] uppercase tracking-wider border", statusColors[statusLabel] ?? statusColors.Upcoming)}>
-              {statusLabel === "Live" && (
+            <Badge className={cn("text-[10px] uppercase tracking-wider border", statusColors[rawStatus] ?? statusColors.Upcoming)}>
+              {rawStatus === "Live" && (
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse mr-1" />
               )}
-              {statusLabel}
+              {localizedStatus}
             </Badge>
             {tournament.entryFee > 0 ? (
               <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />${tournament.entryFee} ENTRY
+                <DollarSign className="w-3 h-3" />${tournament.entryFee} {t("entryFee")}
               </span>
             ) : (
-              <span className="text-[10px] text-emerald-400 font-bold">FREE ENTRY</span>
+              <span className="text-[10px] text-emerald-400 font-bold">{t("freeEntry")}</span>
             )}
           </div>
 
@@ -62,7 +78,7 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
           <p className="text-sm text-muted-foreground mb-4 line-clamp-1">{tournament.gameTitle}</p>
 
           <div className="mb-4">
-            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Prize Pool</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{t("prizePool")}</span>
             <p className="font-heading text-2xl font-bold text-gold drop-shadow-[0_0_10px_rgba(255,215,0,0.3)]">
               ${tournament.prizePool.toLocaleString()}
             </p>
@@ -71,8 +87,8 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
           <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
             <span className={cn("flex items-center gap-1.5 font-medium", isFull ? "text-amber-400" : "text-muted-foreground")}>
               <Users className="w-3.5 h-3.5" />
-              {isFull ? tournament.maxTeams : registeredTeams}/{tournament.maxTeams} Teams
-              {waitlistCount > 0 && <span className="text-[10px] opacity-70">(+{waitlistCount} Waitlist)</span>}
+              {isFull ? tournament.maxTeams : registeredTeams}/{tournament.maxTeams} {t("teamsRegistered")}
+              {waitlistCount > 0 && <span className="text-[10px] opacity-70">(+{waitlistCount})</span>}
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <Calendar className="w-3.5 h-3.5" />
@@ -103,7 +119,7 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
             />
             {isFull && !tournament.isUserRegistered && (
               <p className="text-[10px] font-bold text-amber-400 mt-1.5 uppercase tracking-wider">
-                {tournament.waitlistEnabled ? "Waitlist Available" : "Tournament Full"}
+                {tournament.waitlistEnabled ? t("btnJoinWaitlist") : t("btnRegFull")}
               </p>
             )}
           </div>
@@ -111,13 +127,13 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
           <div className="mt-auto space-y-3">
             {tournament.isUserRegistered ? (
               <Link 
-                to={statusLabel === "Live" ? `/live?tournamentId=${tournament.id}` : "/registrations"}
+                to={rawStatus === "Live" ? `/live?tournamentId=${tournament.id}` : "/registrations"}
                 className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-[1.02] transition-transform"
               >
-                VIEW MY MATCH
+                {t("btnViewMyMatch")}
                 <ChevronRight className="w-4 h-4" />
               </Link>
-            ) : statusLabel === "Registration Open" ? (
+            ) : rawStatus === "Registration Open" ? (
               <button
                 onClick={() => setIsWizardOpen(true)}
                 className={cn(
@@ -130,48 +146,48 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
                 )}
                 disabled={isFull && !tournament.waitlistEnabled}
               >
-                {isFull ? (tournament.waitlistEnabled ? "JOIN WAITLIST" : "REGISTRATION FULL") : "REGISTER NOW"}
+                {isFull ? (tournament.waitlistEnabled ? t("btnJoinWaitlist") : t("btnRegFull")) : t("btnRegisterNow")}
                 {!isFull && <ChevronRight className="w-4 h-4 stroke-[3]" />}
               </button>
-            ) : statusLabel === "Check-In" ? (
+            ) : rawStatus === "Check-In" ? (
               <button
                 onClick={() => setIsWizardOpen(true)}
                 className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors"
               >
-                TEAM CHECK-IN
+                {t("btnTeamCheckIn")}
                 <ChevronRight className="w-4 h-4" />
               </button>
-            ) : statusLabel === "Live" ? (
+            ) : rawStatus === "Live" ? (
               <Link 
                 to={`/live?tournamentId=${tournament.id}`}
                 className="w-full py-3 rounded-xl flex items-center justify-center font-heading font-bold text-sm tracking-wider bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:bg-red-600 transition-all animate-pulse"
               >
-                WATCH LIVE
+                {t("btnWatchLive")}
               </Link>
-            ) : statusLabel === "Published" ? (
+            ) : rawStatus === "Published" ? (
               <Link
                 to={`/tournaments/${tournament.id}`}
                 className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 transition-colors"
               >
-                VIEW DETAILS
+                {t("btnViewDetails")}
                 <ChevronRight className="w-4 h-4" />
               </Link>
-            ) : statusLabel === "Completed" ? (
+            ) : rawStatus === "Completed" ? (
               <button className="w-full py-3 rounded-xl font-heading font-bold text-sm tracking-wider bg-white/5 text-muted-foreground border border-border hover:bg-white/10 transition-colors">
-                VIEW RESULTS
+                {t("btnViewResults")}
               </button>
             ) : (
               <button className="w-full py-3 rounded-xl font-heading font-bold text-sm tracking-wider bg-neon-purple/20 text-neon-purple border border-neon-purple/30 hover:bg-neon-purple/30 transition-colors">
-                COMING SOON
+                {t("btnComingSoon")}
               </button>
             )}
             
-            {statusLabel !== "Published" && (
+            {rawStatus !== "Published" && (
               <Link
                 to={`/tournaments/${tournament.id}`}
                 className="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-bold text-sm tracking-wider bg-white/5 text-foreground border border-white/10 hover:bg-white/10 transition-colors"
               >
-                TOURNAMENT INFO
+                {t("btnTournamentInfo")}
               </Link>
             )}
           </div>

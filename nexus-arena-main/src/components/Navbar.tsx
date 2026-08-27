@@ -2,6 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { Trophy, Swords, Radio, BarChart3, Users, User, Shield, LogOut, ClipboardCheck, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { AuthModal } from "./AuthModal";
 import { NotificationBell } from "./NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -15,24 +17,25 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 
-const navItems = [
-  { label: "Tournaments", path: "/", icon: Trophy },
-  { label: "Bracket", path: "/bracket", icon: Swords },
-  { label: "Live", path: "/live", icon: Radio },
-  { label: "Teams", path: "/teams", icon: Users },
-  { label: "Registrations", path: "/registrations", icon: ClipboardCheck },
-];
-
 export function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const canManageTournaments = Boolean(user && ["ORGANIZER", "ADMIN"].includes(user.role));
 
+  const navItems = [
+    { key: "navTournaments" as const, label: t("navTournaments"), path: "/", icon: Trophy },
+    { key: "navBrackets" as const, label: t("navBrackets"), path: "/bracket", icon: Swords },
+    { key: "navLive" as const, label: t("navLive"), path: "/live", icon: Radio },
+    { key: "navTeams" as const, label: t("navTeams"), path: "/teams", icon: Users },
+    { key: "navMyRegistrations" as const, label: t("navMyRegistrations"), path: "/registrations", icon: ClipboardCheck },
+  ];
+
   const filteredNavItems = navItems.filter((item) => {
     if (user?.role === "ORGANIZER") {
-      return !["Teams", "Registrations"].includes(item.label);
+      return !["navTeams", "navMyRegistrations"].includes(item.key);
     }
     return true;
   });
@@ -102,6 +105,7 @@ export function Navbar() {
 
         {/* User Profile & Notifications */}
         <div className="flex items-center gap-1.5 sm:gap-3">
+          <LanguageSwitcher />
           <NotificationBell />
           {user ? (
             <DropdownMenu>
@@ -124,13 +128,13 @@ export function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="cursor-pointer">
                     <BarChart3 className="mr-2 h-4 w-4 text-primary" />
-                    Settings & Profile
+                    {t("navProfile")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem onClick={logout} className="text-red-400 focus:text-red-400 cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  {t("navSignOut")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -140,7 +144,7 @@ export function Navbar() {
               className="font-bold bg-primary text-primary-foreground text-xs h-9 sm:h-10 px-3 sm:px-4 rounded-xl shadow-lg hover:brightness-110"
             >
               <User className="w-4 h-4 mr-1.5" />
-              Sign In / Register
+              {t("navSignIn")}
             </Button>
           )}
 
@@ -151,10 +155,14 @@ export function Navbar() {
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-black/40 backdrop-blur-xl animate-in slide-in-from-top duration-300">
-          <div className="p-4 space-y-2">
+          <div className="p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Language / ቋንቋ</span>
+              <LanguageSwitcher />
+            </div>
             {filteredNavItems.map((item) => (
               <Link
-                key={item.label}
+                key={item.key}
                 to={item.path}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={cn(
@@ -176,7 +184,7 @@ export function Navbar() {
                 )}
               >
                 <Shield className="w-4 h-4" />
-                Tournament Control
+                {t("navAdmin")}
               </Link>
             )}
           </div>

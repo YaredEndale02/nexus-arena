@@ -1,6 +1,7 @@
 import { Trophy, Users, DollarSign, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface StatItemProps {
   icon: React.ReactNode;
@@ -50,7 +51,7 @@ function StatItem({ icon, label, value, prefix, suffix, delay }: StatItemProps) 
       <div className="text-center sm:text-left min-w-0 flex-1">
         <div className="flex flex-col">
           <AnimatedCounter value={value} prefix={prefix} suffix={suffix} delay={delay} />
-          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 truncate w-full">
+          <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider mt-0.5 truncate w-full font-bold">
             {label}
           </p>
         </div>
@@ -60,6 +61,7 @@ function StatItem({ icon, label, value, prefix, suffix, delay }: StatItemProps) 
 }
 
 export function StatsBar() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState({
     activeTournaments: 0,
     registeredTeams: 0,
@@ -91,10 +93,10 @@ export function StatsBar() {
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-      <StatItem icon={<Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Active Tournaments" value={stats.activeTournaments} delay={0} />
-      <StatItem icon={<Users className="w-5 h-5 sm:w-6 sm:h-6 text-neon-purple" />} label="Registered Teams" value={stats.registeredTeams} delay={150} />
-      <StatItem icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />} label="Total Prize Pool" value={stats.totalPrizePool} prefix="$" delay={300} />
-      <StatItem icon={<Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label="Total Matches" value={stats.totalMatches} delay={450} />
+      <StatItem icon={<Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label={t("statActiveTournaments")} value={stats.activeTournaments} delay={0} />
+      <StatItem icon={<Users className="w-5 h-5 sm:w-6 sm:h-6 text-purple-muted" />} label={t("statRegisteredTeams")} value={stats.registeredTeams} delay={150} />
+      <StatItem icon={<DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-gold" />} label={t("statTotalPrizePool")} value={stats.totalPrizePool} prefix="$" delay={300} />
+      <StatItem icon={<Zap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />} label={t("statTotalMatches")} value={stats.totalMatches} delay={450} />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/LanguageContext";
 import { api, type MatchReport, type MyRegistration } from "@/lib/api";
 import { CalendarDays, ClipboardCheck, ExternalLink, Loader2, Swords, ShieldCheck, Trophy, Users, LogOut, AlertTriangle } from "lucide-react";
 
@@ -33,6 +34,7 @@ const statusTone: Record<string, string> = {
 export default function MyRegistrations() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [registrations, setRegistrations] = useState<MyRegistration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyEntryId, setBusyEntryId] = useState<string | null>(null);
@@ -168,9 +170,9 @@ export default function MyRegistrations() {
             <ClipboardCheck className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="font-heading text-3xl font-bold text-foreground">My Registrations</h1>
+            <h1 className="font-heading text-3xl font-bold text-foreground">{t("regTitle")}</h1>
             <p className="text-muted-foreground">
-              Track registered teams, complete captain check-in, and jump back into tournament action.
+              {t("regSubtitle")}
             </p>
           </div>
         </div>
@@ -178,7 +180,7 @@ export default function MyRegistrations() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="glass border-white/10">
             <CardContent className="p-5">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Registered Teams</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{t("statRegisteredTeams")}</p>
               <p className="font-heading text-3xl font-bold mt-2">{stats.total}</p>
             </CardContent>
           </Card>
@@ -277,11 +279,11 @@ export default function MyRegistrations() {
                     <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/5 p-4 space-y-2">
                       <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#D4AF37]">
                         <Swords className="w-4 h-4 text-[#D4AF37]" />
-                        Your Next Match
+                        {t("nextMatch")}
                       </div>
                       {!bracketGenerated ? (
                         <p className="text-sm text-muted-foreground">
-                          Bracket not generated yet — check back after registration closes.
+                          {t("nextMatchPending")}
                         </p>
                       ) : nextMatch ? (
                         <div className="space-y-1">
@@ -307,7 +309,7 @@ export default function MyRegistrations() {
                         </div>
                       ) : (
                         <p className="text-sm text-[#CCFF00] font-semibold">
-                          All your matches are complete 🏆
+                          {t("matchesCompleted")}
                         </p>
                       )}
                     </div>
@@ -342,17 +344,17 @@ export default function MyRegistrations() {
                               ) : (
                                 <ClipboardCheck className="w-4 h-4 mr-2 stroke-[2.5]" />
                               )}
-                              Check In Team
+                              {t("regCheckInTeam")}
                             </Button>
                           )}
                           <Button asChild variant="outline" className="border-white/10">
                             <Link to={`/bracket?tournament=${tournament.id}`}>
-                              View Bracket
+                              {t("regViewBracket")}
                               <ExternalLink className="w-4 h-4 ml-2" />
                             </Link>
                           </Button>
                           <Button asChild variant="outline" className="border-white/10">
-                            <Link to={`/tournaments/${tournament.id}`}>Open Tournament</Link>
+                            <Link to={`/tournaments/${tournament.id}`}>{t("regOpenTournament")}</Link>
                           </Button>
                           {canWithdraw && (
                             <AlertDialog>
@@ -367,7 +369,7 @@ export default function MyRegistrations() {
                                   ) : (
                                     <LogOut className="w-4 h-4 mr-2" />
                                   )}
-                                  Withdraw
+                                  {t("regWithdraw")}
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent className="glass border-white/10">

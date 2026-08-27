@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { api, Tournament } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/context/LanguageContext";
 import { Trophy, TrendingUp, Clock, Flame, Loader2, HelpCircle } from "lucide-react";
 
 const fallbackTournaments: Tournament[] = [];
@@ -22,6 +23,7 @@ const Index = () => {
   const [filter, setFilter] = useState("All");
 
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchTournaments = async () => {
@@ -128,7 +130,7 @@ const Index = () => {
         <div className="flex items-center gap-2">
           <Flame className="w-6 h-6 text-primary" />
           <h2 className="font-heading text-2xl font-bold text-foreground italic">
-            {filter === "All" ? "Active" : filter} Tournaments
+            {filter === "All" ? t("activeTournaments") : `${filter} Tournaments`}
           </h2>
         </div>
         {isUsingFallback && (
@@ -137,17 +139,22 @@ const Index = () => {
           </p>
         )}
         <div className="flex gap-2 bg-[#1A1C1F] p-1.5 rounded-2xl border border-[#2B2E33] w-fit overflow-x-auto no-scrollbar max-w-full">
-          {["All", "Live", "Open", "Upcoming"].map((f) => (
+          {[
+            { id: "All", label: t("filterAll") },
+            { id: "Live", label: t("filterLive") },
+            { id: "Open", label: t("filterOpen") },
+            { id: "Upcoming", label: t("filterUpcoming") },
+          ].map(({ id, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={id}
+              onClick={() => setFilter(id)}
               className={`px-5 py-3 min-h-[44px] min-w-[80px] rounded-xl text-xs font-bold tracking-wider transition-all whitespace-nowrap ${
-                filter === f
+                filter === id
                   ? "bg-[#D4AF37] text-black font-extrabold shadow-[0_0_20px_rgba(212,175,55,0.35)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5"
               }`}
             >
-              {f.toUpperCase()}
+              {label}
             </button>
           ))}
         </div>
@@ -170,7 +177,7 @@ const Index = () => {
       ) : (
         <div className="py-20 text-center border border-dashed border-white/10 rounded-3xl bg-white/5 mb-12">
           <Trophy className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-20" />
-          <h3 className="font-heading text-xl font-bold text-foreground mb-2">No Tournaments Found</h3>
+          <h3 className="font-heading text-xl font-bold text-foreground mb-2">{t("noTournamentsFound")}</h3>
           <p className="text-muted-foreground">Check back later or check your server connection.</p>
         </div>
       )}
