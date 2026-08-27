@@ -161,7 +161,7 @@ function StartingSoonView({ tournamentName, startDate }: { tournamentName: strin
         <div className="bg-[var(--fc-primary)] px-8 py-2 fc-skew mb-10 shadow-[0_0_40px_rgba(210,255,13,0.2)]">
           <div className="fc-unskew flex items-center gap-3">
             <Shield className="w-5 h-5 text-black fill-black" />
-            <span className="text-sm font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ARENAX CHAMPIONSHIP"}</span>
+            <span className="text-sm font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ADWA ARENA CHAMPIONSHIP"}</span>
           </div>
         </div>
 
@@ -322,7 +322,7 @@ function GroupStageTableView({ tournamentName, tournamentId }: { tournamentName:
           <div className="bg-[#111] border-b-4 border-fc-volt px-6 py-3 fc-skew fc-row-anim flex-1 flex justify-between items-center" style={{ animationDelay: '0.1s' }}>
             <div className="fc-unskew">
               <span className="text-white/50 text-xs font-bold uppercase tracking-widest block mb-0.5">Tournament</span>
-              <span className="text-white font-black text-xl uppercase tracking-tight italic">{tournamentName || "ArenaX Championship"}</span>
+              <span className="text-white font-black text-xl uppercase tracking-tight italic">{tournamentName || "ADWA ARENA Championship"}</span>
             </div>
             <div className="fc-unskew flex items-center gap-3">
               <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
@@ -498,7 +498,7 @@ function IntermissionView({ tournamentName, matches }: { tournamentName: string;
             <div className="bg-[var(--fc-primary)] px-6 py-2 fc-skew mb-8 inline-block shadow-lg stagger-1">
               <div className="fc-unskew flex items-center gap-3">
                 <Shield className="w-4 h-4 text-black fill-black" />
-                <span className="text-xs font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ArenaX Championship"}</span>
+                <span className="text-xs font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ADWA ARENA Championship"}</span>
               </div>
             </div>
 
@@ -755,7 +755,7 @@ function PubgLeaderboardView({ tournamentName }: { tournamentName: string }) {
           </div>
           
           <div className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 flex items-center gap-4">
-            <span>{tournamentName || "ArenaX Championship"}</span>
+            <span>{tournamentName || "ADWA ARENA Championship"}</span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
             <span>PUBG Mobile</span>
           </div>
@@ -1238,7 +1238,7 @@ export default function BroadcastOverlay() {
         <div className="bg-[var(--fc-primary)] px-4 py-1 inline-flex fc-skew mb-[-5px] shadow-[0_0_20px_rgba(210,255,13,0.15)] border-t-[3px] border-l-[3px] border-white/20">
           <div className="fc-unskew flex items-center gap-2">
             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-black italic">
-              {tournament?.title || "ARENAX"}
+              {tournament?.title || "ADWA ARENA"}
             </span>
           </div>
         </div>

@@ -52,7 +52,7 @@ const Index = () => {
       {/* Page header */}
       <div className="mb-8 animate-fade-in text-center lg:text-left">
         <h1 className="font-heading text-4xl lg:text-5xl font-bold text-foreground">
-          Welcome to <span className="text-primary">ArenaX</span>
+          Welcome to <span className="text-primary">ADWA ARENA</span>
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">Compete. Dominate. Win.</p>
       </div>
@@ -115,7 +115,7 @@ const Index = () => {
       {/* Quick links row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { icon: Trophy, title: "LEADERBOARD", desc: "See who's on top of the ArenaX rankings", color: "text-gold" },
+          { icon: Trophy, title: "LEADERBOARD", desc: "See who's on top of the ADWA ARENA rankings", color: "text-gold" },
           { icon: TrendingUp, title: "TRENDING", desc: "Most popular tournaments this week", color: "text-primary" },
           { icon: Clock, title: "RECENT RESULTS", desc: "Latest outcomes from the battlegrounds", color: "text-neon-purple" },
         ].map((item) => (

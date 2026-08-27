@@ -54,7 +54,7 @@ export function Navbar() {
               <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
             <span className="font-heading text-lg sm:text-xl font-bold tracking-wider text-foreground">
-              ARENA<span className="text-primary">X</span>
+              ADWA <span className="text-primary">ARENA</span>
             </span>
           </Link>
         </div>

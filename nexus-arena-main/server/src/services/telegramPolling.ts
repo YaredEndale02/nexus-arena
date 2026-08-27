@@ -29,7 +29,7 @@ async function pollTelegram() {
             const text = update.message.text.toLowerCase();
 
             if (text === '/start' || text === '/myid' || text === '/id') {
-              const reply = `<b>Welcome to ArenaX!</b>\n\nYour unique Chat ID is:\n<code>${chatId}</code>\n\nCopy this ID and paste it into your ArenaX Settings to enable notifications. 🚀`;
+              const reply = `<b>Welcome to ADWA ARENA!</b>\n\nYour unique Chat ID is:\n<code>${chatId}</code>\n\nCopy this ID and paste it into your ADWA ARENA Settings to enable notifications. 🚀`;
               
               await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
                 method: 'POST',

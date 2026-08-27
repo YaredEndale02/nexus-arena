@@ -79,7 +79,7 @@ export function CreateTournamentModal({ user, onSuccess }: { user: any, onSucces
               id="title" 
               value={form.title} 
               onChange={e => setForm({...form, title: e.target.value})} 
-              placeholder="e.g. Nexus Arena Winter Cup" 
+              placeholder="e.g. ADWA ARENA Championship" 
               className="bg-white/5 border-white/10"
               required 
             />

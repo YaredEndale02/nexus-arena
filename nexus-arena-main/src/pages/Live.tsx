@@ -77,7 +77,7 @@ function StreamPlayer({ tournament }: { tournament: Tournament }) {
           <div className="w-8 h-8 rounded bg-gradient-to-br from-primary/80 to-neon-purple/80 backdrop-blur-sm flex items-center justify-center">
             <Trophy className="w-4 h-4 text-primary-foreground" />
           </div>
-          <span className="text-[10px] font-bold text-white/80 font-heading tracking-widest drop-shadow-md">Nexus Arena Live</span>
+          <span className="text-[10px] font-bold text-white/80 font-heading tracking-widest drop-shadow-md">ADWA ARENA Live</span>
         </div>
 
         {/* Big centered Watch Button for high visibility */}

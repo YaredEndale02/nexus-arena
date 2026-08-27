@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -93,7 +93,7 @@ export default function AuthResetPassword() {
           </div>
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">Reset Password</h1>
-            <p className="text-xs text-muted-foreground">Nexus Arena account recovery</p>
+            <p className="text-xs text-muted-foreground">ADWA ARENA account recovery</p>
           </div>
         </div>
 

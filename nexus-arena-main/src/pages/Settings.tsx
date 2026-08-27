@@ -48,7 +48,7 @@ export default function Settings() {
     try {
       await api.sendTelegramNotification(
         telegramId,
-        `<b>ArenaX Integration Test</b>\n\nHello ${user?.name}! Your Telegram is now successfully linked to ArenaX. 🚀`
+        `<b>ADWA ARENA Integration Test</b>\n\nHello ${user?.name}! Your Telegram is now successfully linked to ADWA ARENA. 🚀`
       );
       toast({
         title: "Test sent!",

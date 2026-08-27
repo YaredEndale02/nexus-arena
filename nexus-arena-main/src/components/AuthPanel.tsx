@@ -50,7 +50,7 @@ export function AuthPanel({
         await signIn(identifier, password);
         toast({
           title: "Signed in successfully",
-          description: "Welcome back to Nexus Arena!",
+          description: "Welcome back to ADWA ARENA!",
         });
         onSuccess?.();
       } else {
@@ -279,7 +279,7 @@ export function AuthPanel({
             <div className="relative">
               <Input
                 id="auth-identifier"
-                placeholder={role === "PLAYER" ? "0911223344 or name@example.com" : "organizer@nexus.local"}
+                placeholder={role === "PLAYER" ? "0911223344 or name@example.com" : "organizer@adwa.local"}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 required
