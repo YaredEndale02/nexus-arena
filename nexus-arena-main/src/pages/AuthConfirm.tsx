@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, XCircle, Loader2, Trophy } from "lucide-react";
@@ -52,9 +52,11 @@ export default function AuthConfirm() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="glass border border-white/10 rounded-2xl p-10 max-w-md w-full text-center space-y-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-neon-purple flex items-center justify-center mx-auto">
-          <Trophy className="w-8 h-8 text-primary-foreground" />
-        </div>
+        <img
+          src="/logo.png"
+          alt="ADWA ARENA"
+          className="w-16 h-16 object-contain mx-auto drop-shadow-[0_0_20px_rgba(234,179,8,0.3)]"
+        />
 
         {status === "loading" && (
           <>

@@ -87,10 +87,12 @@ export default function AuthResetPassword() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="glass border border-white/10 rounded-2xl p-8 sm:p-10 max-w-md w-full space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-neon-purple flex items-center justify-center shrink-0">
-            <Trophy className="w-6 h-6 text-primary-foreground" />
-          </div>
+        <div className="flex items-center gap-3.5">
+          <img
+            src="/logo.png"
+            alt="ADWA ARENA"
+            className="w-12 h-12 object-contain shrink-0 drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]"
+          />
           <div>
             <h1 className="font-heading text-2xl font-bold text-foreground">Reset Password</h1>
             <p className="text-xs text-muted-foreground">ADWA ARENA account recovery</p>
