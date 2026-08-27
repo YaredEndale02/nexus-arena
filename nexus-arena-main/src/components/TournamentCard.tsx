@@ -9,7 +9,7 @@ import { RegistrationCountdown } from "./RegistrationCountdown";
 
 const statusColors: Record<string, string> = {
   Live: "bg-red-500/20 text-red-400 border-red-500/30",
-  "Registration Open": "bg-[#CCFF00]/15 text-[#CCFF00] border-[#CCFF00]/40 font-bold",
+  "Registration Open": "badge-status-open font-bold",
   "Registration Closed": "bg-amber-500/20 text-amber-300 border-amber-500/30",
   "Check-In": "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
   Published: "bg-[#6B46C1]/20 text-purple-300 border-[#6B46C1]/40",
@@ -121,17 +121,17 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
               <button
                 onClick={() => setIsWizardOpen(true)}
                 className={cn(
-                  "w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-extrabold text-sm tracking-wider transition-all hover:scale-[1.02]",
+                  "w-full py-3 rounded-xl flex items-center justify-center gap-2 font-heading font-extrabold text-sm tracking-wider",
                   isFull 
                     ? tournament.waitlistEnabled 
                       ? "bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]" 
                       : "bg-[#1A1C1F] text-muted-foreground border border-[#2B2E33] cursor-not-allowed"
-                    : "bg-[#CCFF00] text-black shadow-[0_0_20px_rgba(204,255,0,0.35)] hover:bg-[#b8e600] hover:shadow-[0_0_30px_rgba(204,255,0,0.5)]"
+                    : "btn-cta"
                 )}
                 disabled={isFull && !tournament.waitlistEnabled}
               >
                 {isFull ? (tournament.waitlistEnabled ? "JOIN WAITLIST" : "REGISTRATION FULL") : "REGISTER NOW"}
-                {!isFull && <ChevronRight className="w-4 h-4 text-black stroke-[3]" />}
+                {!isFull && <ChevronRight className="w-4 h-4 stroke-[3]" />}
               </button>
             ) : statusLabel === "Check-In" ? (
               <button

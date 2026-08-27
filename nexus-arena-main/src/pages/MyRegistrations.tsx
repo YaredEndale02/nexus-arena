@@ -335,12 +335,12 @@ export default function MyRegistrations() {
                             <Button
                               onClick={() => void handleCheckIn(registration)}
                               disabled={busyEntryId === entry.id}
-                              className="bg-[#CCFF00] text-black font-extrabold hover:bg-[#b8e600] shadow-[0_0_20px_rgba(204,255,0,0.3)]"
+                              className="btn-cta font-extrabold"
                             >
                               {busyEntryId === entry.id ? (
                                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
                               ) : (
-                                <ClipboardCheck className="w-4 h-4 mr-2 text-black stroke-[2.5]" />
+                                <ClipboardCheck className="w-4 h-4 mr-2 stroke-[2.5]" />
                               )}
                               Check In Team
                             </Button>

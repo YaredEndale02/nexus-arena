@@ -6,49 +6,57 @@
 
 @layer base {
   :root {
-    /* ADWA ARENA Theme Palette */
-    --background: 225 10% 6%;       /* Deep Black #0D0E10 */
-    --foreground: 0 0% 100%;
+    /* =========================================================================
+       🎨 ADWA ARENA THEME COLOR CONTROL CENTER
+       Change any color here in ONE place to update the entire website!
+       ========================================================================= */
 
-    --card: 216 9% 11%;             /* Dark Charcoal #1A1C1F */
-    --card-foreground: 0 0% 100%;
-
-    --popover: 216 9% 11%;          /* Dark Charcoal #1A1C1F */
-    --popover-foreground: 0 0% 100%;
-
-    --primary: 46 65% 52%;          /* Base Gold #D4AF37 */
-    --primary-foreground: 225 10% 6%; /* Deep Black on Gold */
-
-    --secondary: 258 52% 52%;       /* Muted Purple #6B46C1 */
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 218 8% 18%;            /* Metallic Slate #2B2E33 */
-    --muted-foreground: 215 15% 65%;
-
-    --accent: 72 100% 50%;          /* Electric Lime #CCFF00 */
-    --accent-foreground: 0 0% 0%;   /* Black on Electric Lime */
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 218 8% 18%;           /* Metallic Slate #2B2E33 */
-    --input: 218 8% 18%;            /* Metallic Slate #2B2E33 */
-    --ring: 46 65% 52%;             /* Base Gold #D4AF37 */
-
-    /* Sharp corners globally */
-    --radius: 0.75rem;
-
-    /* Brand Specific Colors */
-    --gold-light: 45 89% 78%;       /* Light Gold #F8E297 */
+    /* 1. PRIMARY GOLD BRANDING (Shield & Logo) */
     --gold: 46 65% 52%;             /* Base Gold #D4AF37 */
+    --gold-light: 45 89% 78%;       /* Light Gold #F8E297 */
     --gold-dark: 42 55% 37%;        /* Deep Gold #92722A */
 
-    --electric-lime: 72 100% 50%;   /* Electric Lime #CCFF00 */
-    --muted-purple: 258 52% 52%;    /* Muted Purple #6B46C1 */
+    /* 2. BACKGROUNDS & SURFACES */
+    --background: 225 10% 6%;       /* Deep Black Canvas #0D0E10 */
+    --foreground: 0 0% 100%;        /* Crisp White Text */
+    --card: 216 9% 11%;             /* Dark Charcoal #1A1C1F */
+    --card-foreground: 0 0% 100%;
+    --popover: 216 9% 11%;
+    --popover-foreground: 0 0% 100%;
+    --border: 218 8% 18%;           /* Metallic Slate #2B2E33 */
+    --input: 218 8% 18%;
+    --radius: 0.75rem;
 
-    --surface-black: 225 10% 6%;    /* Deep Black #0D0E10 */
-    --surface-charcoal: 216 9% 11%; /* Dark Charcoal #1A1C1F */
-    --surface-slate: 218 8% 18%;    /* Metallic Slate #2B2E33 */
+    /* 3. MAIN ACTION / CTA BUTTONS (REGISTER NOW, CHECK IN) */
+    /* 👉 Change these 4 variables to change the button color anywhere! */
+    --cta-btn-bg: #D4AF37;          /* Default: Base Gold #D4AF37 (or #CCFF00 for Lime) */
+    --cta-btn-hover: #F8E297;        /* Hover color: Light Gold #F8E297 (or #b8e600 for Lime) */
+    --cta-btn-text: #0D0E10;        /* Text color: Deep Black #0D0E10 */
+    --cta-btn-glow: rgba(212, 175, 55, 0.4); /* Glow shadow */
+
+    /* 4. STATUS BADGES & ACCENTS */
+    --badge-open-bg: rgba(212, 175, 55, 0.15);
+    --badge-open-text: #D4AF37;
+    --badge-open-border: rgba(212, 175, 55, 0.4);
+
+    --primary: 46 65% 52%;          /* Base Gold #D4AF37 */
+    --primary-foreground: 225 10% 6%;
+    --secondary: 258 52% 52%;       /* Muted Purple #6B46C1 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 218 8% 18%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 46 65% 52%;
+    --accent-foreground: 225 10% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 46 65% 52%;
+
+    /* Extra Palette References */
+    --electric-lime: 72 100% 50%;   /* #CCFF00 */
+    --muted-purple: 258 52% 52%;    /* #6B46C1 */
+    --surface-black: 225 10% 6%;
+    --surface-charcoal: 216 9% 11%;
+    --surface-slate: 218 8% 18%;
   }
 }
 
@@ -111,6 +119,25 @@
 
   .purple-glow {
     box-shadow: 0 0 20px rgba(107, 70, 193, 0.35), 0 0 50px rgba(107, 70, 193, 0.15);
+  }
+
+  .btn-cta {
+    background-color: var(--cta-btn-bg);
+    color: var(--cta-btn-text);
+    box-shadow: 0 0 20px var(--cta-btn-glow);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .btn-cta:hover {
+    background-color: var(--cta-btn-hover);
+    box-shadow: 0 0 30px var(--cta-btn-glow);
+    transform: scale(1.02);
+  }
+
+  .badge-status-open {
+    background-color: var(--badge-open-bg);
+    color: var(--badge-open-text);
+    border-color: var(--badge-open-border);
   }
 
   .text-gold {
