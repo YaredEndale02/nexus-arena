@@ -65,25 +65,51 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
   const authUser = session.user;
   const metadata = authUser.user_metadata ?? {};
 
-  const payload = {
-    id: authUser.id,
-    name: typeof metadata.name === "string" ? metadata.name : authUser.email?.split("@")[0] ?? "Arena Player",
-    role: typeof metadata.role === "string" ? metadata.role : "PLAYER",
-    riot_id: typeof metadata.riot_id === "string" ? metadata.riot_id : null,
-    phone_number: typeof metadata.phone_number === "string" ? metadata.phone_number : null,
-  };
+  // Extract display name prioritizing full_name from Google/Discord, then custom name, then email prefix
+  const resolvedName =
+    (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
+    (typeof metadata.name === "string" && metadata.name.trim()) ||
+    (typeof metadata.custom_claims?.global_name === "string" && metadata.custom_claims.global_name.trim()) ||
+    authUser.email?.split("@")[0] ||
+    "Arena Player";
 
-  const { error: upsertError } = await client.from("users").upsert(payload, { onConflict: "id" });
-  if (upsertError) throw upsertError;
+  // Check if profile already exists in DB so we don't overwrite custom changes or roles
+  const { data: existingProfile } = await client
+    .from("users")
+    .select("*")
+    .eq("id", authUser.id)
+    .maybeSingle();
+
+  if (!existingProfile) {
+    const payload = {
+      id: authUser.id,
+      name: resolvedName,
+      role: typeof metadata.role === "string" ? metadata.role : "PLAYER",
+      riot_id: typeof metadata.riot_id === "string" ? metadata.riot_id : null,
+      phone_number: typeof metadata.phone_number === "string" ? metadata.phone_number : null,
+    };
+
+    const { error: upsertError } = await client.from("users").upsert(payload, { onConflict: "id" });
+    if (upsertError) console.error("Error creating user profile:", upsertError);
+  }
 
   const { data, error } = await client.from("users").select("*").eq("id", authUser.id).single();
-  if (error) throw error;
+  if (error) {
+    return {
+      id: authUser.id,
+      email: authUser.email ?? "",
+      name: resolvedName,
+      role: (metadata.role as UserRole) ?? "PLAYER",
+      riotId: metadata.riot_id ?? undefined,
+      phoneNumber: metadata.phone_number ?? undefined,
+    };
+  }
 
   const profile = data as ProfileRow;
   return {
     id: authUser.id,
     email: authUser.email ?? "",
-    name: profile.name ?? payload.name,
+    name: profile.name ?? resolvedName,
     role: (profile.role as UserRole) ?? "PLAYER",
     riotId: profile.riot_id ?? undefined,
     phoneNumber: profile.phone_number ?? undefined,
