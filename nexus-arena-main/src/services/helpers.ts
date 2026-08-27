@@ -304,7 +304,7 @@ export async function hydrateTeams(client: ReturnType<typeof requireSupabase>, r
     : { data: [], error: null };
   if (usersError) throw usersError;
 
-  const userMap = new Map((users ?? []).map((user) => [user.id, user as SupabaseUserRow]));
+  const userMap = new Map<string, SupabaseUserRow>((users ?? []).map((user: any) => [user.id, user as SupabaseUserRow]));
 
   return rows.map((row) => ({
     id: row.id,
