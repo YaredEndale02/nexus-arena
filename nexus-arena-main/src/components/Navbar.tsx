@@ -49,13 +49,13 @@ export function Navbar() {
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/" className="flex items-center gap-3 group">
             <img
               src="/logo.png"
               alt="ADWA ARENA"
-              className="w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-lg drop-shadow-[0_0_10px_rgba(234,179,8,0.3)] group-hover:scale-105 transition-transform"
+              className="w-10 h-10 sm:w-11 sm:h-11 object-contain rounded-xl drop-shadow-[0_0_15px_rgba(234,179,8,0.4)] group-hover:scale-105 transition-transform"
             />
-            <span className="font-heading text-lg sm:text-xl font-bold tracking-wider text-foreground">
+            <span className="font-heading text-lg sm:text-xl font-black tracking-wider text-foreground">
               ADWA <span className="text-primary">ARENA</span>
             </span>
           </Link>
