@@ -142,6 +142,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Check for OAuth hash/query error from Supabase
+    if (typeof window !== "undefined") {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const searchParams = new URLSearchParams(window.location.search);
+      const errorDesc = hashParams.get("error_description") || searchParams.get("error_description");
+      if (errorDesc) {
+        console.error("Supabase Auth OAuth Error:", decodeURIComponent(errorDesc));
+        // Clean URL to avoid persisting raw error strings in address bar
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+
     if (!isSupabaseConfigured || !supabase) {
       setIsLoading(false);
       return;

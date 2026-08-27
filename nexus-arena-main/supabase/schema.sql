@@ -86,37 +86,73 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_name text;
+  v_email text;
+  v_role text;
+  v_phone text;
+  v_riot_id text;
+  v_avatar text;
 begin
+  v_email := new.email;
+  
+  v_name := coalesce(
+    nullif(trim(new.raw_user_meta_data->>'full_name'), ''),
+    nullif(trim(new.raw_user_meta_data->>'name'), ''),
+    nullif(trim(new.raw_user_meta_data->>'user_name'), ''),
+    nullif(split_part(new.email, '@', 1), ''),
+    'Arena Player'
+  );
+
+  v_role := coalesce(
+    nullif(trim(new.raw_user_meta_data->>'role'), ''),
+    'PLAYER'
+  );
+
+  v_phone := nullif(trim(new.raw_user_meta_data->>'phone_number'), '');
+  v_riot_id := nullif(trim(new.raw_user_meta_data->>'riot_id'), '');
+  v_avatar := coalesce(
+    nullif(trim(new.raw_user_meta_data->>'avatar_url'), ''),
+    nullif(trim(new.raw_user_meta_data->>'picture'), '')
+  );
+
   insert into public.users (
     id,
     email,
     name,
-    username,
     role,
+    phone_number,
     riot_id,
-    timezone,
-    phone_number
+    avatar_url,
+    status,
+    created_at,
+    updated_at
   )
   values (
     new.id::text,
-    new.email,
-    coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-    nullif(new.raw_user_meta_data->>'username', ''),
-    coalesce(new.raw_user_meta_data->>'role', 'PLAYER'),
-    nullif(new.raw_user_meta_data->>'riot_id', ''),
-    nullif(new.raw_user_meta_data->>'timezone', ''),
-    nullif(new.raw_user_meta_data->>'phone_number', '')
+    v_email,
+    v_name,
+    v_role,
+    v_phone,
+    v_riot_id,
+    v_avatar,
+    'ACTIVE',
+    now(),
+    now()
   )
   on conflict (id) do update
   set
-    email = excluded.email,
-    name = excluded.name,
-    username = coalesce(excluded.username, public.users.username),
-    role = excluded.role,
-    riot_id = excluded.riot_id,
-    phone_number = coalesce(excluded.phone_number, public.users.phone_number),
-    timezone = coalesce(excluded.timezone, public.users.timezone);
+    email = coalesce(excluded.email, public.users.email),
+    name = coalesce(excluded.name, public.users.name),
+    role = coalesce(public.users.role, excluded.role),
+    avatar_url = coalesce(excluded.avatar_url, public.users.avatar_url),
+    phone_number = coalesce(public.users.phone_number, excluded.phone_number),
+    riot_id = coalesce(public.users.riot_id, excluded.riot_id),
+    updated_at = now();
 
+  return new;
+exception when others then
+  raise warning 'handle_new_auth_user exception: %', sqlerrm;
   return new;
 end;
 $$;
@@ -133,6 +169,9 @@ create table if not exists public.users (
   username text unique,
   role text not null default 'PLAYER' check (role in ('ADMIN', 'ORGANIZER', 'PLAYER', 'MODERATOR', 'REFEREE')),
   riot_id text,
+  phone_number text,
+  organization_name text,
+  venue_location text,
   discord_handle text,
   avatar_url text,
   bio text,
