@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CalendarDays, ClipboardCheck, ExternalLink, Globe, Loader2, ScrollText, ShieldCheck, Trophy, Users, Play } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { SEOHead } from "@/components/SEOHead";
 import { RegistrationWizard } from "@/components/RegistrationWizard";
 import { RegistrationCountdown } from "@/components/RegistrationCountdown";
 import { Button } from "@/components/ui/button";
@@ -145,8 +146,60 @@ export default function TournamentDetails() {
         ? "Captains can register an eligible team from this page."
         : "Registration actions are currently closed.";
 
+  const structuredData = tournament ? {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    "name": tournament.title,
+    "description": `${tournament.gameTitle} tournament on ADWA ARENA. Format: ${tournament.format}, Bracket: ${tournament.bracketType}.`,
+    "startDate": tournament.startDate,
+    "sport": tournament.gameTitle,
+    "eventStatus": tournament.status === "CANCELLED" 
+      ? "https://schema.org/EventCancelled" 
+      : tournament.status === "COMPLETED" 
+        ? "https://schema.org/EventPostponed" 
+        : "https://schema.org/EventScheduled",
+    "eventAttendanceMode": tournament.tournamentType === "ONLINE" 
+      ? "https://schema.org/OnlineEventAttendanceMode" 
+      : tournament.tournamentType === "LAN" 
+        ? "https://schema.org/OfflineEventAttendanceMode" 
+        : "https://schema.org/MixedEventAttendanceMode",
+    "location": tournament.tournamentType === "ONLINE" ? {
+      "@type": "VirtualLocation",
+      "url": `https://adwaarena.com/tournaments/${tournament.id}`
+    } : {
+      "@type": "Place",
+      "name": tournament.creator?.venueLocation || "LAN Arena Venue",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": tournament.creator?.venueLocation || "Addis Ababa"
+      }
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `https://adwaarena.com/tournaments/${tournament.id}`,
+      "price": tournament.entryFee ? String(tournament.entryFee) : "0",
+      "priceCurrency": "USD",
+      "availability": tournament.status === "REGISTRATION_OPEN" 
+        ? "https://schema.org/InStock" 
+        : "https://schema.org/SoldOut",
+      "validFrom": tournament.registrationOpenAt || tournament.createdAt
+    },
+    "organizer": {
+      "@type": "Organization",
+      "name": tournament.creator?.organizationName || tournament.creator?.name || "ADWA ARENA",
+      "url": "https://adwaarena.com"
+    }
+  } : undefined;
+
   return (
     <Layout>
+      <SEOHead
+        title={tournament ? `${tournament.title} (${tournament.gameTitle})` : "Tournament Details"}
+        description={tournament ? `${tournament.title} — ${tournament.gameTitle} tournament. ${registeredTeams}/${tournament.maxTeams} teams registered. Starts ${new Date(tournament.startDate).toLocaleDateString()}. Register and track brackets on ADWA ARENA.` : undefined}
+        canonicalUrl={tournament ? `https://adwaarena.com/tournaments/${tournament.id}` : undefined}
+        keywords={tournament ? `${tournament.gameTitle}, ${tournament.title}, esports tournament, ${tournament.bracketType}, ADWA ARENA` : undefined}
+        structuredData={structuredData}
+      />
       <div className="space-y-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-4 max-w-3xl">

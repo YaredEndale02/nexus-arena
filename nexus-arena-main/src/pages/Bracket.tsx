@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { X, Clock, ExternalLink, Swords, Loader2, RefreshCw, Wifi, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { SEOHead } from "@/components/SEOHead";
 import { cn } from "@/lib/utils";
 import { api, type MatchReport, type Tournament } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
@@ -397,6 +398,12 @@ export default function Bracket() {
 
   return (
     <Layout>
+      <SEOHead
+        title={selectedTournament ? `${selectedTournament.title} Bracket` : "Live Tournament Brackets"}
+        description={selectedTournament ? `Follow live bracket progression, scores, and match results for ${selectedTournament.title} (${selectedTournament.gameTitle}) on ADWA ARENA.` : "Interactive real-time elimination brackets, match outcomes, and tournament trees on ADWA ARENA."}
+        canonicalUrl="https://adwaarena.com/bracket"
+        keywords="tournament bracket, single elimination bracket, double elimination, esports tree, live bracket scores, ADWA ARENA"
+      />
       <div className="mb-6 animate-fade-in">
         <h1 className="font-heading text-3xl font-bold text-foreground">
           Live <span className="text-primary">Bracket</span>

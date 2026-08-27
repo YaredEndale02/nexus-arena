@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
+import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -180,6 +181,12 @@ export default function Teams() {
 
   return (
     <Layout>
+      <SEOHead
+        title="Manage Teams & Rosters"
+        description="Create squads, invite teammates, and manage tournament rosters on ADWA ARENA."
+        canonicalUrl="https://adwaarena.com/teams"
+        keywords="esports team, squad roster, tournament registration, gaming squad, ADWA ARENA"
+      />
       <div className="max-w-6xl mx-auto py-10 px-6">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">

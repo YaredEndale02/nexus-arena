@@ -1,4 +1,5 @@
 import { Layout } from "@/components/Layout";
+import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
@@ -417,6 +418,12 @@ export default function Live() {
 
   return (
     <Layout>
+      <SEOHead
+        title={tournament ? `Live Broadcast — ${tournament.title}` : "Live Esports Broadcasts"}
+        description={tournament ? `Watch live stream, real-time match events, and participate in live chat for ${tournament.title} (${tournament.gameTitle}) on ADWA ARENA.` : "Watch live competitive esports tournament broadcasts and streams on ADWA ARENA."}
+        canonicalUrl="https://adwaarena.com/live"
+        keywords="live esports, tournament stream, Twitch esports, YouTube gaming stream, ADWA ARENA live"
+      />
       <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-[#0a0a0c]">
         {/* Left Side: Stream & Stats */}
         <div className={cn(
