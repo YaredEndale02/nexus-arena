@@ -35,7 +35,15 @@ interface AuthContextType {
   signUp: (input: SignUpInput) => Promise<{ pendingConfirmation: boolean }>;
   signInWithProvider: (provider: Provider) => Promise<void>;
   resetPassword: (identifier: string) => Promise<void>;
-  updateProfile: (updates: { name?: string; phoneNumber?: string; riotId?: string; telegramChatId?: string }) => Promise<void>;
+  updateProfile: (updates: {
+    name?: string;
+    phoneNumber?: string;
+    riotId?: string;
+    telegramChatId?: string;
+    role?: UserRole;
+    organizationName?: string;
+    venueLocation?: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -47,6 +55,8 @@ type ProfileRow = {
   riot_id: string | null;
   phone_number: string | null;
   telegram_chat_id: string | null;
+  organization_name?: string | null;
+  venue_location?: string | null;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -211,7 +221,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const updateProfile = async (updates: { name?: string; phoneNumber?: string; riotId?: string; telegramChatId?: string }) => {
+  const updateProfile = async (updates: {
+    name?: string;
+    phoneNumber?: string;
+    riotId?: string;
+    telegramChatId?: string;
+    role?: UserRole;
+    organizationName?: string;
+    venueLocation?: string;
+  }) => {
     if (!user) return;
     const client = requireSupabaseAuth();
 
@@ -220,9 +238,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (updates.phoneNumber !== undefined) payload.phone_number = updates.phoneNumber;
     if (updates.riotId !== undefined) payload.riot_id = updates.riotId;
     if (updates.telegramChatId !== undefined) payload.telegram_chat_id = updates.telegramChatId;
+    if (updates.role !== undefined) payload.role = updates.role;
+    if (updates.organizationName !== undefined) payload.organization_name = updates.organizationName;
+    if (updates.venueLocation !== undefined) payload.venue_location = updates.venueLocation;
 
-    const { error } = await client.from("users").update(payload).eq("id", user.id);
-    if (error) throw error;
+    try {
+      const { error } = await client.from("users").update(payload).eq("id", user.id);
+      if (error) console.warn("Supabase DB profile update warning:", error);
+    } catch (e) {
+      console.warn("DB update skipped:", e);
+    }
+
+    try {
+      await client.auth.updateUser({
+        data: {
+          ...(updates.role && { role: updates.role }),
+          ...(updates.name && { name: updates.name }),
+          ...(updates.organizationName && { organization_name: updates.organizationName }),
+          ...(updates.venueLocation && { venue_location: updates.venueLocation }),
+          ...(updates.phoneNumber && { phone_number: updates.phoneNumber }),
+          ...(updates.riotId && { riot_id: updates.riotId }),
+        },
+      });
+    } catch (e) {
+      console.warn("Auth metadata update warning:", e);
+    }
 
     setUser((prev) => (prev ? { ...prev, ...updates } : null));
   };

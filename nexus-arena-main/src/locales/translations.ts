@@ -74,7 +74,24 @@ export const translations = {
 
     // FAQ Section
     faqTitle: "Frequently Asked Questions",
-    faqSubtitle: "Everything you need to know about competing on ADWA ARENA."
+    faqSubtitle: "Everything you need to know about competing on ADWA ARENA.",
+
+    // Account Role Management
+    roleHeading: "Account Role & Mode",
+    roleSubtitle: "Switch between Player and Tournament Organizer modes anytime.",
+    rolePlayer: "Competitive Player",
+    rolePlayerDesc: "Compete in tournaments, register teams, check-in, and view live brackets.",
+    roleOrganizer: "Tournament Organizer",
+    roleOrganizerDesc: "Create and host tournaments, generate brackets, input scores, and broadcast live overlays.",
+    roleCurrentBadge: "ACTIVE ROLE",
+    roleSwitchToOrganizer: "Switch to Organizer",
+    roleSwitchToPlayer: "Switch to Player",
+    roleSaveBtn: "Save Role Changes",
+    roleOrgNameLabel: "Organization / Club Name",
+    roleOrgNamePlaceholder: "e.g. Addis Esports Club",
+    roleVenueLabel: "Venue / City Location",
+    roleVenuePlaceholder: "e.g. Addis Ababa / Online",
+    roleUpdatedSuccess: "Your account role has been updated successfully!"
   },
   am: {
     // Brand (Strictly unchanged per brand requirements)
@@ -149,7 +166,24 @@ export const translations = {
 
     // FAQ Section
     faqTitle: "ተደጋግመው የሚጠየቁ ጥያቄዎች",
-    faqSubtitle: "በADWA ARENA ላይ ስለመወዳደር ማወቅ ያለብዎት ጠቃሚ መረጃዎች።"
+    faqSubtitle: "በADWA ARENA ላይ ስለመወዳደር ማወቅ ያለብዎት ጠቃሚ መረጃዎች።",
+
+    // Account Role Management
+    roleHeading: "የአካውንት ሚና እና አይነት",
+    roleSubtitle: "በተጫዋችነት እና በውድድር አዘጋጅነት መካከል በማንኛውም ጊዜ ይቀያይሩ።",
+    rolePlayer: "ተወዳዳሪ ተጫዋች",
+    rolePlayerDesc: "በውድድሮች ይሳተፉ፣ ቡድኖችን ይመዝግቡ፣ ቼክ-ኢን ያድርጉ እና የቀጥታ የውድድር ዛፍ ይመልከቱ።",
+    roleOrganizer: "የውድድር አዘጋጅ",
+    roleOrganizerDesc: "ውድድሮችን ይፍጠሩ፣ የውድድር ዛፍ ያዘጋጁ፣ ውጤቶችን ያስመዝግቡ እና የቀጥታ ስርጭት ያካሂዱ።",
+    roleCurrentBadge: "አሁን ያለዎት ሚና",
+    roleSwitchToOrganizer: "ወደ አዘጋጅነት ቀይር",
+    roleSwitchToPlayer: "ወደ ተጫዋችነት ቀይር",
+    roleSaveBtn: "የሚና ለውጡን አስቀምጥ",
+    roleOrgNameLabel: "የክለብ ወይም ድርጅት ስም",
+    roleOrgNamePlaceholder: "ለምሳሌ፦ አዲስ ኢ-ስፖርት ክለብ",
+    roleVenueLabel: "የቦታ ወይም የከተማ አድራሻ",
+    roleVenuePlaceholder: "ለምሳሌ፦ አዲስ አበባ / ኦንላይን",
+    roleUpdatedSuccess: "የአካውንት ሚናዎ በተሳካ ሁኔታ ተቀይሯል!"
   }
 };
 

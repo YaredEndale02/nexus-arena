@@ -4,19 +4,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, type UserRole } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/context/LanguageContext";
 import { api } from "@/lib/api";
-import { Send, Bell, Shield, User, CheckCircle2, ExternalLink, Loader2 } from "lucide-react";
+import { Send, Bell, Shield, User, CheckCircle2, ExternalLink, Loader2, Gamepad2, Trophy, Building2, MapPin } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function Settings() {
   const { user, updateProfile } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [isUpdating, setIsUpdating] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
   const [riotId, setRiotId] = useState(user?.riotId || "");
   const [telegramId, setTelegramId] = useState(user?.telegramChatId || "");
+  const [selectedRole, setSelectedRole] = useState<UserRole>(user?.role || "PLAYER");
+  const [orgName, setOrgName] = useState(user?.organizationName || "");
+  const [venueLoc, setVenueLoc] = useState(user?.venueLocation || "");
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -27,10 +33,13 @@ export default function Settings() {
         phoneNumber,
         riotId,
         telegramChatId: telegramId,
+        role: selectedRole,
+        organizationName: orgName,
+        venueLocation: venueLoc,
       });
       toast({
-        title: "Profile updated",
-        description: "Your gamer profile and contact details have been saved successfully.",
+        title: t("roleUpdatedSuccess"),
+        description: "Your profile and role changes have been saved successfully.",
       });
     } catch (error: any) {
       toast({
@@ -67,11 +76,115 @@ export default function Settings() {
     <Layout>
       <div className="max-w-4xl mx-auto py-10 px-6">
         <div className="mb-8">
-          <h1 className="font-heading text-3xl font-bold text-foreground">Settings & Gamer Profile</h1>
-          <p className="text-muted-foreground">Manage your phone number, game tags, and alert preferences.</p>
+          <h1 className="font-heading text-3xl font-bold text-foreground">{t("roleHeading")} & Settings</h1>
+          <p className="text-muted-foreground">{t("roleSubtitle")}</p>
         </div>
 
         <div className="grid gap-6">
+          {/* Account Role Switcher Card */}
+          <Card className="glass border-white/10">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                {t("roleHeading")}
+              </CardTitle>
+              <CardDescription>{t("roleSubtitle")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Option 1: Player */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("PLAYER")}
+                  className={cn(
+                    "relative text-left p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3",
+                    selectedRole === "PLAYER"
+                      ? "border-[#D4AF37] bg-[#D4AF37]/10 shadow-[0_0_25px_rgba(212,175,55,0.2)]"
+                      : "border-[#2B2E33] bg-[#1A1C1F] hover:border-white/20 hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                      <Gamepad2 className="w-5 h-5 text-primary" />
+                    </div>
+                    {selectedRole === "PLAYER" && (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#D4AF37] text-black">
+                        {t("roleCurrentBadge")}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-bold text-foreground">{t("rolePlayer")}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {t("rolePlayerDesc")}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Option 2: Organizer */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("ORGANIZER")}
+                  className={cn(
+                    "relative text-left p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3",
+                    selectedRole === "ORGANIZER"
+                      ? "border-[#D4AF37] bg-[#D4AF37]/10 shadow-[0_0_25px_rgba(212,175,55,0.2)]"
+                      : "border-[#2B2E33] bg-[#1A1C1F] hover:border-white/20 hover:bg-white/5"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-primary" />
+                    </div>
+                    {selectedRole === "ORGANIZER" && (
+                      <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#D4AF37] text-black">
+                        {t("roleCurrentBadge")}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-bold text-foreground">{t("roleOrganizer")}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      {t("roleOrganizerDesc")}
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Extra fields if Organizer */}
+              {selectedRole === "ORGANIZER" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-white/5 border border-white/10 animate-fade-in">
+                  <div className="space-y-2">
+                    <Label htmlFor="org-name" className="flex items-center gap-1.5 text-xs text-foreground font-bold">
+                      <Building2 className="w-3.5 h-3.5 text-primary" />
+                      {t("roleOrgNameLabel")}
+                    </Label>
+                    <Input
+                      id="org-name"
+                      placeholder={t("roleOrgNamePlaceholder")}
+                      value={orgName}
+                      onChange={(e) => setOrgName(e.target.value)}
+                      className="bg-black/30 border-white/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="venue-loc" className="flex items-center gap-1.5 text-xs text-foreground font-bold">
+                      <MapPin className="w-3.5 h-3.5 text-primary" />
+                      {t("roleVenueLabel")}
+                    </Label>
+                    <Input
+                      id="venue-loc"
+                      placeholder={t("roleVenuePlaceholder")}
+                      value={venueLoc}
+                      onChange={(e) => setVenueLoc(e.target.value)}
+                      className="bg-black/30 border-white/10"
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Gamer Profile Card */}
           <Card className="glass border-white/10">
             <CardHeader>
@@ -106,7 +219,7 @@ export default function Settings() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="prof-riot">Riot ID / In-Game Handle</Label>
                   <Input
                     id="prof-riot"
@@ -116,25 +229,15 @@ export default function Settings() {
                     className="bg-white/5 border-white/10"
                   />
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="prof-role">Account Role</Label>
-                  <Input
-                    id="prof-role"
-                    value={user?.role ?? "PLAYER"}
-                    disabled
-                    className="bg-white/5 border-white/10 text-muted-foreground uppercase"
-                  />
-                </div>
               </div>
 
               <Button
                 onClick={handleSaveProfile}
                 disabled={isUpdating}
-                className="w-full font-bold bg-primary text-primary-foreground mt-2"
+                className="w-full font-bold btn-cta py-5 mt-4"
               >
                 {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Save Profile Changes
+                {t("roleSaveBtn")}
               </Button>
             </CardContent>
           </Card>

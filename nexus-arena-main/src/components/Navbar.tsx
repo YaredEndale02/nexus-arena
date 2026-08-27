@@ -122,9 +122,23 @@ export function Navbar() {
                   </div>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 glass border-white/10">
-                <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-60 glass border-white/10 p-2">
+                <DropdownMenuLabel className="space-y-1">
+                  <p className="font-bold text-foreground truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground truncate font-normal">{user.email}</p>
+                  <div className="pt-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary/20 text-primary border border-primary/30">
+                      {user.role === "ORGANIZER" ? t("roleOrganizer") : t("rolePlayer")}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="cursor-pointer font-semibold text-primary">
+                    <Shield className="mr-2 h-4 w-4" />
+                    {user.role === "PLAYER" ? t("roleSwitchToOrganizer") : t("roleSwitchToPlayer")}
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="cursor-pointer">
                     <BarChart3 className="mr-2 h-4 w-4 text-primary" />
