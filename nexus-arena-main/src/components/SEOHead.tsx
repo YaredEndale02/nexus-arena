@@ -1,4 +1,4 @@
-﻿import { useEffect } from "react";
+import { useEffect } from "react";
 
 interface SEOHeadProps {
   title?: string;
@@ -21,12 +21,12 @@ export function SEOHead({
 }: SEOHeadProps) {
   useEffect(() => {
     const defaultTitle = "ADWA ARENA — Competitive Esports Tournament Platform";
-    const fullTitle = title ? ${title} | ADWA ARENA : defaultTitle;
+    const fullTitle = title ? `${title} | ADWA ARENA` : defaultTitle;
     document.title = fullTitle;
 
     // Helper to set or create meta tags
-    const setMetaTag = (selector: string, attr: string, key: string, value: string) => {
-      let element = document.querySelector(meta[=""]);
+    const setMetaTag = (attr: string, key: string, value: string) => {
+      let element = document.querySelector(`meta[${attr}="${key}"]`);
       if (!element) {
         element = document.createElement("meta");
         element.setAttribute(attr, key);
@@ -36,18 +36,18 @@ export function SEOHead({
     };
 
     // Standard Meta
-    setMetaTag('meta[name="description"]', "name", "description", description);
+    setMetaTag("name", "description", description);
     if (keywords) {
-      setMetaTag('meta[name="keywords"]', "name", "keywords", keywords);
+      setMetaTag("name", "keywords", keywords);
     }
 
     // OpenGraph
-    setMetaTag('meta[property="og:title"]', "property", "og:title", fullTitle);
-    setMetaTag('meta[property="og:description"]', "property", "og:description", description);
-    setMetaTag('meta[property="og:image"]', "property", "og:image", ogImage);
-    setMetaTag('meta[property="og:type"]', "property", "og:type", ogType);
+    setMetaTag("property", "og:title", fullTitle);
+    setMetaTag("property", "og:description", description);
+    setMetaTag("property", "og:image", ogImage);
+    setMetaTag("property", "og:type", ogType);
     if (canonicalUrl) {
-      setMetaTag('meta[property="og:url"]', "property", "og:url", canonicalUrl);
+      setMetaTag("property", "og:url", canonicalUrl);
       
       let linkCanonical = document.querySelector('link[rel="canonical"]');
       if (!linkCanonical) {
@@ -59,9 +59,9 @@ export function SEOHead({
     }
 
     // Twitter
-    setMetaTag('meta[name="twitter:title"]', "name", "twitter:title", fullTitle);
-    setMetaTag('meta[name="twitter:description"]', "name", "twitter:description", description);
-    setMetaTag('meta[name="twitter:image"]', "name", "twitter:image", ogImage);
+    setMetaTag("name", "twitter:title", fullTitle);
+    setMetaTag("name", "twitter:description", description);
+    setMetaTag("name", "twitter:image", ogImage);
 
     // Dynamic JSON-LD Structured Data
     const scriptId = "seo-structured-data";
