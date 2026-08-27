@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,18 @@ export default function Settings() {
   const [selectedRole, setSelectedRole] = useState<UserRole>(user?.role || "PLAYER");
   const [orgName, setOrgName] = useState(user?.organizationName || "");
   const [venueLoc, setVenueLoc] = useState(user?.venueLocation || "");
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name || "");
+      setPhoneNumber(user.phoneNumber || "");
+      setRiotId(user.riotId || "");
+      setTelegramId(user.telegramChatId || "");
+      setSelectedRole(user.role || "PLAYER");
+      setOrgName(user.organizationName || "");
+      setVenueLoc(user.venueLocation || "");
+    }
+  }, [user]);
 
   const handleSaveProfile = async () => {
     if (!user) return;

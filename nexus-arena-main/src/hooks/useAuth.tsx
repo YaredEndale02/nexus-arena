@@ -75,7 +75,7 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
   const authUser = session.user;
   const metadata = authUser.user_metadata ?? {};
 
-  // Extract display name prioritizing full_name from Google/Discord, then custom name, then email prefix
+  // Extract display name prioritizing metadata name, full_name, or email prefix
   const resolvedName =
     (typeof metadata.full_name === "string" && metadata.full_name.trim()) ||
     (typeof metadata.name === "string" && metadata.name.trim()) ||
@@ -83,47 +83,57 @@ async function syncProfileFromSession(session: Session | null): Promise<User | n
     authUser.email?.split("@")[0] ||
     "Arena Player";
 
-  // Check if profile already exists in DB so we don't overwrite custom changes or roles
-  const { data: existingProfile } = await client
-    .from("users")
-    .select("*")
-    .eq("id", authUser.id)
-    .maybeSingle();
+  // Check DB profile
+  let dbProfile: ProfileRow | null = null;
+  try {
+    const { data } = await client
+      .from("users")
+      .select("*")
+      .eq("id", authUser.id)
+      .maybeSingle();
+    if (data) dbProfile = data as ProfileRow;
+  } catch (err) {
+    console.warn("DB profile lookup warning:", err);
+  }
 
-  if (!existingProfile) {
+  // If no DB profile exists yet, create one
+  if (!dbProfile) {
+    const initialRole = typeof metadata.role === "string" ? metadata.role : "PLAYER";
     const payload = {
       id: authUser.id,
       name: resolvedName,
-      role: typeof metadata.role === "string" ? metadata.role : "PLAYER",
+      role: initialRole,
       riot_id: typeof metadata.riot_id === "string" ? metadata.riot_id : null,
       phone_number: typeof metadata.phone_number === "string" ? metadata.phone_number : null,
+      organization_name: typeof metadata.organization_name === "string" ? metadata.organization_name : null,
+      venue_location: typeof metadata.venue_location === "string" ? metadata.venue_location : null,
     };
 
-    const { error: upsertError } = await client.from("users").upsert(payload, { onConflict: "id" });
-    if (upsertError) console.error("Error creating user profile:", upsertError);
+    try {
+      await client.from("users").upsert(payload, { onConflict: "id" });
+      const { data } = await client.from("users").select("*").eq("id", authUser.id).maybeSingle();
+      if (data) dbProfile = data as ProfileRow;
+    } catch (upsertError) {
+      console.warn("Error creating user profile in DB:", upsertError);
+    }
   }
 
-  const { data, error } = await client.from("users").select("*").eq("id", authUser.id).single();
-  if (error) {
-    return {
-      id: authUser.id,
-      email: authUser.email ?? "",
-      name: resolvedName,
-      role: (metadata.role as UserRole) ?? "PLAYER",
-      riotId: metadata.riot_id ?? undefined,
-      phoneNumber: metadata.phone_number ?? undefined,
-    };
-  }
+  // Resolved role: prefer DB profile role, then metadata role, fallback to PLAYER
+  const resolvedRole =
+    (dbProfile?.role as UserRole) ||
+    (metadata.role as UserRole) ||
+    "PLAYER";
 
-  const profile = data as ProfileRow;
   return {
     id: authUser.id,
     email: authUser.email ?? "",
-    name: profile.name ?? resolvedName,
-    role: (profile.role as UserRole) ?? "PLAYER",
-    riotId: profile.riot_id ?? undefined,
-    phoneNumber: profile.phone_number ?? undefined,
-    telegramChatId: profile.telegram_chat_id ?? undefined,
+    name: dbProfile?.name ?? (typeof metadata.name === "string" ? metadata.name : resolvedName),
+    role: resolvedRole,
+    riotId: dbProfile?.riot_id ?? metadata.riot_id ?? undefined,
+    phoneNumber: dbProfile?.phone_number ?? metadata.phone_number ?? undefined,
+    telegramChatId: dbProfile?.telegram_chat_id ?? undefined,
+    organizationName: dbProfile?.organization_name ?? metadata.organization_name ?? undefined,
+    venueLocation: dbProfile?.venue_location ?? metadata.venue_location ?? undefined,
   };
 }
 
