@@ -14,7 +14,47 @@ ALTER TABLE public.users ADD COLUMN IF NOT EXISTS discord_handle TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS country_code TEXT;
 
--- 2. Create or replace the handle_new_auth_user function with robust email conflict resolution
+-- 2. Immediate One-Time Fix: Synchronize any existing public.users rows with auth.users by email
+DO $$
+BEGIN
+  -- Re-link foreign keys for any mismatched IDs
+  UPDATE public.team_members tm
+  SET user_id = a.id::text
+  FROM public.users u
+  JOIN auth.users a ON LOWER(u.email) = LOWER(a.email)
+  WHERE tm.user_id = u.id AND u.id <> a.id::text;
+
+  UPDATE public.tournament_entries te
+  SET user_id = a.id::text
+  FROM public.users u
+  JOIN auth.users a ON LOWER(u.email) = LOWER(a.email)
+  WHERE te.user_id = u.id AND u.id <> a.id::text;
+
+  UPDATE public.teams t
+  SET captain_id = a.id::text
+  FROM public.users u
+  JOIN auth.users a ON LOWER(u.email) = LOWER(a.email)
+  WHERE t.captain_id = u.id AND u.id <> a.id::text;
+
+  UPDATE public.teams t
+  SET created_by = a.id::text
+  FROM public.users u
+  JOIN auth.users a ON LOWER(u.email) = LOWER(a.email)
+  WHERE t.created_by = u.id AND u.id <> a.id::text;
+
+  -- Synchronize the primary key in public.users to match auth.users
+  UPDATE public.users u
+  SET id = a.id::text
+  FROM auth.users a
+  WHERE LOWER(u.email) = LOWER(a.email)
+    AND u.id <> a.id::text;
+
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Automatic ID alignment notice: %', SQLERRM;
+END;
+$$;
+
+-- 3. Create or replace the handle_new_auth_user function with robust email conflict resolution
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -69,7 +109,7 @@ BEGIN
 
   -- Case B: Check if a user already exists with this EMAIL under an older ID
   IF v_email IS NOT NULL AND v_email <> '' THEN
-    SELECT id INTO v_existing_id FROM public.users WHERE email = v_email LIMIT 1;
+    SELECT id INTO v_existing_id FROM public.users WHERE LOWER(email) = LOWER(v_email) LIMIT 1;
     
     IF v_existing_id IS NOT NULL AND v_existing_id <> NEW.id::text THEN
       -- Re-link existing foreign key references to the new auth user ID
@@ -136,19 +176,19 @@ BEGIN
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- Never crash auth transactions
+  -- Exception safety: Log warning but never crash auth signup transactions
   RAISE WARNING 'handle_new_auth_user caught error: %', SQLERRM;
   RETURN NEW;
 END;
 $$;
 
--- 3. Recreate the trigger
+-- 4. Recreate the trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_auth_user();
 
--- 4. Row Level Security policies
+-- 5. Row Level Security policies
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view all profiles" ON public.users;

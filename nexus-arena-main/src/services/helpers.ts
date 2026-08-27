@@ -242,18 +242,51 @@ export async function auditLog(
 }
 
 export async function ensureUser(client: ReturnType<typeof requireSupabase>, user: AppUserPayload) {
-  const payload: SupabaseUserRow = {
-    id: user.id,
-    name: user.name,
-    role: user.role,
-    riot_id: user.riotId ?? null,
-    ...(user.email ? { email: user.email } : {}),
-    ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
-    ...(user.telegramChatId ? { telegram_chat_id: user.telegramChatId } : {}),
-  };
+  try {
+    // 1. Check if user already exists by ID
+    const { data: byId } = await client.from("users").select("id").eq("id", user.id).maybeSingle();
+    if (byId) {
+      await client.from("users").update({
+        name: user.name,
+        role: user.role,
+        ...(user.riotId ? { riot_id: user.riotId } : {}),
+        ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
+        ...(user.telegramChatId ? { telegram_chat_id: user.telegramChatId } : {}),
+      }).eq("id", user.id);
+      return;
+    }
 
-  const { error } = await client.from("users").upsert(payload, { onConflict: "id" });
-  if (error) throw error;
+    // 2. Check if a record exists with this email under an older ID
+    if (user.email) {
+      const { data: byEmail } = await client.from("users").select("id").eq("email", user.email).maybeSingle();
+      if (byEmail) {
+        await client.from("users").update({
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          ...(user.riotId ? { riot_id: user.riotId } : {}),
+          ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
+          ...(user.telegramChatId ? { telegram_chat_id: user.telegramChatId } : {}),
+        }).eq("email", user.email);
+        return;
+      }
+    }
+
+    // 3. New record upsert
+    const payload: SupabaseUserRow = {
+      id: user.id,
+      name: user.name,
+      role: user.role,
+      riot_id: user.riotId ?? null,
+      ...(user.email ? { email: user.email } : {}),
+      ...(user.phoneNumber ? { phone_number: user.phoneNumber } : {}),
+      ...(user.telegramChatId ? { telegram_chat_id: user.telegramChatId } : {}),
+    };
+
+    await client.from("users").upsert(payload, { onConflict: "id" });
+  } catch (err) {
+    console.warn("ensureUser caught non-fatal warning:", err);
+  }
 }
 
 export async function hydrateTeams(client: ReturnType<typeof requireSupabase>, rows: SupabaseTeamRow[]): Promise<Team[]> {
