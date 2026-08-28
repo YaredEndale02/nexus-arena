@@ -264,9 +264,9 @@ export default function MyRegistrations() {
                         <p className="font-semibold">
                           {tournament.entryFee > 0 ? (
                             entry.paymentStatus === "PENDING" ? (
-                              <span className="text-amber-400">Pay at check-in (${tournament.entryFee})</span>
+                              <span className="text-amber-400">Pay at check-in (ETB {tournament.entryFee})</span>
                             ) : (
-                              `$${tournament.entryFee}`
+                              `ETB ${tournament.entryFee}`
                             )
                           ) : (
                             <span className="text-emerald-400">Free</span>
@@ -300,11 +300,7 @@ export default function MyRegistrations() {
                             <span className="px-2.5 py-0.5 rounded-full bg-[#1A1C1F] border border-[#2B2E33] text-[#F8E297]">
                               {nextMatch.roundLabel}
                             </span>
-                            {nextMatch.stationNumber && (
-                              <span className="px-2.5 py-0.5 rounded-full bg-[#1A1C1F] border border-[#2B2E33] text-foreground">
-                                Station {nextMatch.stationNumber}
-                              </span>
-                            )}
+
                           </div>
                         </div>
                       ) : (

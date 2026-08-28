@@ -178,7 +178,7 @@ export default function TournamentDetails() {
       "@type": "Offer",
       "url": `https://adwaarena.com/tournaments/${tournament.id}`,
       "price": tournament.entryFee ? String(tournament.entryFee) : "0",
-      "priceCurrency": "USD",
+      "priceCurrency": "ETB",
       "availability": tournament.status === "REGISTRATION_OPEN" 
         ? "https://schema.org/InStock" 
         : "https://schema.org/SoldOut",
@@ -245,7 +245,7 @@ export default function TournamentDetails() {
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
                 This tournament has an entry fee of{" "}
-                <span className="font-bold text-amber-200">${tournament.entryFee}</span>.{" "}
+                <span className="font-bold text-amber-200">ETB {tournament.entryFee}</span>.{" "}
                 Payment is collected manually by the organizer at check-in.
               </span>
             </div>
@@ -334,7 +334,7 @@ export default function TournamentDetails() {
           <Card className="glass border-white/10">
             <CardContent className="p-5">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Entry Fee</p>
-              <p className="font-heading text-3xl font-bold mt-2">${tournament.entryFee}</p>
+              <p className="font-heading text-3xl font-bold mt-2">ETB {tournament.entryFee}</p>
             </CardContent>
           </Card>
           <Card className="glass border-white/10">

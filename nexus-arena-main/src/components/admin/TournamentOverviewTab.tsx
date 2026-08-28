@@ -145,11 +145,11 @@ export function TournamentOverviewTab({
           </div>
           <div className="rounded-xl bg-white/5 border border-white/10 p-4">
             <p className="text-muted-foreground">Entry Fee</p>
-            <p className="font-semibold">${tournament.entryFee}</p>
+            <p className="font-semibold">ETB {tournament.entryFee}</p>
           </div>
           <div className="rounded-xl bg-white/5 border border-white/10 p-4">
             <p className="text-muted-foreground">Prize Pool</p>
-            <p className="font-semibold">${tournament.prizePool.toLocaleString()}</p>
+            <p className="font-semibold">ETB {tournament.prizePool.toLocaleString()}</p>
           </div>
           <div className="rounded-xl bg-white/5 border border-white/10 p-4">
             <p className="text-muted-foreground">Visibility / Waitlist</p>

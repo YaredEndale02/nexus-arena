@@ -290,7 +290,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
             <DialogDescription className="text-muted-foreground">
               {mode === "check-in"
                 ? `${tournament.title} - confirm your attendance`
-                : `${tournament.title} - $${tournament.entryFee} Entry`}
+                : `${tournament.title} - ETB ${tournament.entryFee} Entry`}
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -403,7 +403,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                   <div className="h-px bg-white/10" />
                   <div className="flex justify-between items-center text-lg font-heading">
                     <span className="text-foreground font-bold">Entry Fee</span>
-                    <span className="text-primary font-bold">${tournament.entryFee}</span>
+                    <span className="text-primary font-bold">ETB {tournament.entryFee}</span>
                   </div>
                 </div>
               </div>
@@ -761,7 +761,7 @@ export function RegistrationWizard({ tournament, isOpen, onClose }: Registration
                 <div className="h-px bg-white/10" />
                 <div className="flex justify-between items-center text-lg font-heading">
                   <span className="text-foreground font-bold">Total Entry Fee</span>
-                  <span className="text-primary font-bold">${tournament.entryFee}</span>
+                  <span className="text-primary font-bold">ETB {tournament.entryFee}</span>
                 </div>
               </div>
               <p className="text-[10px] text-center text-muted-foreground italic">

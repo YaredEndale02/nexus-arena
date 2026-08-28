@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Tournament } from "@/lib/api";
-import { Users, Calendar, DollarSign, ChevronRight } from "lucide-react";
+import { Users, Calendar, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/context/LanguageContext";
@@ -65,7 +65,7 @@ export function TournamentCard({ tournament }: { tournament: Tournament & { isUs
             </Badge>
             {tournament.entryFee > 0 ? (
               <span className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />${tournament.entryFee} {t("entryFee")}
+                ETB {tournament.entryFee} {t("entryFee")}
               </span>
             ) : (
               <span className="text-[10px] text-emerald-400 font-bold">{t("freeEntry")}</span>
