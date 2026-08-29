@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Target, Lock, Save, ClipboardCheck, UserPlus, Users as UsersIcon, Trash2 } from "lucide-react";
+import { Target, Lock, Save, ClipboardCheck, UserPlus, Users as UsersIcon, Trash2, Download } from "lucide-react";
 import { Tournament, TournamentEntry, TournamentEntryCheckInStatus, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,51 @@ export function TournamentPlayersTab({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const handleExportCSV = () => {
+    if (entries.length === 0) {
+      toast({ title: "Nothing to export", description: "No entries found for this tournament.", variant: "destructive" });
+      return;
+    }
+
+    const headers = ["Team Name", "Seed", "Registration Order", "Registration Status", "Payment Status", "Check-In Status", "Checked In At", "Roster Locked At", "Registered At"];
+
+    const rows = entries.map((entry) => [
+      entry.teamName,
+      entry.seedNumber ?? "",
+      registrationOrderByEntryId.get(entry.id) ?? "",
+      entry.registrationStatus,
+      entry.paymentStatus,
+      entry.checkInStatus,
+      entry.checkedInAt ?? "",
+      entry.rosterLockedAt ?? "",
+      entry.createdAt ?? "",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((cell) => {
+            const str = String(cell);
+            return str.includes(",") || str.includes('"') || str.includes("\n")
+              ? `"${str.replace(/"/g, '""')}"`
+              : str;
+          })
+          .join(",")
+      )
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeTitle = tournament.title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+    link.href = url;
+    link.download = `${safeTitle}_players.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    toast({ title: "Exported!", description: `${entries.length} entries exported to CSV.` });
+  };
 
   const handleManualAdd = async () => {
     const n = (document.getElementById(`manual-name-${tournament.id}`) as HTMLInputElement).value;
@@ -105,8 +150,21 @@ export function TournamentPlayersTab({
     <div className="space-y-6 outline-none">
       <Card className="glass border-white/10">
         <CardHeader>
-          <CardTitle>Participants</CardTitle>
-          <CardDescription>Manage entries, check-ins, and seeds.</CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle>Participants</CardTitle>
+              <CardDescription>Manage entries, check-ins, and seeds.</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              className="border-white/10 shrink-0"
+              onClick={handleExportCSV}
+              disabled={entries.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
