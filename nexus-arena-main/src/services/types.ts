@@ -140,6 +140,8 @@ export interface TournamentEntry {
   rosterLockedAt?: string | null;
   telegram_chat_id?: string | null;
   createdAt?: string | null;
+  captainEmail?: string | null;
+  captainPhone?: string | null;
 }
 
 export interface MyRegistration {

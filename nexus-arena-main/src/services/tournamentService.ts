@@ -339,17 +339,41 @@ export const tournamentService = {
     const entries = (data ?? []) as SupabaseTournamentEntryRow[];
     if (entries.length === 0) return [];
 
+    const teamIds = [...new Set(entries.map((entry) => entry.team_id))];
+
     const { data: teams, error: teamsError } = await client
       .from("teams")
-      .select("id, name")
-      .in("id", [...new Set(entries.map((entry) => entry.team_id))]);
+      .select("id, name, captain_id")
+      .in("id", teamIds);
     if (teamsError) throw teamsError;
 
-    const teamNameMap = new Map((teams ?? []).map((team) => [team.id, team.name as string]));
+    const teamRows = (teams ?? []) as Array<{ id: string; name: string; captain_id: string }>;
+    const captainIds = [...new Set(teamRows.map((t) => t.captain_id).filter(Boolean))];
+
+    const { data: captains, error: captainsError } = captainIds.length > 0
+      ? await client.from("users").select("id, email, phone_number").in("id", captainIds)
+      : { data: [], error: null };
+    if (captainsError) throw captainsError;
+
+    const captainMap = new Map(
+      (captains ?? []).map((u: any) => [u.id, { email: u.email as string | null, phone: u.phone_number as string | null }])
+    );
+    const teamInfoMap = new Map(teamRows.map((t) => [t.id, { name: t.name, captainId: t.captain_id }]));
+
     return entries
-      .map((entry) => mapTournamentEntry(entry, teamNameMap.get(entry.team_id) ?? "Unknown Team"))
+      .map((entry) => {
+        const info = teamInfoMap.get(entry.team_id);
+        const captain = info?.captainId ? captainMap.get(info.captainId) : null;
+        return mapTournamentEntry(
+          entry,
+          info?.name ?? "Unknown Team",
+          captain?.email ?? null,
+          captain?.phone ?? null,
+        );
+      })
       .sort(compareEntriesBySeed);
   },
+
 
   async getMyTournamentEntries(tournamentId: string, captainUserId: string): Promise<TournamentEntry[]> {
     const [entries, teams] = await Promise.all([

@@ -49,7 +49,7 @@ export function TournamentPlayersTab({
       return;
     }
 
-    const headers = ["Team Name", "Seed", "Registration Order", "Registration Status", "Payment Status", "Check-In Status", "Checked In At", "Roster Locked At", "Registered At"];
+    const headers = ["Team Name", "Seed", "Registration Order", "Registration Status", "Payment Status", "Check-In Status", "Checked In At", "Roster Locked At", "Registered At", "Captain Email", "Captain Phone"];
 
     const rows = entries.map((entry) => [
       entry.teamName,
@@ -61,6 +61,8 @@ export function TournamentPlayersTab({
       entry.checkedInAt ?? "",
       entry.rosterLockedAt ?? "",
       entry.createdAt ?? "",
+      entry.captainEmail ?? "",
+      entry.captainPhone ?? "",
     ]);
 
     const csvContent = [headers, ...rows]

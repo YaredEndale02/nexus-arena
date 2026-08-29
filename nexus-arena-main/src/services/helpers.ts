@@ -112,7 +112,12 @@ export function mapMatch(row: SupabaseMatchRow): MatchReport {
   };
 }
 
-export function mapTournamentEntry(row: SupabaseTournamentEntryRow, teamName: string): TournamentEntry {
+export function mapTournamentEntry(
+  row: SupabaseTournamentEntryRow,
+  teamName: string,
+  captainEmail?: string | null,
+  captainPhone?: string | null,
+): TournamentEntry {
   return {
     id: row.id,
     tournamentId: row.tournament_id,
@@ -125,6 +130,8 @@ export function mapTournamentEntry(row: SupabaseTournamentEntryRow, teamName: st
     checkedInAt: row.checked_in_at ?? null,
     rosterLockedAt: row.roster_locked_at ?? null,
     createdAt: row.created_at ?? null,
+    captainEmail: captainEmail ?? null,
+    captainPhone: captainPhone ?? null,
   };
 }
 
