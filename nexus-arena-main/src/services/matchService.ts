@@ -73,6 +73,17 @@ export const matchService = {
       throw new Error("Bracket already exists for this tournament. Use 'Reset Bracket' first.");
     }
 
+    // Clean up any orphaned tournament_stages rows left from a previously failed
+    // generation attempt (matches were 0 but the stage insert had already committed).
+    // This prevents the unique constraint violation on (tournament_id, stage_order).
+    const { error: stageCleanupError } = await client
+      .from("tournament_stages")
+      .delete()
+      .eq("tournament_id", tournamentId);
+    if (stageCleanupError) {
+      console.warn("[generateBracket] Could not clean up orphaned stages:", stageCleanupError.message);
+    }
+
     const { data: entries, error: entriesError } = await client
       .from("tournament_entries")
       .select("team_id, created_at, check_in_status, roster_locked_at, seed_number")
