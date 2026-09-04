@@ -71,17 +71,17 @@ function MatchNode({
     <div
       onClick={onClick}
       className={cn(
-        "glass-card p-5 w-64 cursor-pointer transition-all duration-300 relative",
+        "glass-card p-3.5 sm:p-4 w-60 sm:w-64 cursor-pointer transition-all duration-300 relative",
         isLive && "border-red-500/40 shadow-[0_0_20px_rgba(239,68,68,0.15)]",
         isFinal && match.winner && "animate-golden-pulse border-gold/50",
-        isFinal && "w-72",
+        isFinal && "w-68 sm:w-72",
         isHighlighted && "border-primary/60 bg-primary/5 scale-[1.02] z-10 shadow-[0_0_30px_rgba(var(--primary),0.2)]",
       )}
     >
       {/* Match ID tucked into corner */}
       <span className="absolute top-2 right-3 text-[7px] text-muted-foreground/20 font-mono tracking-tighter">#{match.id.slice(0, 4)}</span>
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-2">
         <span
           className={cn(
             "text-[10px] font-bold uppercase tracking-widest",
@@ -103,7 +103,7 @@ function MatchNode({
             onMouseEnter={() => onHoverTeam(team?.name || null)}
             onMouseLeave={() => onHoverTeam(null)}
             className={cn(
-              "flex items-center justify-between py-3 px-4 rounded-lg mb-2 transition-all duration-200 border",
+              "flex items-center justify-between py-2 px-3 rounded-lg mb-1.5 transition-all duration-200 border",
               isWinner ? "bg-emerald-500/10 border-emerald-500/30" : "border-transparent",
               isTBD ? "border-dashed border-white/10 bg-white/2" : "hover:bg-white/5",
               team && isHighlighted && "font-bold",
@@ -112,7 +112,7 @@ function MatchNode({
             <div className="flex items-center gap-2 overflow-hidden">
               <span
                 className={cn(
-                  "text-sm truncate transition-colors",
+                  "text-xs sm:text-sm truncate transition-colors",
                   isWinner ? "text-emerald-400 font-bold" : isTBD ? "text-muted-foreground/40" : "text-foreground",
                 )}
               >
@@ -121,7 +121,7 @@ function MatchNode({
             </div>
             <span
               className={cn(
-                "text-sm font-heading font-black min-w-[24px] text-right transition-colors",
+                "text-xs sm:text-sm font-heading font-black min-w-[20px] text-right transition-colors",
                 isWinner ? "text-emerald-400" : isTBD ? "text-muted-foreground/10" : "text-muted-foreground",
               )}
             >
@@ -131,8 +131,8 @@ function MatchNode({
         );
       })}
 
-      <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">{match.roundLabel}</span>
+      <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-2">
+        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">{match.roundLabel}</span>
         {match.scheduledTime !== "TBD" && (
            <span className="text-[9px] text-muted-foreground/30 flex items-center gap-1">
              <Clock className="w-2.5 h-2.5" /> {new Date(match.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -690,7 +690,7 @@ export default function Bracket() {
                   })
                   .map((roundGroup, roundIndex) => {
                   const isFolded = foldedRounds.has(roundGroup.round);
-                  const matchHeight = 180;
+                  const matchHeight = 220;
                   
                   const roundScale = (activeRound === null && !isGroupFormat) ? Math.pow(2, roundGroup.round - 1) : 1;
                   const cellHeight = matchHeight * roundScale;
@@ -795,9 +795,12 @@ export default function Bracket() {
                                   />
                                 </div>
                               ) : (
-                                <div className="w-[200px] sm:w-[240px] px-3 py-2 rounded-lg border border-dashed border-white/10 bg-white/[0.02] text-center text-[11px] text-muted-foreground/40 font-mono flex items-center justify-center select-none gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                                  BYE • Auto-Advances
+                                <div className="w-60 sm:w-64 px-4 py-3 rounded-xl border border-dashed border-white/10 bg-white/[0.02] text-center text-xs text-muted-foreground/60 font-mono flex items-center justify-between select-none">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary/40 animate-pulse" />
+                                    <span className="font-semibold text-foreground/40 text-xs">BYE</span>
+                                  </div>
+                                  <span className="text-[10px] uppercase tracking-wider text-primary/70 font-sans font-bold">Auto-Advances</span>
                                 </div>
                               )}
 
@@ -866,7 +869,7 @@ export default function Bracket() {
                     return false;
                   })
                   .map((roundGroup) => {
-                  const matchHeight = 180;
+                  const matchHeight = 220;
                   const roundScale = Math.pow(2, upperRounds.length);
                   const firstMatchTopMargin = (roundScale - 1) * (matchHeight / 2);
 
@@ -901,7 +904,7 @@ export default function Bracket() {
                     {lowerRounds
                       .filter(r => activeRound === null || r.round === activeRound)
                       .map((roundGroup) => {
-                      const matchHeight = 180;
+                      const matchHeight = 220;
                       const roundScale = activeRound === null ? Math.pow(2, Math.floor((roundGroup.round - 1) / 2)) : 1;
                       const firstMatchTopMargin = activeRound === null ? (roundScale - 1) * (matchHeight / 2) : 0;
                       const matchGap = activeRound === null ? (roundScale - 1) * matchHeight : 0;
