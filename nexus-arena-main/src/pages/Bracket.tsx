@@ -186,6 +186,7 @@ export default function Bracket() {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTournamentId = searchParams.get("tournament") ?? "";
+  const isStreamMode = searchParams.get("stream") === "true" || searchParams.get("obs") === "true";
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [matches, setMatches] = useState<BracketNode[]>([]);
@@ -404,22 +405,56 @@ export default function Bracket() {
     }
   }, [upperRounds.length]);
 
-  return (
-    <Layout>
+  const pageContent = (
+    <div className={cn(isStreamMode ? "min-h-screen bg-transparent p-4 sm:p-6 text-white font-heading select-none overflow-x-auto" : "")}>
       <SEOHead
         title={selectedTournament ? `${selectedTournament.title} Bracket` : "Live Tournament Brackets"}
         description={selectedTournament ? `Follow live bracket progression, scores, and match results for ${selectedTournament.title} (${selectedTournament.gameTitle}) on ADWA ARENA.` : "Interactive real-time elimination brackets, match outcomes, and tournament trees on ADWA ARENA."}
         canonicalUrl="https://adwaarena.com/bracket"
         keywords="tournament bracket, single elimination bracket, double elimination, esports tree, live bracket scores, ADWA ARENA"
       />
-      <div className="mb-6 animate-fade-in">
-        <h1 className="font-heading text-3xl font-bold text-foreground">
-          Live <span className="text-primary">Bracket</span>
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {selectedTournament ? `${selectedTournament.title} - ${selectedTournament.gameTitle}` : "Follow active tournament brackets in real time"}
-        </p>
-      </div>
+      {!isStreamMode ? (
+        <div className="mb-6 animate-fade-in">
+          <h1 className="font-heading text-3xl font-bold text-foreground">
+            Live <span className="text-primary">Bracket</span>
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {selectedTournament ? `${selectedTournament.title} - ${selectedTournament.gameTitle}` : "Follow active tournament brackets in real time"}
+          </p>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary block mb-0.5">
+              {selectedTournament?.gameTitle || "Esports"} Championship
+            </span>
+            <h1 className="font-heading text-2xl sm:text-3xl font-black text-foreground tracking-tight flex items-center gap-3">
+              {selectedTournament?.title || "Tournament Bracket"}
+              <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+                Official Bracket
+              </span>
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border font-mono",
+              isLiveConnected
+                ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                : "text-muted-foreground border-white/10 bg-white/5"
+            )}>
+              <Wifi className="w-3 h-3" />
+              {isLiveConnected ? "LIVE DATA SYNC" : "Connecting..."}
+              {isLiveConnected && <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+            </div>
+            {lastUpdated && (
+              <span className="text-[10px] text-muted-foreground font-mono">
+                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stage & Round Navigator */}
       {hasMatches && (
@@ -498,86 +533,88 @@ export default function Bracket() {
         </div>
       )}
 
-      <div className="mb-6 flex flex-wrap items-end gap-4">
-        <div className="max-w-sm flex-1">
-          <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">Tournament</label>
-          <select
-            value={selectedTournamentId}
-            onChange={(e) => {
-              setSelectedTournamentId(e.target.value);
-              setSelectedMatch(null);
-            }}
-            className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
-          >
-            <option value="">Select a tournament</option>
-            {tournaments.map((tournament) => (
-              <option key={tournament.id} value={tournament.id}>
-                {tournament.title}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedTournamentId && (
-          <div className="flex flex-wrap items-center gap-3 pb-1">
-            {/* Live connection status */}
-            <div className={cn(
-              "flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full border",
-              isLiveConnected
-                ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
-                : "text-muted-foreground border-white/10 bg-white/5"
-            )}>
-              <Wifi className="w-3 h-3" />
-              {isLiveConnected ? "Live" : "Connecting..."}
-              {isLiveConnected && (
-                <span className="inline-block w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-              )}
-            </div>
-
-            {/* Last updated */}
-            {lastUpdated && (
-              <span className="text-[10px] text-muted-foreground">
-                {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            )}
-
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.15))}
-                title="Zoom Out"
-                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
-              >
-                <ZoomOut className="w-3 h-3" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(1.0)}
-                title="Reset Zoom"
-                className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
-              >
-                {Math.round(zoomLevel * 100)}%
-              </button>
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(1.6, z + 0.15))}
-                title="Zoom In"
-                className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
-              >
-                <ZoomIn className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Manual refresh */}
-            <button
-              onClick={() => void loadMatches(true)}
-              disabled={isRefreshing}
-              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/5 border border-white/10 transition-colors disabled:opacity-50"
+      {!isStreamMode && (
+        <div className="mb-6 flex flex-wrap items-end gap-4">
+          <div className="max-w-sm flex-1">
+            <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">Tournament</label>
+            <select
+              value={selectedTournamentId}
+              onChange={(e) => {
+                setSelectedTournamentId(e.target.value);
+                setSelectedMatch(null);
+              }}
+              className="flex h-12 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
             >
-              <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
-              {isRefreshing ? "..." : "Refresh"}
-            </button>
+              <option value="">Select a tournament</option>
+              {tournaments.map((tournament) => (
+                <option key={tournament.id} value={tournament.id}>
+                  {tournament.title}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
-      </div>
+
+          {selectedTournamentId && (
+            <div className="flex flex-wrap items-center gap-3 pb-1">
+              {/* Live connection status */}
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full border",
+                isLiveConnected
+                  ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                  : "text-muted-foreground border-white/10 bg-white/5"
+              )}>
+                <Wifi className="w-3 h-3" />
+                {isLiveConnected ? "Live" : "Connecting..."}
+                {isLiveConnected && (
+                  <span className="inline-block w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
+
+              {/* Last updated */}
+              {lastUpdated && (
+                <span className="text-[10px] text-muted-foreground">
+                  {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
+                <button
+                  onClick={() => setZoomLevel((z) => Math.max(0.6, z - 0.15))}
+                  title="Zoom Out"
+                  className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => setZoomLevel(1.0)}
+                  title="Reset Zoom"
+                  className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+                >
+                  {Math.round(zoomLevel * 100)}%
+                </button>
+                <button
+                  onClick={() => setZoomLevel((z) => Math.min(1.6, z + 0.15))}
+                  title="Zoom In"
+                  className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-white/10"
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Manual refresh */}
+              <button
+                onClick={() => void loadMatches(true)}
+                disabled={isRefreshing}
+                className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 rounded-md hover:bg-white/5 border border-white/10 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+                {isRefreshing ? "..." : "Refresh"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col xl:flex-row gap-6 relative">
         <div className="flex-1 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
@@ -960,6 +997,9 @@ export default function Bracket() {
           )}
         </div>
       </div>
-    </Layout>
+    </div>
   );
+
+  return isStreamMode ? pageContent : <Layout>{pageContent}</Layout>;
 }
+

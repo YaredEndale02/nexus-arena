@@ -67,6 +67,19 @@ export const ALL_BROADCAST_SCENES: BroadcastSceneConfig[] = [
     defaultBgColor: "050505",
   },
   {
+    id: "bracket",
+    label: "Live Elimination Bracket",
+    description: "Full-screen 1920×1080 tournament bracket tree showing elimination matchups, progression, and live scores. Perfect for between-match analysis.",
+    category: "GENERAL",
+    recommendedGames: [],
+    sceneParam: "bracket",
+    obsWidth: 1920,
+    obsHeight: 1080,
+    obsFps: 60,
+    defaultPrimaryColor: "00e5ff",
+    defaultBgColor: "050505",
+  },
+  {
     id: "pubg",
     label: "Battle Royale Leaderboard",
     description: "Full-screen 16-team leaderboard featuring WWCD, Place, Kills, and Total points for PUBG Mobile, Apex, Fortnite.",
@@ -196,6 +209,11 @@ export function getFilteredScenesForGame(
   // If elimination format, hide group standings table scene by default
   if (bracketType === "SINGLE_ELIMINATION" || bracketType === "DOUBLE_ELIMINATION") {
     return nonBrScenes.filter((s) => s.id !== "table");
+  }
+
+  // If round robin or swiss format, hide elimination bracket scene by default
+  if (bracketType === "ROUND_ROBIN" || bracketType === "SWISS") {
+    return nonBrScenes.filter((s) => s.id !== "bracket");
   }
 
   return nonBrScenes;

@@ -168,10 +168,10 @@ export default function TournamentDetails() {
       "url": `https://adwaarena.com/tournaments/${tournament.id}`
     } : {
       "@type": "Place",
-      "name": tournament.creator?.venueLocation || "LAN Arena Venue",
+      "name": (tournament as any).creator?.venueLocation || "LAN Arena Venue",
       "address": {
         "@type": "PostalAddress",
-        "addressLocality": tournament.creator?.venueLocation || "Addis Ababa"
+        "addressLocality": (tournament as any).creator?.venueLocation || "Addis Ababa"
       }
     },
     "offers": {
@@ -182,11 +182,11 @@ export default function TournamentDetails() {
       "availability": tournament.status === "REGISTRATION_OPEN" 
         ? "https://schema.org/InStock" 
         : "https://schema.org/SoldOut",
-      "validFrom": tournament.registrationOpenAt || tournament.createdAt
+      "validFrom": tournament.registrationOpenAt || (tournament as any).createdAt
     },
     "organizer": {
       "@type": "Organization",
-      "name": tournament.creator?.organizationName || tournament.creator?.name || "ADWA ARENA",
+      "name": (tournament as any).creator?.organizationName || (tournament as any).creator?.name || "ADWA ARENA",
       "url": "https://adwaarena.com"
     }
   } : undefined;

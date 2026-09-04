@@ -1189,6 +1189,15 @@ export default function BroadcastOverlay() {
     if (scene === "pubg-live") {
       return <PubgLiveSidebarView tournamentName={tournament?.title || ""} />;
     }
+    if (scene === "bracket") {
+      return (
+        <iframe
+          src={`/bracket?tournament=${tournamentId}&stream=true&primary=${primaryColor}&bg=${bgColor}`}
+          className="w-screen h-screen border-0 bg-transparent"
+          title="OBS Live Bracket Stream"
+        />
+      );
+    }
     return null; // Signals to render the live scene below
   };
 
