@@ -730,67 +730,131 @@ export default function Bracket() {
                         </div>
                       </div>
                       
-                      {roundGroup.matches.map((match, index) => {
-                        const matchKey = `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`;
-                        const isHighlighted = hoveredTeam !== null && (match.team1?.name === hoveredTeam || match.team2?.name === hoveredTeam);
-                        const isPathHighlighted = hoveredTeam !== null && (
-                          (match.status !== 'Completed' && (match.team1?.name === hoveredTeam || match.team2?.name === hoveredTeam)) ||
-                          (match.status === 'Completed' && match.winner === hoveredTeam)
-                        );
-                        
-                        return (
-                          <div 
-                            key={matchKey} 
-                            className="relative flex items-center justify-center"
-                            style={{ height: `${cellHeight}px` }}
-                          >
-                            <div className={cn("animate-highlight-flash relative", isHighlighted && "z-20")} style={{ animationDelay: `${index * 50}ms` }}>
-                              <MatchNode
-                                match={match}
-                                isFinal={roundGroup.round === Math.max(...upperRounds.map(r => r.round)) && grandFinalRounds.length === 0}
-                                onClick={() => setSelectedMatch(match)}
-                                isHighlighted={isHighlighted}
-                                onHoverTeam={setHoveredTeam}
-                              />
-                            </div>
-                          
-                            {!isGroupFormat && roundGroup.round < Math.max(...upperRounds.map(r => r.round)) && !foldedRounds.has(roundGroup.round + 1) && (
-                              <>
-                                <div className={cn(
-                                  "absolute -right-8 sm:-right-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
-                                  isPathHighlighted && "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] h-[4px] z-10"
-                                )} />
-                                
-                                {(() => {
-                                  const hasPartner = index % 2 === 0 ? index + 1 < roundGroup.matches.length : true;
-                                  if (!hasPartner) return null;
+                      {(() => {
+                        const totalRounds = Math.max(...upperRounds.map((r) => r.round));
+                        const slotsCount = isGroupFormat
+                          ? roundGroup.matches.length
+                          : Math.max(roundGroup.matches.length, Math.pow(2, totalRounds - roundGroup.round));
 
-                                  return (
-                                    <div 
+                        const slots: Array<{ isBye: boolean; match?: BracketNode; pos: number }> = isGroupFormat
+                          ? roundGroup.matches.map((m, i) => ({ isBye: false, match: m, pos: m.position || i + 1 }))
+                          : Array.from({ length: slotsCount }, (_, i) => {
+                              const pos = i + 1;
+                              const match = roundGroup.matches.find((m) => m.position === pos);
+                              return match ? { isBye: false, match, pos } : { isBye: true, pos };
+                            });
+
+                        return slots.map((slot, index) => {
+                          const match = slot.match;
+                          const matchKey = match
+                            ? `${match.id}-${match.team1?.name}-${match.team1?.score}-${match.team2?.name}-${match.team2?.score}-${match.status}`
+                            : `bye-slot-${roundGroup.round}-${slot.pos}`;
+
+                          const isHighlighted =
+                            hoveredTeam !== null &&
+                            Boolean(
+                              match &&
+                                (match.team1?.name === hoveredTeam ||
+                                  match.team2?.name === hoveredTeam)
+                            );
+                          const isPathHighlighted =
+                            hoveredTeam !== null &&
+                            Boolean(
+                              match &&
+                                ((match.status !== "Completed" &&
+                                  (match.team1?.name === hoveredTeam ||
+                                    match.team2?.name === hoveredTeam)) ||
+                                  (match.status === "Completed" &&
+                                    match.winner === hoveredTeam))
+                            );
+
+                          return (
+                            <div
+                              key={matchKey}
+                              className="relative flex items-center justify-center"
+                              style={{ height: `${cellHeight}px` }}
+                            >
+                              {match ? (
+                                <div
+                                  className={cn(
+                                    "animate-highlight-flash relative",
+                                    isHighlighted && "z-20"
+                                  )}
+                                  style={{ animationDelay: `${index * 50}ms` }}
+                                >
+                                  <MatchNode
+                                    match={match}
+                                    isFinal={
+                                      roundGroup.round ===
+                                        Math.max(...upperRounds.map((r) => r.round)) &&
+                                      grandFinalRounds.length === 0
+                                    }
+                                    onClick={() => setSelectedMatch(match)}
+                                    isHighlighted={isHighlighted}
+                                    onHoverTeam={setHoveredTeam}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-[200px] sm:w-[240px] px-3 py-2 rounded-lg border border-dashed border-white/10 bg-white/[0.02] text-center text-[11px] text-muted-foreground/40 font-mono flex items-center justify-center select-none gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                                  BYE • Auto-Advances
+                                </div>
+                              )}
+
+                              {!isGroupFormat &&
+                                roundGroup.round <
+                                  Math.max(...upperRounds.map((r) => r.round)) &&
+                                !foldedRounds.has(roundGroup.round + 1) && (
+                                  <>
+                                    <div
                                       className={cn(
-                                        "absolute -right-8 sm:-right-16 w-[3px] bg-white/10 transition-all duration-300 z-10",
-                                        isPathHighlighted && "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] w-[4px]"
-                                      )} 
-                                      style={{ 
-                                        height: `${cellHeight / 2}px`,
-                                        top: index % 2 === 0 ? '50%' : 'auto',
-                                        bottom: index % 2 === 0 ? 'auto' : '50%'
-                                      }}
+                                        "absolute -right-8 sm:-right-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
+                                        isPathHighlighted &&
+                                          "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] h-[4px] z-10"
+                                      )}
                                     />
-                                  );
-                                })()}
-                              </>
-                            )}
-                            
-                            {!isGroupFormat && roundGroup.round > 1 && !foldedRounds.has(roundGroup.round - 1) && (
-                               <div className={cn(
-                                 "absolute -left-8 sm:-left-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
-                                 isHighlighted && "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.8)] h-[4px]"
-                               )} />
-                            )}
-                        </div>
-                      );
-                    })}
+
+                                    {(() => {
+                                      const hasPartner =
+                                        index % 2 === 0
+                                          ? index + 1 < slots.length
+                                          : true;
+                                      if (!hasPartner) return null;
+
+                                      return (
+                                        <div
+                                          className={cn(
+                                            "absolute -right-8 sm:-right-16 w-[3px] bg-white/10 transition-all duration-300 z-10",
+                                            isPathHighlighted &&
+                                              "bg-primary shadow-[0_0_20px_rgba(var(--primary),1)] w-[4px]"
+                                          )}
+                                          style={{
+                                            height: `${cellHeight / 2}px`,
+                                            top: index % 2 === 0 ? "50%" : "auto",
+                                            bottom:
+                                              index % 2 === 0 ? "auto" : "50%",
+                                          }}
+                                        />
+                                      );
+                                    })()}
+                                  </>
+                                )}
+
+                              {!isGroupFormat &&
+                                roundGroup.round > 1 &&
+                                !foldedRounds.has(roundGroup.round - 1) && (
+                                  <div
+                                    className={cn(
+                                      "absolute -left-8 sm:-left-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
+                                      isHighlighted &&
+                                        "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.8)] h-[4px]"
+                                    )}
+                                  />
+                                )}
+                            </div>
+                          );
+                        });
+                      })()}
                   </div>
                 );
               })}
