@@ -301,18 +301,26 @@ export default function Bracket() {
 
   const getGroupedRounds = (filterSide: string) => {
     const grouped = new Map<number, BracketNode[]>();
-    matches.filter(m => m.bracketSide === filterSide || (filterSide === 'UPPER' && !m.bracketSide)).forEach((match) => {
-      const roundMatches = grouped.get(match.round) ?? [];
-      roundMatches.push(match);
-      grouped.set(match.round, roundMatches);
-    });
+    matches
+      .filter((m) => {
+        if (m.bracketSide === filterSide) return true;
+        if (filterSide === "UPPER") {
+          return !m.bracketSide || m.bracketSide === "GROUP";
+        }
+        return false;
+      })
+      .forEach((match) => {
+        const roundMatches = grouped.get(match.round) ?? [];
+        roundMatches.push(match);
+        grouped.set(match.round, roundMatches);
+      });
     return [...grouped.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([round, roundMatches]) => ({
         round,
         label: roundMatches[0]?.roundLabel ?? `Round ${round}`,
         matches: roundMatches.sort((a, b) => a.position - b.position),
-}));
+      }));
   };
 
   const upperRounds = useMemo(() => getGroupedRounds('UPPER'), [matches]);
@@ -419,11 +427,12 @@ export default function Bracket() {
           {/* Stage Tabs */}
           <div className="flex flex-wrap p-1 bg-white/5 border border-white/10 rounded-xl w-full sm:w-fit">
             {[
-              { id: "ALL", label: "Full View", icon: Wifi },
+              { id: "ALL", label: isGroupFormat ? "All Rounds" : "Full View", icon: Wifi },
               { id: "UPPER", label: "Upper", icon: Swords },
               { id: "LOWER", label: "Lower", icon: Swords },
               { id: "GRAND_FINAL", label: "Finals", icon: Clock },
             ].map((stage) => {
+              if (isGroupFormat && stage.id !== "ALL") return null;
               if (stage.id === "LOWER" && lowerRounds.length === 0) return null;
               if (stage.id === "GRAND_FINAL" && grandFinalRounds.length === 0) return null;
               
@@ -683,7 +692,7 @@ export default function Bracket() {
                   const isFolded = foldedRounds.has(roundGroup.round);
                   const matchHeight = 180;
                   
-                  const roundScale = activeRound === null ? Math.pow(2, roundGroup.round - 1) : 1;
+                  const roundScale = (activeRound === null && !isGroupFormat) ? Math.pow(2, roundGroup.round - 1) : 1;
                   const cellHeight = matchHeight * roundScale;
 
                   if (isFolded) {
@@ -745,7 +754,7 @@ export default function Bracket() {
                               />
                             </div>
                           
-                            {roundGroup.round < Math.max(...upperRounds.map(r => r.round)) && !foldedRounds.has(roundGroup.round + 1) && (
+                            {!isGroupFormat && roundGroup.round < Math.max(...upperRounds.map(r => r.round)) && !foldedRounds.has(roundGroup.round + 1) && (
                               <>
                                 <div className={cn(
                                   "absolute -right-8 sm:-right-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
@@ -773,7 +782,7 @@ export default function Bracket() {
                               </>
                             )}
                             
-                            {roundGroup.round > 1 && !foldedRounds.has(roundGroup.round - 1) && (
+                            {!isGroupFormat && roundGroup.round > 1 && !foldedRounds.has(roundGroup.round - 1) && (
                                <div className={cn(
                                  "absolute -left-8 sm:-left-16 w-8 sm:w-16 h-[3px] bg-white/10 transition-all duration-300",
                                  isHighlighted && "bg-primary shadow-[0_0_15px_rgba(var(--primary),0.8)] h-[4px]"
