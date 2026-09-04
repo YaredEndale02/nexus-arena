@@ -736,9 +736,11 @@ export default function AdminTournaments() {
       });
       await loadManagedTournaments();
     } catch (error) {
+      const msg = error instanceof Error ? error.message : (error as any)?.message ?? JSON.stringify(error);
+      console.error("[generateBracket] error:", error);
       toast({
         title: "Bracket generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate bracket",
+        description: msg || "Failed to generate bracket",
         variant: "destructive",
       });
     } finally {

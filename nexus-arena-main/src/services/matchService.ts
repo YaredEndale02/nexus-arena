@@ -68,9 +68,9 @@ export const matchService = {
       .select("id")
       .eq("tournament_id", tournamentId)
       .limit(1);
-    if (matchesError) throw matchesError;
+    if (matchesError) throw new Error(matchesError.message ?? "Failed to load existing matches");
     if ((existingMatches ?? []).length > 0) {
-      throw new Error("Bracket already exists for this tournament");
+      throw new Error("Bracket already exists for this tournament. Use 'Reset Bracket' first.");
     }
 
     const { data: entries, error: entriesError } = await client
@@ -78,7 +78,7 @@ export const matchService = {
       .select("team_id, created_at, check_in_status, roster_locked_at, seed_number")
       .eq("tournament_id", tournamentId)
       .order("created_at", { ascending: true });
-    if (entriesError) throw entriesError;
+    if (entriesError) throw new Error(entriesError.message ?? "Failed to load tournament entries");
 
     const entryRows = (entries ?? []);
 
@@ -94,18 +94,22 @@ export const matchService = {
 
     const teamIds = uniqueEntryRows.map((entry) => entry.team_id);
     const { data: teams, error: teamsError } = await client.from("teams").select("*").in("id", teamIds);
-    if (teamsError) throw teamsError;
+    if (teamsError) throw new Error(teamsError.message ?? "Failed to load teams");
     const teamMap = new Map(((teams ?? []) as SupabaseTeamRow[]).map((team) => [team.id, team]));
 
     const defaultRequireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
     const requireCheckIn = options?.bypassCheckIn ? false : defaultRequireCheckIn;
 
-    const eligibleEntries = uniqueEntryRows
-      .filter((entry) => !requireCheckIn || entry.check_in_status === "CHECKED_IN")
+    // When check-in is required, filter to checked-in teams.
+    // If the result has fewer than 2, fall back to all entries and surface a clear error.
+    let eligibleEntryRows = requireCheckIn
+      ? uniqueEntryRows.filter((entry) => entry.check_in_status === "CHECKED_IN")
+      : uniqueEntryRows;
+
+    const eligibleEntries = eligibleEntryRows
       .map((entry) => {
         const team = teamMap.get(entry.team_id);
         if (!team) return null;
-
         return {
           team,
           seedNumber: entry.seed_number ?? null,
@@ -117,7 +121,7 @@ export const matchService = {
     if (eligibleEntries.length < 2) {
       if (requireCheckIn && uniqueEntryRows.length >= 2) {
         throw new Error(
-          `Only ${eligibleEntries.length} team(s) are checked in. At least 2 checked-in teams are required (or choose 'Bypass Check-In').`
+          `Only ${eligibleEntries.length} team(s) are checked in. Use "Generate for All (Bypass Check-In)" or check teams in from the Players tab first.`
         );
       }
       throw new Error("At least 2 eligible teams are required to generate a bracket");
