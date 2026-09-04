@@ -110,20 +110,49 @@ export function assertValidTournamentConfiguration(input: TournamentValidationIn
 
 export function getBracketReadiness(entries: BracketReadinessEntry[], requireCheckIn: boolean) {
   const issues: string[] = [];
+  const warnings: string[] = [];
+  const checkedInEntries = entries.filter((entry) => entry.checkInStatus === "CHECKED_IN");
   const missingCheckIn = entries.filter((entry) => entry.checkInStatus !== "CHECKED_IN");
   const unlockedRosters = entries.filter((entry) => !entry.rosterLockedAt);
 
-  if (entries.length < 2) issues.push("At least 2 registered teams are required.");
-  if (requireCheckIn && missingCheckIn.length > 0) {
-    issues.push(`Missing check-in for: ${missingCheckIn.map((entry) => entry.teamName).join(", ")}.`);
-  }
-  if (requireCheckIn && unlockedRosters.length > 0) {
-    issues.push(`Roster not locked for: ${unlockedRosters.map((entry) => entry.teamName).join(", ")}.`);
+  if (entries.length < 2) {
+    issues.push("At least 2 registered teams are required.");
   }
 
+  if (requireCheckIn) {
+    if (checkedInEntries.length < 2) {
+      issues.push("At least 2 checked-in teams are required to generate bracket.");
+      if (missingCheckIn.length > 0) {
+        issues.push(`Missing check-in for: ${missingCheckIn.map((entry) => entry.teamName).join(", ")}.`);
+      }
+      if (unlockedRosters.length > 0) {
+        issues.push(`Roster not locked for: ${unlockedRosters.map((entry) => entry.teamName).join(", ")}.`);
+      }
+    } else {
+      // 2 or more teams are checked in, so bracket can be generated for checked-in teams!
+      if (missingCheckIn.length > 0) {
+        warnings.push(`${missingCheckIn.length} team(s) have not checked in: ${missingCheckIn.map((entry) => entry.teamName).join(", ")}.`);
+      }
+      const checkedInUnlocked = checkedInEntries.filter((entry) => !entry.rosterLockedAt);
+      if (checkedInUnlocked.length > 0) {
+        warnings.push(`Roster not locked for checked-in team(s): ${checkedInUnlocked.map((entry) => entry.teamName).join(", ")}.`);
+      }
+    }
+  }
+
+  const canGenerateCheckedIn = checkedInEntries.length >= 2;
+  const canGenerateAll = entries.length >= 2;
+  const ready = requireCheckIn ? canGenerateCheckedIn : canGenerateAll;
+
   return {
-    ready: issues.length === 0,
+    ready,
     issues,
+    warnings,
+    canGenerateCheckedIn,
+    canGenerateAll,
+    fullyCheckedIn: missingCheckIn.length === 0 && unlockedRosters.length === 0,
+    checkedInCount: checkedInEntries.length,
+    totalCount: entries.length,
     missingCheckIn,
     unlockedRosters,
   };

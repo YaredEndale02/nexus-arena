@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Swords, AlertTriangle, RefreshCw, CheckCircle2, Pencil } from "lucide-react";
-import { Tournament, MatchReport, TournamentEntry } from "@/lib/api";
+import { Swords, AlertTriangle, RefreshCw, CheckCircle2, Pencil, Users, CheckCheck } from "lucide-react";
+import { Tournament, MatchReport, TournamentEntry, TournamentEntryCheckInStatus } from "@/lib/api";
 import { getBracketReadiness } from "@/lib/tournamentLifecycle";
 import { isCheckInRequired } from "./TournamentManager";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,7 @@ export function TournamentMatchesTab({
   setMatchReportScore,
   generateBracket,
   resetAndRegenerateBracket,
+  bulkUpdateCheckIn,
   updateMatchParticipants,
   simulateFullTournament,
 }: {
@@ -39,8 +40,9 @@ export function TournamentMatchesTab({
   updateMatchScore: (tournamentId: string, match: MatchReport) => void;
   refreshTournamentOps: (tournamentId: string) => void;
   setMatchReportScore: (matchId: string, team: 1 | 2, score: number) => void;
-  generateBracket: (id: string) => void;
-  resetAndRegenerateBracket: (id: string) => void;
+  generateBracket: (id: string, options?: { bypassCheckIn?: boolean }) => void;
+  resetAndRegenerateBracket: (id: string, options?: { bypassCheckIn?: boolean }) => void;
+  bulkUpdateCheckIn?: (tournamentId: string, status: TournamentEntryCheckInStatus, entryIds?: string[]) => void;
   updateMatchParticipants: (tournamentId: string, matchId: string, data: any) => void;
   simulateFullTournament: (tournamentId: string) => void;
 }) {
@@ -100,27 +102,88 @@ export function TournamentMatchesTab({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!readiness.ready && matches.length === 0 && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 mb-4">
-              <div className="flex items-center gap-2 font-semibold text-amber-200 mb-2">
-                <AlertTriangle className="w-4 h-4" />
-                Bracket Generation Blocked
-              </div>
-              <ul className="text-xs text-amber-200/80 space-y-1">
-                {readiness.issues.map((issue) => <li key={issue}>• {issue}</li>)}
-              </ul>
-            </div>
-          )}
-
           {matches.length === 0 ? (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
-              <p className="text-sm mb-4">No matches generated yet. Ensure registration is closed and check-ins are complete.</p>
-              <Button 
-                disabled={!readiness.ready || busyTournamentId === tournament.id} 
-                onClick={() => generateBracket(tournament.id)}
-              >
-                Generate Initial Bracket
-              </Button>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 text-center space-y-4">
+              {readiness.issues.length > 0 ? (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-left">
+                  <div className="flex items-center gap-2 font-semibold text-amber-200 mb-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Bracket Requirements
+                  </div>
+                  <ul className="text-xs text-amber-200/80 space-y-1">
+                    {readiness.issues.map((issue) => <li key={issue}>• {issue}</li>)}
+                  </ul>
+                </div>
+              ) : readiness.warnings.length > 0 ? (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-left">
+                  <div className="flex items-center gap-2 font-semibold text-amber-200 mb-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Check-In Notice ({readiness.checkedInCount} of {readiness.totalCount} Checked In)
+                  </div>
+                  <ul className="text-xs text-amber-200/80 space-y-1">
+                    {readiness.warnings.map((warning) => <li key={warning}>• {warning}</li>)}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  All {readiness.totalCount} participants are checked in and ready.
+                </p>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                Choose how you want to generate the tournament bracket:
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* 1. Generate with Checked In Teams */}
+                {readiness.canGenerateCheckedIn && (
+                  <Button 
+                    disabled={busyTournamentId === tournament.id} 
+                    onClick={() => generateBracket(tournament.id)}
+                    className="gap-2"
+                  >
+                    <Swords className="w-4 h-4" />
+                    Generate ({readiness.checkedInCount} Checked-In Teams)
+                  </Button>
+                )}
+
+                {/* 2. Bypass Check-In & Generate All */}
+                {readiness.canGenerateAll && (!readiness.fullyCheckedIn || !readiness.canGenerateCheckedIn) && (
+                  <Button
+                    variant="outline"
+                    disabled={busyTournamentId === tournament.id}
+                    onClick={() => generateBracket(tournament.id, { bypassCheckIn: true })}
+                    className="border-white/10 gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    Generate for All ({readiness.totalCount} Teams - Bypass Check-In)
+                  </Button>
+                )}
+
+                {/* 3. Quick Check In All & Generate */}
+                {bulkUpdateCheckIn && !readiness.fullyCheckedIn && readiness.canGenerateAll && (
+                  <Button
+                    variant="secondary"
+                    disabled={busyTournamentId === tournament.id}
+                    onClick={async () => {
+                      if (confirm(`Check in all ${readiness.totalCount} teams and generate bracket?`)) {
+                        await bulkUpdateCheckIn(tournament.id, "CHECKED_IN");
+                        generateBracket(tournament.id);
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    <CheckCheck className="w-4 h-4 text-emerald-400" />
+                    Check In All & Generate
+                  </Button>
+                )}
+
+                {!readiness.canGenerateAll && (
+                  <Button disabled>
+                    At Least 2 Teams Required
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-6">

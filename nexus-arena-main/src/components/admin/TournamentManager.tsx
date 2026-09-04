@@ -36,6 +36,8 @@ export function TournamentManager({
   deleteTournament,
   changeTournamentStatus,
   autoAssignSeeds,
+  bulkUpdateCheckIn,
+  bulkLockRosters,
   updateEntrySeed,
   updateEntryCheckIn,
   lockEntryRoster,
@@ -94,6 +96,8 @@ export function TournamentManager({
           registrationOrderByEntryId={registrationOrderByEntryId}
           setAutoSeedStrategy={setAutoSeedStrategy}
           autoAssignSeeds={autoAssignSeeds}
+          bulkUpdateCheckIn={bulkUpdateCheckIn}
+          bulkLockRosters={bulkLockRosters}
           updateEntrySeed={updateEntrySeed}
           updateEntryCheckIn={updateEntryCheckIn}
           lockEntryRoster={lockEntryRoster}
@@ -120,6 +124,7 @@ export function TournamentManager({
           setMatchReportScore={setMatchReportScore}
           generateBracket={generateBracket}
           resetAndRegenerateBracket={resetAndRegenerateBracket}
+          bulkUpdateCheckIn={bulkUpdateCheckIn}
           updateMatchParticipants={updateMatchParticipants}
           simulateFullTournament={simulateFullTournament}
         />

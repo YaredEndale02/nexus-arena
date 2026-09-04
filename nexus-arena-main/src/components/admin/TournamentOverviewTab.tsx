@@ -103,19 +103,31 @@ export function TournamentOverviewTab({
         </Card>
       </div>
 
-      {!readiness.ready && (
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 animate-pulse">
+      {readiness.issues.length > 0 ? (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-200">Bracket Generation Blocked</p>
+              <p className="font-semibold text-amber-200">Bracket Generation Requirements</p>
               <ul className="text-xs text-amber-200/80 mt-1 space-y-1">
                 {readiness.issues.map((issue) => <li key={issue}>• {issue}</li>)}
               </ul>
             </div>
           </div>
         </div>
-      )}
+      ) : readiness.warnings.length > 0 ? (
+        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-200">Check-In Status ({readiness.checkedInCount} of {readiness.totalCount} Checked In)</p>
+              <ul className="text-xs text-amber-200/80 mt-1 space-y-1">
+                {readiness.warnings.map((warning) => <li key={warning}>• {warning}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <Card className="glass border-white/10">
         <div className="grid gap-3 md:grid-cols-4 text-sm p-6">

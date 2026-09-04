@@ -1,11 +1,27 @@
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Target, Lock, Save, ClipboardCheck, UserPlus, Users as UsersIcon, Trash2, Download } from "lucide-react";
+import { 
+  Target, 
+  Lock, 
+  Save, 
+  ClipboardCheck, 
+  UserPlus, 
+  Users as UsersIcon, 
+  Trash2, 
+  Download,
+  Search,
+  CheckCheck,
+  LockKeyhole,
+  X,
+  Filter
+} from "lucide-react";
 import { Tournament, TournamentEntry, TournamentEntryCheckInStatus, api } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 type AutoSeedStrategy = "REGISTRATION_ORDER" | "RANDOM" | "MANUAL";
 
@@ -17,6 +33,8 @@ export function TournamentPlayersTab({
   registrationOrderByEntryId,
   setAutoSeedStrategy,
   autoAssignSeeds,
+  bulkUpdateCheckIn,
+  bulkLockRosters,
   updateEntrySeed,
   updateEntryCheckIn,
   lockEntryRoster,
@@ -32,6 +50,8 @@ export function TournamentPlayersTab({
   registrationOrderByEntryId: Map<string, number>;
   setAutoSeedStrategy: (strategy: AutoSeedStrategy) => void;
   autoAssignSeeds: (id: string) => void;
+  bulkUpdateCheckIn?: (tournamentId: string, status: TournamentEntryCheckInStatus, entryIds?: string[]) => void;
+  bulkLockRosters?: (tournamentId: string, entryIds?: string[]) => void;
   updateEntrySeed: (entryId: string, seed: number | null) => void;
   updateEntryCheckIn: (tournamentId: string, entryId: string, status: TournamentEntryCheckInStatus) => void;
   lockEntryRoster: (tournamentId: string, entryId: string) => void;
@@ -42,6 +62,10 @@ export function TournamentPlayersTab({
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [registrationFilter, setRegistrationFilter] = useState("ALL");
+  const [checkInFilter, setCheckInFilter] = useState("ALL");
 
   const handleExportCSV = () => {
     if (entries.length === 0) {
@@ -148,6 +172,74 @@ export function TournamentPlayersTab({
     setBusyTournamentId(null);
   };
 
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = entry.teamName?.toLowerCase().includes(q);
+        const matchEmail = entry.captainEmail?.toLowerCase().includes(q);
+        const matchPhone = entry.captainPhone?.toLowerCase().includes(q);
+        if (!matchName && !matchEmail && !matchPhone) return false;
+      }
+
+      if (registrationFilter !== "ALL") {
+        if (entry.registrationStatus !== registrationFilter) return false;
+      }
+
+      if (checkInFilter !== "ALL") {
+        if (entry.checkInStatus !== checkInFilter) return false;
+      }
+
+      return true;
+    });
+  }, [entries, searchQuery, registrationFilter, checkInFilter]);
+
+  const handleBulkCheckInAll = () => {
+    if (!bulkUpdateCheckIn) return;
+    const targetIds = filteredEntries.length < entries.length ? filteredEntries.map((e) => e.id) : undefined;
+    const count = targetIds ? targetIds.length : entries.length;
+    if (confirm(`Check in ${count} participant(s)?`)) {
+      bulkUpdateCheckIn(tournament.id, "CHECKED_IN", targetIds);
+    }
+  };
+
+  const handleBulkLockRostersAll = () => {
+    if (!bulkLockRosters) return;
+    const targetIds = filteredEntries.length < entries.length ? filteredEntries.map((e) => e.id) : undefined;
+    const count = targetIds ? targetIds.length : entries.length;
+    if (confirm(`Lock rosters for ${count} participant(s)?`)) {
+      bulkLockRosters(tournament.id, targetIds);
+    }
+  };
+
+  const getRegistrationBadge = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+      case "CONFIRMED":
+        return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">{status}</Badge>;
+      case "PENDING":
+        return <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">PENDING</Badge>;
+      case "REJECTED":
+      case "CANCELLED":
+        return <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20">{status}</Badge>;
+      default:
+        return <Badge variant="outline" className="border-white/10">{status}</Badge>;
+    }
+  };
+
+  const getCheckInBadge = (status: string) => {
+    switch (status) {
+      case "CHECKED_IN":
+        return <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20">Checked In</Badge>;
+      case "PENDING":
+        return <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">Pending</Badge>;
+      case "MISSED":
+        return <Badge className="bg-rose-500/10 text-rose-400 border-rose-500/20">Missed</Badge>;
+      default:
+        return <Badge variant="outline" className="border-white/10 text-muted-foreground">Not Open</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6 outline-none">
       <Card className="glass border-white/10">
@@ -155,7 +247,7 @@ export function TournamentPlayersTab({
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle>Participants</CardTitle>
-              <CardDescription>Manage entries, check-ins, and seeds.</CardDescription>
+              <CardDescription>Manage entries, search players, filter status, and complete check-ins.</CardDescription>
             </div>
             <Button
               variant="outline"
@@ -169,44 +261,178 @@ export function TournamentPlayersTab({
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <h3 className="font-heading text-lg">Entries, Check-In & Roster Lock</h3>
-            <p className="text-sm text-muted-foreground">Assign bracket seeds, complete check-in, and lock rosters before generating matches.</p>
+          {/* Search & Filter Toolbar */}
+          <div className="grid gap-3 md:grid-cols-[1.5fr,1fr,1fr,auto] items-center p-3 rounded-xl border border-white/10 bg-white/5">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search player, team, email, or phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 bg-background/50 border-white/10"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div>
+              <select
+                value={registrationFilter}
+                onChange={(e) => setRegistrationFilter(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-white/10 bg-background/50 px-3 py-2 text-sm"
+              >
+                <option value="ALL">All Registration Statuses</option>
+                <option value="APPROVED">Approved</option>
+                <option value="PENDING">Pending</option>
+                <option value="CONFIRMED">Confirmed</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={checkInFilter}
+                onChange={(e) => setCheckInFilter(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-white/10 bg-background/50 px-3 py-2 text-sm"
+              >
+                <option value="ALL">All Check-In Statuses</option>
+                <option value="CHECKED_IN">Checked In</option>
+                <option value="PENDING">Pending Check-In</option>
+                <option value="NOT_OPEN">Check-In Not Open</option>
+                <option value="MISSED">Check-In Missed</option>
+              </select>
+            </div>
+
+            {(searchQuery || registrationFilter !== "ALL" || checkInFilter !== "ALL") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setRegistrationFilter("ALL");
+                  setCheckInFilter("ALL");
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Reset Filters
+              </Button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-3">
-            <select
-              value={autoSeedStrategy}
-              onChange={(e) => setAutoSeedStrategy(e.target.value as AutoSeedStrategy)}
-              className="flex h-10 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
-            >
-              <option value="REGISTRATION_ORDER">Registration Order</option>
-            </select>
-            <Button
-              variant="outline"
-              className="border-white/10"
-              disabled={busyTournamentId === tournament.id || entries.length < 2}
-              onClick={() => autoAssignSeeds(tournament.id)}
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Auto Assign
-            </Button>
-            <p className="text-xs text-muted-foreground self-center">
-              Uses the selected strategy to seed eligible entries before bracket generation.
-            </p>
+
+          {/* Seeding & Bulk Operations Toolbar */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-background/40">
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={autoSeedStrategy}
+                onChange={(e) => setAutoSeedStrategy(e.target.value as AutoSeedStrategy)}
+                className="flex h-10 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+              >
+                <option value="REGISTRATION_ORDER">Registration Order</option>
+              </select>
+              <Button
+                variant="outline"
+                className="border-white/10"
+                disabled={busyTournamentId === tournament.id || entries.length < 2}
+                onClick={() => autoAssignSeeds(tournament.id)}
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Auto Assign Seeds
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {bulkUpdateCheckIn && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busyTournamentId === tournament.id || entries.length === 0}
+                  onClick={handleBulkCheckInAll}
+                  className="gap-1.5"
+                >
+                  <CheckCheck className="w-4 h-4 text-emerald-400" />
+                  {filteredEntries.length < entries.length ? `Check In Filtered (${filteredEntries.length})` : "Check In All"}
+                </Button>
+              )}
+              {bulkLockRosters && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busyTournamentId === tournament.id || entries.length === 0}
+                  onClick={handleBulkLockRostersAll}
+                  className="border-white/10 gap-1.5"
+                >
+                  <LockKeyhole className="w-4 h-4 text-amber-400" />
+                  {filteredEntries.length < entries.length ? `Lock Filtered Rosters (${filteredEntries.length})` : "Lock All Rosters"}
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Stats Bar */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>
+              Showing <span className="font-semibold text-foreground">{filteredEntries.length}</span> of {entries.length} participants
+              {filteredEntries.length < entries.length && " (filtered)"}
+            </span>
+            <div className="flex items-center gap-3">
+              <span>
+                <strong className="text-emerald-400">{entries.filter((e) => e.checkInStatus === "CHECKED_IN").length}</strong> Checked In
+              </span>
+              <span>•</span>
+              <span>
+                <strong className="text-foreground">{entries.filter((e) => Boolean(e.rosterLockedAt)).length}</strong> Rosters Locked
+              </span>
+            </div>
+          </div>
+
           {entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No teams registered yet.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">No teams registered yet.</p>
+          ) : filteredEntries.length === 0 ? (
+            <div className="text-center py-8 rounded-xl border border-white/10 bg-white/5 space-y-2">
+              <p className="text-sm font-semibold">No participants match your search or filter.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/10"
+                onClick={() => {
+                  setSearchQuery("");
+                  setRegistrationFilter("ALL");
+                  setCheckInFilter("ALL");
+                }}
+              >
+                Clear Filters
+              </Button>
+            </div>
           ) : (
             <div className="space-y-3">
-              {entries.map((entry) => (
-                <div key={entry.id} className="grid gap-3 rounded-xl border border-white/10 bg-background/30 p-4 md:grid-cols-[1.2fr,140px,1fr,1fr,auto,auto] md:items-end">
-                  <div>
-                    <p className="font-semibold">{entry.teamName}</p>
+              {filteredEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="grid gap-3 rounded-xl border border-white/10 bg-background/30 p-4 md:grid-cols-[1.4fr,130px,140px,auto,auto,auto] md:items-end"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-base">{entry.teamName}</p>
+                      {getRegistrationBadge(entry.registrationStatus)}
+                      {getCheckInBadge(entry.checkInStatus)}
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      {`Reg Order: ${registrationOrderByEntryId.get(entry.id) ?? "-"} | Check-In: ${entry.checkInStatus} | Roster: ${entry.rosterLockedAt ? "Locked" : "Unlocked"}`}
+                      {`Reg Order: ${registrationOrderByEntryId.get(entry.id) ?? "-"} | Roster: ${
+                        entry.rosterLockedAt ? "Locked" : "Unlocked"
+                      }`}
+                      {entry.captainEmail && ` | ${entry.captainEmail}`}
+                      {entry.captainPhone && ` | ${entry.captainPhone}`}
                     </p>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seed</Label>
                     <Input
                       type="number"
@@ -217,54 +443,64 @@ export function TournamentPlayersTab({
                         const rawValue = e.target.value;
                         updateEntrySeed(entry.id, rawValue === "" ? null : Number(rawValue));
                       }}
-                      className="bg-white/5 border-white/10"
+                      className="bg-white/5 border-white/10 h-10"
                       disabled={busyTournamentId === tournament.id}
                     />
                   </div>
-                  <select
-                    value={entry.checkInStatus}
-                    onChange={(e) => updateEntryCheckIn(tournament.id, entry.id, e.target.value as TournamentEntryCheckInStatus)}
-                    className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    disabled={busyTournamentId === tournament.id}
-                  >
-                    <option value="NOT_OPEN">Not Open</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="CHECKED_IN">Checked In</option>
-                    <option value="MISSED">Missed</option>
-                  </select>
-                  <Button
-                    variant="outline"
-                    className="border-white/10"
-                    disabled={busyTournamentId === tournament.id || Boolean(entry.rosterLockedAt) || entry.checkInStatus !== "CHECKED_IN"}
-                    onClick={() => lockEntryRoster(tournament.id, entry.id)}
-                  >
-                    <Lock className="w-4 h-4 mr-2" />
-                    Lock Roster
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-white/10"
-                    disabled={busyTournamentId === tournament.id}
-                    onClick={() => saveEntrySeed(tournament.id, entry)}
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Seed
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="border-white/10"
-                    disabled={busyTournamentId === tournament.id}
-                    onClick={() => updateEntryCheckIn(tournament.id, entry.id, "CHECKED_IN")}
-                  >
-                    <ClipboardCheck className="w-4 h-4 mr-2" />
-                    Quick Check-In
-                  </Button>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Check-In</Label>
+                    <select
+                      value={entry.checkInStatus}
+                      onChange={(e) => updateEntryCheckIn(tournament.id, entry.id, e.target.value as TournamentEntryCheckInStatus)}
+                      className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                      disabled={busyTournamentId === tournament.id}
+                    >
+                      <option value="NOT_OPEN">Not Open</option>
+                      <option value="PENDING">Pending</option>
+                      <option value="CHECKED_IN">Checked In</option>
+                      <option value="MISSED">Missed</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-white/10 h-10"
+                      disabled={busyTournamentId === tournament.id || Boolean(entry.rosterLockedAt) || entry.checkInStatus !== "CHECKED_IN"}
+                      onClick={() => lockEntryRoster(tournament.id, entry.id)}
+                      title={Boolean(entry.rosterLockedAt) ? "Roster already locked" : "Lock team roster"}
+                    >
+                      <Lock className="w-4 h-4 mr-1.5" />
+                      Lock
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-white/10 h-10"
+                      disabled={busyTournamentId === tournament.id}
+                      onClick={() => saveEntrySeed(tournament.id, entry)}
+                      title="Save custom seed number"
+                    >
+                      <Save className="w-4 h-4 mr-1.5" />
+                      Save
+                    </Button>
+                  </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      className="border-white/10 h-10 w-full"
+                      disabled={busyTournamentId === tournament.id || entry.checkInStatus === "CHECKED_IN"}
+                      onClick={() => updateEntryCheckIn(tournament.id, entry.id, "CHECKED_IN")}
+                    >
+                      <ClipboardCheck className="w-4 h-4 mr-1.5 text-emerald-400" />
+                      Check In
+                    </Button>
+                  </div>
                   <Button
                     variant="destructive"
                     size="icon"
                     className="h-10 w-10 shrink-0"
                     disabled={busyTournamentId === tournament.id}
                     onClick={() => deleteEntry(tournament.id, entry.id)}
+                    title="Remove entry"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

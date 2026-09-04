@@ -511,16 +511,64 @@ export const tournamentService = {
     return mapTournamentEntry(row, (team?.name as string) ?? "Unknown Team");
   },
 
+  async bulkUpdateTournamentEntryCheckIn(
+    tournamentId: string,
+    status: TournamentEntryCheckInStatus,
+    entryIds?: string[],
+  ): Promise<TournamentEntry[]> {
+    const client = requireSupabase();
+    let query = client
+      .from("tournament_entries")
+      .update({
+        check_in_status: status,
+        checked_in_at: status === "CHECKED_IN" ? new Date().toISOString() : null,
+      })
+      .eq("tournament_id", tournamentId);
+
+    if (entryIds && entryIds.length > 0) {
+      query = query.in("id", entryIds);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
+    return tournamentService.getTournamentEntries(tournamentId);
+  },
+
+  async bulkLockTournamentEntryRosters(
+    tournamentId: string,
+    entryIds?: string[],
+  ): Promise<TournamentEntry[]> {
+    const client = requireSupabase();
+    let query = client
+      .from("tournament_entries")
+      .update({
+        roster_locked_at: new Date().toISOString(),
+      })
+      .eq("tournament_id", tournamentId);
+
+    if (entryIds && entryIds.length > 0) {
+      query = query.in("id", entryIds);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+
+    return tournamentService.getTournamentEntries(tournamentId);
+  },
+
   async autoAssignTournamentSeeds(
     tournamentId: string,
     actor: AppUserPayload,
     strategy: AutoSeedStrategy = "REGISTRATION_ORDER",
+    options?: { bypassCheckIn?: boolean },
   ): Promise<TournamentEntry[]> {
     const client = requireSupabase();
     await ensureUser(client, actor);
 
     const tournament = await getTournamentById(client, tournamentId);
-    const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const defaultRequireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const requireCheckIn = options?.bypassCheckIn ? false : defaultRequireCheckIn;
     const entries = await tournamentService.getTournamentEntries(tournamentId);
 
     const eligibleEntries = entries.filter((entry) => {
@@ -530,7 +578,11 @@ export const tournamentService = {
     });
 
     if (eligibleEntries.length < 2) {
-      throw new Error("At least 2 eligible entries are required before automatic bracket assignment can run.");
+      throw new Error(
+        requireCheckIn && entries.length >= 2
+          ? `Only ${eligibleEntries.length} team(s) are checked in. At least 2 checked-in teams are required (or bypass check-in).`
+          : "At least 2 eligible entries are required before automatic bracket assignment can run."
+      );
     }
 
     const sourceEntries = eligibleEntries.map((entry) => ({

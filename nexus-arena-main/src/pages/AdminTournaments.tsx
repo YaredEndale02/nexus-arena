@@ -165,7 +165,7 @@ const toTournamentPayload = (form: TournamentFormState) => ({
   registrationCloseAt: normalizeOptionalDate(form.registrationCloseAt),
 });
 
-const isCheckInRequired = (status: ApiTournamentStatus) => 
+const isCheckInRequired = (status: ApiTournamentStatus) =>
   ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(status);
 
 
@@ -189,7 +189,7 @@ export default function AdminTournaments() {
   const [activeControlTab, setActiveControlTab] = useState("overview");
 
 
-  const activeTournament = useMemo(() => 
+  const activeTournament = useMemo(() =>
     managedTournaments.find(t => t.id === activeTournamentId),
     [managedTournaments, activeTournamentId]
   );
@@ -511,24 +511,76 @@ export default function AdminTournaments() {
     }
   };
 
-  const autoAssignSeeds = async (tournamentId: string) => {
+  const autoAssignSeeds = async (tournamentId: string, options?: { bypassCheckIn?: boolean }) => {
     if (!user) return;
     const strategy = autoSeedStrategies[tournamentId] ?? "REGISTRATION_ORDER";
     setBusyTournamentId(tournamentId);
     try {
-      const updatedEntries = await api.autoAssignTournamentSeeds(tournamentId, user, strategy);
+      const updatedEntries = await api.autoAssignTournamentSeeds(tournamentId, user, strategy, options);
       setTournamentEntries((current) => ({
         ...current,
         [tournamentId]: updatedEntries,
       }));
       toast({
         title: "Seeds assigned",
-        description: "Seeds were assigned using registration order from the current eligible entries.",
+        description: "Seeds were assigned using registration order.",
       });
     } catch (error) {
       toast({
         title: "Auto assignment failed",
         description: error instanceof Error ? error.message : "Failed to auto assign bracket seeds",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const bulkUpdateCheckIn = async (
+    tournamentId: string,
+    status: TournamentEntryCheckInStatus,
+    entryIds?: string[],
+  ) => {
+    if (!user) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      const updatedEntries = await api.bulkUpdateTournamentEntryCheckIn(tournamentId, status, entryIds);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: updatedEntries,
+      }));
+      toast({
+        title: "Check-in updated",
+        description: `Updated check-in status to ${status} for participants.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Check-in update failed",
+        description: error instanceof Error ? error.message : "Failed to update check-in",
+        variant: "destructive",
+      });
+    } finally {
+      setBusyTournamentId(null);
+    }
+  };
+
+  const bulkLockRosters = async (tournamentId: string, entryIds?: string[]) => {
+    if (!user) return;
+    setBusyTournamentId(tournamentId);
+    try {
+      const updatedEntries = await api.bulkLockTournamentEntryRosters(tournamentId, entryIds);
+      setTournamentEntries((current) => ({
+        ...current,
+        [tournamentId]: updatedEntries,
+      }));
+      toast({
+        title: "Rosters locked",
+        description: "Successfully locked rosters for participants.",
+      });
+    } catch (error) {
+      toast({
+        title: "Roster lock failed",
+        description: error instanceof Error ? error.message : "Failed to lock rosters",
         variant: "destructive",
       });
     } finally {
@@ -667,18 +719,20 @@ export default function AdminTournaments() {
     }
   };
 
-  const generateBracket = async (tournamentId: string) => {
+  const generateBracket = async (tournamentId: string, options?: { bypassCheckIn?: boolean }) => {
     if (!user) return;
     setBusyTournamentId(tournamentId);
     try {
-      const createdMatches = await api.generateBracket(tournamentId, user);
+      const createdMatches = await api.generateBracket(tournamentId, user, options);
       setMatchReports((current) => ({
         ...current,
         [tournamentId]: createdMatches,
       }));
       toast({
         title: "Bracket generated",
-        description: "Single-elimination matches were created from the registered teams.",
+        description: options?.bypassCheckIn
+          ? "Matches created for all registered teams (check-in bypassed)."
+          : "Matches created from the eligible teams.",
       });
       await loadManagedTournaments();
     } catch (error) {
@@ -692,7 +746,7 @@ export default function AdminTournaments() {
     }
   };
 
-  const resetAndRegenerateBracket = async (tournamentId: string) => {
+  const resetAndRegenerateBracket = async (tournamentId: string, options?: { bypassCheckIn?: boolean }) => {
     if (!user) return;
     setBusyTournamentId(tournamentId);
     try {
@@ -700,7 +754,7 @@ export default function AdminTournaments() {
       await api.resetBracket(tournamentId, user);
 
       // 2. Re-generate bracket fresh
-      const createdMatches = await api.generateBracket(tournamentId, user);
+      const createdMatches = await api.generateBracket(tournamentId, user, options);
       setMatchReports((current) => ({
         ...current,
         [tournamentId]: createdMatches,
@@ -721,6 +775,7 @@ export default function AdminTournaments() {
       setBusyTournamentId(null);
     }
   };
+
 
   const deleteEntry = async (tournamentId: string, entryId: string) => {
     if (!confirm("Are you sure you want to remove this participant?")) return;
@@ -760,8 +815,8 @@ export default function AdminTournaments() {
 
       while (hasMore) {
         const currentMatches = await api.getTournamentMatches(tournamentId);
-        const playable = currentMatches.filter(m => 
-          m.status !== "COMPLETED" && 
+        const playable = currentMatches.filter(m =>
+          m.status !== "COMPLETED" &&
           m.team1Name && m.team1Name !== "TBD" && m.team1Name !== "BYE" &&
           m.team2Name && m.team2Name !== "TBD" && m.team2Name !== "BYE"
         );
@@ -775,7 +830,7 @@ export default function AdminTournaments() {
           const score1 = Math.floor(Math.random() * 3);
           const score2 = Math.floor(Math.random() * 3);
           const finalScore1 = score1 === score2 ? score1 + 1 : score1;
-          
+
           await reportMatch(tournamentId, {
             ...match,
             team1Score: finalScore1,
@@ -785,7 +840,7 @@ export default function AdminTournaments() {
           // Small delay to allow DB/State to catch up and visualize
           await new Promise(resolve => setTimeout(resolve, 300));
         }
-        
+
         // Refresh to get new winners in next round slots
         await refreshTournamentOps(tournamentId);
       }
@@ -804,30 +859,30 @@ export default function AdminTournaments() {
     try {
       // 1. Reset bracket (clears matches and stages)
       await api.resetBracket(tournamentId, user!);
-      
+
       // 2. Reset team check-in statuses to NOT_OPEN
       const { error: entriesError } = await supabase
         .from("tournament_entries")
-        .update({ 
+        .update({
           check_in_status: "NOT_OPEN",
           checked_in_at: null,
           roster_locked_at: null
         })
         .eq("tournament_id", tournamentId);
-      
+
       if (entriesError) throw entriesError;
 
       // 3. Reset tournament status to REGISTRATION_OPEN
       const { error: tournamentError } = await supabase
         .from("tournaments")
-        .update({ 
+        .update({
           status: "REGISTRATION_OPEN",
-          published_at: null 
+          published_at: null
         })
         .eq("id", tournamentId);
-        
+
       if (tournamentError) throw tournamentError;
-      
+
       await loadManagedTournaments();
       toast({ title: "Tournament Restarted", description: "Matches cleared, status reset, and check-ins reset." });
     } catch (error) {
@@ -837,7 +892,7 @@ export default function AdminTournaments() {
     }
   };
 
-  if (!user) {
+  if (!UserX) {
     return (
       <Layout>
         <div className="max-w-md mx-auto py-20 text-center space-y-6">
@@ -857,9 +912,9 @@ export default function AdminTournaments() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             {activeTournamentId ? (
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setActiveTournamentId(null)}
                 className="hover:bg-white/10"
               >
@@ -875,7 +930,7 @@ export default function AdminTournaments() {
                 {activeTournamentId ? activeTournament?.title : "Tournament Manager"}
               </h1>
               <p className="text-muted-foreground">
-                {activeTournamentId 
+                {activeTournamentId
                   ? `${activeTournament?.gameTitle} - ${activeTournament?.displayStatus}`
                   : "Create, publish, and manage your esports events from one dashboard."}
               </p>
@@ -897,35 +952,35 @@ export default function AdminTournaments() {
           <>
 
 
-        {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-4">
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
-            <p className="text-muted-foreground animate-pulse font-heading tracking-widest uppercase text-xs">Synchronizing Events...</p>
-          </div>
-        ) : managedTournaments.length === 0 ? (
-          <div className="py-20 text-center glass border-dashed border-white/10 rounded-2xl">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-              <Trophy className="w-8 h-8 text-muted-foreground opacity-20" />
-            </div>
-            <h3 className="font-heading text-xl font-bold text-foreground">No tournaments yet</h3>
-            <p className="text-muted-foreground max-w-xs mx-auto mt-2 italic">
-              Ready to kick off the next pro league? Fill out the draft form above to get started.
-            </p>
-          </div>
+            {isLoading ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-4">
+                <Loader2 className="w-12 h-12 animate-spin text-primary" />
+                <p className="text-muted-foreground animate-pulse font-heading tracking-widest uppercase text-xs">Synchronizing Events...</p>
+              </div>
+            ) : managedTournaments.length === 0 ? (
+              <div className="py-20 text-center glass border-dashed border-white/10 rounded-2xl">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+                  <Trophy className="w-8 h-8 text-muted-foreground opacity-20" />
+                </div>
+                <h3 className="font-heading text-xl font-bold text-foreground">No tournaments yet</h3>
+                <p className="text-muted-foreground max-w-xs mx-auto mt-2 italic">
+                  Ready to kick off the next pro league? Fill out the draft form above to get started.
+                </p>
+              </div>
+            ) : (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <TournamentTable
+                  tournaments={managedTournaments}
+                  onSelect={(id) => {
+                    setActiveTournamentId(id);
+                    setActiveControlTab("overview");
+                  }}
+                  onDelete={deleteTournament}
+                />
+              </div>
+            )}
+          </>
         ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <TournamentTable 
-              tournaments={managedTournaments} 
-              onSelect={(id) => {
-                setActiveTournamentId(id);
-                setActiveControlTab("overview");
-              }}
-              onDelete={deleteTournament}
-            />
-          </div>
-        )}
-      </>
-    ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             {managedTournaments.filter(t => t.id === activeTournamentId).map(tournament => {
               const isEditing = editingTournamentId === tournament.id;
@@ -950,7 +1005,7 @@ export default function AdminTournaments() {
               );
               // ... continuation of dashboard tabs
 
-                const canManageDelegation = user.role === "ADMIN" || tournament.organizerId === user.id;
+              const canManageDelegation = user.role === "ADMIN" || tournament.organizerId === user.id;
 
               return (
                 <TournamentManager
@@ -984,6 +1039,8 @@ export default function AdminTournaments() {
                   deleteTournament={deleteTournament}
                   changeTournamentStatus={changeTournamentStatus}
                   autoAssignSeeds={autoAssignSeeds}
+                  bulkUpdateCheckIn={bulkUpdateCheckIn}
+                  bulkLockRosters={bulkLockRosters}
                   updateEntrySeed={updateEntrySeed}
                   updateEntryCheckIn={updateEntryCheckIn}
                   lockEntryRoster={lockEntryRoster}
@@ -994,7 +1051,7 @@ export default function AdminTournaments() {
                   refreshTournamentOps={refreshTournamentOps}
                   generateBracket={generateBracket}
                   resetAndRegenerateBracket={resetAndRegenerateBracket}
-                  setMatchReportScore={(matchId: string, team: 1|2, score: number) => {
+                  setMatchReportScore={(matchId: string, team: 1 | 2, score: number) => {
                     setMatchReports((current) => ({
                       ...current,
                       [tournament.id]: (current[tournament.id] ?? []).map((item) =>

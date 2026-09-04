@@ -68,6 +68,19 @@ describe("tournamentLifecycle", () => {
     expect(blocked.ready).toBe(false);
     expect(blocked.issues.join(" ")).toContain("Missing check-in");
     expect(blocked.issues.join(" ")).toContain("Roster not locked");
+
+    const partialReady = getBracketReadiness(
+      [
+        { teamId: "1", teamName: "Alpha", checkInStatus: "CHECKED_IN", rosterLockedAt: "2026-04-10T10:00:00.000Z" },
+        { teamId: "2", teamName: "Beta", checkInStatus: "CHECKED_IN", rosterLockedAt: "2026-04-10T10:00:00.000Z" },
+        { teamId: "3", teamName: "Gamma", checkInStatus: "PENDING", rosterLockedAt: null },
+      ],
+      true,
+    );
+    expect(partialReady.ready).toBe(true);
+    expect(partialReady.canGenerateCheckedIn).toBe(true);
+    expect(partialReady.fullyCheckedIn).toBe(false);
+    expect(partialReady.warnings.join(" ")).toContain("Gamma");
   });
 
   it("rejects tied or negative scores", () => {

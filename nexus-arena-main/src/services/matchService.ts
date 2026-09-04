@@ -54,7 +54,11 @@ export const matchService = {
     return { success: true };
   },
 
-  async generateBracket(tournamentId: string, actor: AppUserPayload) {
+  async generateBracket(
+    tournamentId: string,
+    actor: AppUserPayload,
+    options?: { bypassCheckIn?: boolean },
+  ) {
     const client = requireSupabase();
     await ensureUser(client, actor);
     const tournament = await getTournamentById(client, tournamentId);
@@ -93,7 +97,8 @@ export const matchService = {
     if (teamsError) throw teamsError;
     const teamMap = new Map(((teams ?? []) as SupabaseTeamRow[]).map((team) => [team.id, team]));
 
-    const requireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const defaultRequireCheckIn = ["REGISTRATION_CLOSED", "CHECK_IN", "LIVE"].includes(tournament.status as string);
+    const requireCheckIn = options?.bypassCheckIn ? false : defaultRequireCheckIn;
 
     const eligibleEntries = uniqueEntryRows
       .filter((entry) => !requireCheckIn || entry.check_in_status === "CHECKED_IN")
@@ -110,6 +115,11 @@ export const matchService = {
       .filter((entry): entry is { team: SupabaseTeamRow; seedNumber: number | null; createdAt: string | null } => Boolean(entry));
 
     if (eligibleEntries.length < 2) {
+      if (requireCheckIn && uniqueEntryRows.length >= 2) {
+        throw new Error(
+          `Only ${eligibleEntries.length} team(s) are checked in. At least 2 checked-in teams are required (or choose 'Bypass Check-In').`
+        );
+      }
       throw new Error("At least 2 eligible teams are required to generate a bracket");
     }
 
