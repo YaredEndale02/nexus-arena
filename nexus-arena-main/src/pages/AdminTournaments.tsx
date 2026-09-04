@@ -784,13 +784,19 @@ export default function AdminTournaments() {
     setBusyTournamentId(tournamentId);
     try {
       await api.deleteTournamentEntry(entryId);
+      // Optimistically remove from local state
       setTournamentEntries((current) => ({
         ...current,
         [tournamentId]: (current[tournamentId] ?? []).filter((e) => e.id !== entryId),
       }));
       toast({ title: "Participant removed" });
+      // Re-fetch from server to confirm the deletion persisted (catches RLS silent blocks)
+      await refreshTournamentOps(tournamentId);
     } catch (error) {
-      toast({ title: "Failed to remove participant", description: (error as any).message, variant: "destructive" });
+      const msg = error instanceof Error ? error.message : (error as any)?.message ?? "Unknown error";
+      toast({ title: "Failed to remove participant", description: msg, variant: "destructive" });
+      // Restore server state so the UI is consistent
+      await refreshTournamentOps(tournamentId);
     } finally {
       setBusyTournamentId(null);
     }

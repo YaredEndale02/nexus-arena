@@ -229,7 +229,7 @@ export const matchService = {
       }
 
       const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
-      if (insertError) throw insertError;
+      if (insertError) throw new Error(insertError.message ?? "Failed to insert round-robin matches");
       insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
     } else if (bracketType === "GROUP_STAGE") {
       const groupCount = Math.min(4, Math.max(2, Math.floor(eligibleEntries.length / 2)));
@@ -273,7 +273,7 @@ export const matchService = {
               round_label: `${gLabel} R${round.round}`,
               round_number: round.round,
               position_in_round: pos++,
-              bracket_side: gLabel,
+              bracket_side: "GROUP",
               status: "SCHEDULED",
               team1_id: t1.team.id,
               team1_name: cleanName(t1.team.name),
@@ -285,7 +285,7 @@ export const matchService = {
       });
 
       const { data: inserted, error: insertError } = await client.from("matches").insert(matchesToInsert).select("*");
-      if (insertError) throw insertError;
+      if (insertError) throw new Error(insertError.message ?? "Failed to insert group-stage matches");
       insertedMatches = (inserted ?? []) as SupabaseMatchRow[];
     } else {
       // Single or Double Elimination

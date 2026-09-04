@@ -74,7 +74,7 @@ export const teamService = {
   async deleteTournamentEntry(entryId: string) {
     const client = requireSupabase();
     const { error } = await client.from("tournament_entries").delete().eq("id", entryId);
-    if (error) throw error;
+    if (error) throw new Error(error.message ?? "Failed to delete tournament entry");
   },
 
   async getMyTeams(userId: string): Promise<Team[]> {
