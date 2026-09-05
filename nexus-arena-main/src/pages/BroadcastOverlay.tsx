@@ -4,6 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Zap, Timer, ChevronRight, Activity, Users, Shield, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EsportsPlayoffBracket } from "@/components/broadcast/EsportsPlayoffBracket";
+import {
+  OverlayTheme,
+  SlantedBadge,
+  SlantedCard,
+  MetricCard,
+  DualToneHeader,
+  MatchPreviewCard,
+} from "@/components/broadcast/design-system";
 
 interface Match {
   id: string;
@@ -56,19 +64,15 @@ function ScoreAlert({ event, visible }: { event: ScoreEvent | null; visible: boo
       "absolute inset-x-0 top-16 flex items-center justify-center transition-all duration-500 ease-out z-50 pointer-events-none",
       visible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
     )}>
-      <style>{`
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-      `}</style>
-      <div className="flex bg-[#111] fc-skew shadow-2xl border-l-4 border-[var(--fc-primary)]">
-        <div className="bg-[var(--fc-primary)] px-6 py-4 flex items-center justify-center">
-          <span className="fc-unskew font-black text-black text-3xl uppercase tracking-tighter italic">GOAL!</span>
+      <div className="flex bg-[#111] volt-skew shadow-2xl border-l-4 border-[var(--overlay-primary)]">
+        <div className="bg-[var(--overlay-primary)] px-6 py-4 flex items-center justify-center">
+          <span className="volt-unskew font-black text-black text-3xl uppercase tracking-tighter italic">GOAL!</span>
         </div>
-        <div className="fc-unskew flex items-center gap-6 px-8 py-4">
+        <div className="volt-unskew flex items-center gap-6 px-8 py-4">
           <span className="text-white font-black text-2xl uppercase tracking-tight italic truncate max-w-[300px]">
             {event.team}
           </span>
-          <span className="bg-white/10 px-4 py-1 rounded text-[var(--fc-primary)] font-black text-3xl tabular-nums italic">
+          <span className="bg-white/10 px-4 py-1 rounded text-[var(--overlay-primary)] font-black text-3xl tabular-nums italic">
             {event.score1} – {event.score2}
           </span>
         </div>
@@ -85,26 +89,20 @@ function WinnerAlert({ event, visible }: { event: WinnerEvent | null; visible: b
       "fixed inset-0 flex flex-col items-center justify-center z-[100] pointer-events-none transition-all duration-700",
       visible ? "opacity-100" : "opacity-0"
     )}>
-      <style>{`
-        .fc-bg-pattern { background-image: repeating-linear-gradient( 45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 12px ); }
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-      `}</style>
-      
-      {/* Dark FC background */}
-      <div className="absolute inset-0 bg-[var(--fc-bg)]/95 fc-bg-pattern backdrop-blur-sm" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--fc-primary)] opacity-10 blur-[150px] rounded-full" />
+      {/* Dark background */}
+      <div className="absolute inset-0 bg-[var(--overlay-bg)]/95 volt-pattern backdrop-blur-sm" />
+      <div className="volt-glow top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
 
       {/* Celebration card */}
       <div className={cn(
         "relative flex flex-col items-center gap-6 transition-all duration-700 ease-out",
         visible ? "scale-100 translate-y-0" : "scale-90 translate-y-12"
       )}>
-        <div className="flex bg-[#111] fc-skew shadow-2xl border-l-[8px] border-[var(--fc-primary)] flex-col items-center p-12">
-          <div className="fc-unskew flex flex-col items-center">
+        <SlantedCard borderWidth="thick" className="p-12 flex flex-col items-center">
+          <div className="flex flex-col items-center">
             
-            <div className="flex items-center gap-3 mb-6 bg-[var(--fc-primary)]/10 text-[var(--fc-primary)] px-6 py-2 rounded">
-              <Trophy className="w-6 h-6" />
+            <div className="flex items-center gap-3 mb-6 bg-[var(--overlay-primary)]/10 text-[var(--overlay-primary)] px-6 py-2 rounded">
+              <Trophy className="w-6 h-6 text-[var(--overlay-primary)]" />
               <span className="font-black uppercase tracking-widest text-sm italic">Full Time</span>
             </div>
 
@@ -112,7 +110,7 @@ function WinnerAlert({ event, visible }: { event: WinnerEvent | null; visible: b
               {event.winner}
             </div>
 
-            <div className="bg-[var(--fc-primary)] text-black px-10 py-3 rounded-sm text-5xl font-black tabular-nums italic mb-6">
+            <div className="bg-[var(--overlay-primary)] text-black px-10 py-3 rounded-sm text-5xl font-black tabular-nums italic mb-6">
               {event.score1} – {event.score2}
             </div>
 
@@ -121,13 +119,13 @@ function WinnerAlert({ event, visible }: { event: WinnerEvent | null; visible: b
             </div>
             
           </div>
-        </div>
+        </SlantedCard>
       </div>
     </div>
   );
 }
 
-/** Full-screen Starting Soon Scene - FC Style */
+/** Full-screen Starting Soon Scene - Clean Design System */
 function StartingSoonView({ tournamentName, startDate }: { tournamentName: string; startDate: string }) {
   const [timeLeft, setTimeLeft] = useState<{ m: number; s: number }>({ m: 0, s: 0 });
 
@@ -145,64 +143,59 @@ function StartingSoonView({ tournamentName, startDate }: { tournamentName: strin
   }, [startDate]);
 
   return (
-    <div className="fixed inset-0 bg-[var(--fc-bg)] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
-      <style>{`
-        .fc-bg-pattern { background-image: repeating-linear-gradient( 45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 12px ); }
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-      `}</style>
-      
-      {/* Background Animated Elements */}
-      <div className="absolute inset-0 fc-bg-pattern opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent opacity-80" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[var(--fc-primary)] opacity-[0.04] blur-[100px] rounded-full animate-pulse" />
+    <div className="relative z-10 w-full max-w-4xl mx-auto px-8 flex flex-col items-center text-center my-auto">
+      <div className="mb-8 volt-anim-1">
+        <SlantedBadge text={tournamentName || "ICON EAFC TOURNAMENT 2026"} />
+      </div>
 
-      <div className="relative z-10 flex flex-col items-center text-center px-10">
-        
-        <div className="bg-[var(--fc-primary)] px-8 py-2 fc-skew mb-10 shadow-[0_0_40px_rgba(210,255,13,0.2)]">
-          <div className="fc-unskew flex items-center gap-3">
-            <Shield className="w-5 h-5 text-black fill-black" />
-            <span className="text-sm font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ADWA ARENA CHAMPIONSHIP"}</span>
+      <h1 className="text-[clamp(4.5rem,8vw,7.5rem)] font-black text-white tracking-tighter uppercase italic leading-[0.88] mb-12 drop-shadow-2xl volt-anim-2">
+        STARTING <span className="text-[var(--overlay-primary)] drop-shadow-[0_0_35px_rgba(210,255,13,0.3)]">SOON</span>
+      </h1>
+
+      {/* Slanted Timer Blocks */}
+      <div className="flex items-center gap-6 mb-14 volt-anim-3">
+        <SlantedCard borderWidth="thick" className="px-12 py-8 min-w-[210px]">
+          <div className="flex flex-col items-center">
+            <span className="text-8xl font-black text-white tabular-nums italic tracking-tighter">
+              {String(timeLeft.m).padStart(2, "0")}
+            </span>
+            <span className="text-[10px] font-black text-[var(--overlay-primary)] uppercase tracking-[0.4em] mt-2 italic">
+              Minutes
+            </span>
           </div>
+        </SlantedCard>
+
+        <span className="text-6xl font-black text-[var(--overlay-primary)] animate-pulse italic">
+          :
+        </span>
+
+        <SlantedCard borderWidth="thick" className="px-12 py-8 min-w-[210px]">
+          <div className="flex flex-col items-center">
+            <span className="text-8xl font-black text-white tabular-nums italic tracking-tighter">
+              {String(timeLeft.s).padStart(2, "0")}
+            </span>
+            <span className="text-[10px] font-black text-[var(--overlay-primary)] uppercase tracking-[0.4em] mt-2 italic">
+              Seconds
+            </span>
+          </div>
+        </SlantedCard>
+      </div>
+
+      {/* Metric / Broadcast Status Footer */}
+      <div className="flex items-center gap-8 text-white/40 font-black uppercase tracking-[0.3em] text-[10px] italic volt-anim-4">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[var(--overlay-primary)] animate-pulse" />
+          Live Broadcast Ready
         </div>
-
-        <h1 className="text-8xl font-black text-white tracking-tighter mb-12 uppercase italic drop-shadow-xl">
-          Starting <span className="text-[var(--fc-primary)]">Soon</span>
-        </h1>
-
-        {/* FC Style Timer Block */}
-        <div className="flex items-center gap-4 mb-16">
-          <div className="bg-[#111] border-b-8 border-[var(--fc-primary)] fc-skew px-12 py-6 min-w-[200px] shadow-2xl">
-            <div className="fc-unskew flex flex-col items-center">
-              <span className="text-8xl font-black text-white tabular-nums italic tracking-tighter">
-                {String(timeLeft.m).padStart(2, '0')}
-              </span>
-              <span className="text-[10px] font-black text-[var(--fc-primary)] uppercase tracking-[0.4em] mt-2 italic">Minutes</span>
-            </div>
-          </div>
-
-          <span className="text-6xl font-black text-[var(--fc-primary)] animate-pulse italic">:</span>
-
-          <div className="bg-[#111] border-b-8 border-[var(--fc-primary)] fc-skew px-12 py-6 min-w-[200px] shadow-2xl">
-            <div className="fc-unskew flex flex-col items-center">
-              <span className="text-8xl font-black text-white tabular-nums italic tracking-tighter">
-                {String(timeLeft.s).padStart(2, '0')}
-              </span>
-              <span className="text-[10px] font-black text-[var(--fc-primary)] uppercase tracking-[0.4em] mt-2 italic">Seconds</span>
-            </div>
-          </div>
+        <span className="opacity-20">/</span>
+        <div className="flex items-center gap-2">
+          <Activity className="w-4 h-4 text-[var(--overlay-primary)]" />
+          Servers Online
         </div>
-
-        <div className="flex items-center gap-8 text-white/40 font-black uppercase tracking-[0.3em] text-[10px] italic">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[var(--fc-primary)] animate-pulse" />
-            Live Broadcast Ready
-          </div>
-          <span className="opacity-20">/</span>
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-[var(--fc-primary)]" />
-            Servers Online
-          </div>
+        <span className="opacity-20">/</span>
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-white/40" />
+          1080P60 Broadcast
         </div>
       </div>
     </div>
@@ -292,150 +285,147 @@ function GroupStageTableView({ tournamentName, tournamentId }: { tournamentName:
   const completed = matches.filter(m => m.status === "COMPLETED").length;
 
   return (
-    <div className="fixed inset-0 bg-[var(--fc-bg)] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
-      <style>{`
-        @keyframes slide-in-skew { 0% { transform: translateX(-50px) skewX(-12deg); opacity: 0; } 100% { transform: translateX(0) skewX(-12deg); opacity: 1; } }
-        .fc-bg-pattern { background-image: repeating-linear-gradient( 45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 12px ); }
-        .fc-volt { color: var(--fc-primary); }
-        .bg-fc-volt { background-color: var(--fc-primary); }
-        .border-fc-volt { border-color: var(--fc-primary); }
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-        .fc-row-anim { animation: slide-in-skew 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
-      `}</style>
-
-      {/* FC Esports Style Background */}
-      <div className="absolute inset-0 fc-bg-pattern opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent opacity-80" />
-      <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-fc-volt opacity-[0.03] blur-[150px] rounded-full translate-x-1/3 -translate-y-1/3" />
-
-      <div className="relative z-10 w-full max-w-4xl px-8">
-
-        {/* FC Header */}
-        <div className="flex items-end gap-6 mb-6">
-          <div className="bg-fc-volt px-6 py-3 fc-skew fc-row-anim" style={{ animationDelay: '0s' }}>
-            <div className="fc-unskew flex items-center gap-3">
-              <Shield className="w-6 h-6 text-black fill-black" />
-              <h1 className="text-black font-black text-2xl uppercase tracking-tighter italic">Group Stage</h1>
-            </div>
+    <div className="relative z-10 w-full max-w-5xl mx-auto px-8 my-auto flex flex-col justify-center">
+      {/* Header Section */}
+      <div className="flex items-end justify-between gap-6 mb-6">
+        <div>
+          <div className="mb-3 volt-anim-1">
+            <SlantedBadge text={tournamentName || "ICON EAFC TOURNAMENT 2026"} />
           </div>
-          
-          <div className="bg-[#111] border-b-4 border-fc-volt px-6 py-3 fc-skew fc-row-anim flex-1 flex justify-between items-center" style={{ animationDelay: '0.1s' }}>
-            <div className="fc-unskew">
-              <span className="text-white/50 text-xs font-bold uppercase tracking-widest block mb-0.5">Tournament</span>
-              <span className="text-white font-black text-xl uppercase tracking-tight italic">{tournamentName || "ADWA ARENA Championship"}</span>
-            </div>
-            <div className="fc-unskew flex items-center gap-3">
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-white/50">
-                <span className="w-2 h-2 rounded-full bg-fc-volt animate-pulse" />
-                Live Standings
+          <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tighter uppercase italic leading-none volt-anim-2">
+            GROUP STAGE <span className="text-[var(--overlay-primary)]">STANDINGS</span>
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-3 volt-anim-3">
+          <div className="flex items-center gap-2 bg-[#111] px-5 py-2.5 volt-skew border-l-4 border-[var(--overlay-primary)]">
+            <div className="volt-unskew flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-white/60">
+              <span className="w-2 h-2 rounded-full bg-[var(--overlay-primary)] animate-pulse" />
+              Live Standings
+              <span className="bg-white/10 px-2.5 py-0.5 rounded text-white font-black italic ml-1">
+                {completed} / {matches.length}
               </span>
-              <span className="bg-white/10 px-3 py-1 rounded text-sm font-black italic">{completed} / {matches.length}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* FC Table Container */}
-        <div className="w-full relative">
-          
-          {/* Headers */}
-          <div className="flex bg-[#1a1a1a] fc-skew mb-2 px-8 py-2 border-l-4 border-transparent">
-            <div className="fc-unskew w-full grid items-center gap-4 text-[10px] font-black text-white/40 uppercase tracking-widest italic"
-              style={{ gridTemplateColumns: '2rem 1fr 3rem 3rem 3rem 3rem 3rem 3rem 4rem' }}>
-              <span>#</span>
-              <span>Club / Team</span>
-              <span className="text-center">MP</span>
-              <span className="text-center">W</span>
-              <span className="text-center">D</span>
-              <span className="text-center">L</span>
-              <span className="text-center">GD</span>
-              <span className="text-center">GF</span>
-              <span className="text-right fc-volt">PTS</span>
+      {/* FC Table Container */}
+      <div className="w-full relative volt-anim-3">
+        {/* Headers */}
+        <div className="flex bg-[#1a1a1a] volt-skew mb-2 px-8 py-2.5 border-l-4 border-transparent">
+          <div
+            className="volt-unskew w-full grid items-center gap-4 text-[10px] font-black text-white/40 uppercase tracking-widest italic"
+            style={{ gridTemplateColumns: "2rem 1fr 3rem 3rem 3rem 3rem 3rem 3rem 4rem" }}
+          >
+            <span>#</span>
+            <span>Club / Team</span>
+            <span className="text-center">MP</span>
+            <span className="text-center">W</span>
+            <span className="text-center">D</span>
+            <span className="text-center">L</span>
+            <span className="text-center">GD</span>
+            <span className="text-center">GF</span>
+            <span className="text-right text-[var(--overlay-primary)]">PTS</span>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-16 flex items-center justify-center gap-3 text-white/20 volt-skew bg-[#111]">
+            <div className="volt-unskew flex items-center gap-3">
+              <TrendingUp className="w-5 h-5 animate-pulse" />
+              <span className="text-sm font-black uppercase tracking-widest italic">Syncing Data...</span>
             </div>
           </div>
+        ) : rows.length === 0 ? (
+          <div className="py-16 flex items-center justify-center text-white/20 volt-skew bg-[#111]">
+            <div className="volt-unskew text-sm font-black uppercase tracking-widest italic">Awaiting match results</div>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {rows.map((row, i) => {
+              const isTop1 = i === 0;
 
-          {loading ? (
-            <div className="py-16 flex items-center justify-center gap-3 text-white/20 fc-skew bg-[#111]">
-              <div className="fc-unskew flex items-center gap-3">
-                <TrendingUp className="w-5 h-5 animate-pulse" />
-                <span className="text-sm font-black uppercase tracking-widest italic">Syncing Data...</span>
-              </div>
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="py-16 flex items-center justify-center text-white/20 fc-skew bg-[#111]">
-              <div className="fc-unskew text-sm font-black uppercase tracking-widest italic">Awaiting match results</div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {rows.map((row, i) => {
-                const isTop1 = i === 0;
-                const isTop2 = i < 2;
-                
-                return (
+              return (
+                <div
+                  key={row.team}
+                  className={cn(
+                    "flex px-8 py-3.5 volt-skew border-l-4 transition-all duration-300",
+                    isTop1
+                      ? "bg-white text-black border-[var(--overlay-primary)] shadow-lg"
+                      : "bg-[#111] text-white border-transparent hover:bg-[#161616]"
+                  )}
+                  style={{ animationDelay: `${0.1 + i * 0.05}s` }}
+                >
                   <div
-                    key={row.team}
-                    className={cn(
-                      "flex px-8 py-3.5 fc-skew fc-row-anim border-l-4 transition-all duration-300",
-                      isTop1 ? "bg-white text-black border-fc-volt" : "bg-[#111] text-white border-transparent hover:bg-[#1a1a1a]"
-                    )}
-                    style={{ animationDelay: `${0.1 + (i * 0.05)}s` }}
+                    className="volt-unskew w-full grid items-center gap-4"
+                    style={{ gridTemplateColumns: "2rem 1fr 3rem 3rem 3rem 3rem 3rem 3rem 4rem" }}
                   >
-                    <div className="fc-unskew w-full grid items-center gap-4"
-                      style={{ gridTemplateColumns: '2rem 1fr 3rem 3rem 3rem 3rem 3rem 3rem 4rem' }}>
-                      
-                      {/* POS */}
-                      <span className={cn("text-lg font-black italic", isTop1 ? "text-black" : "text-white/40")}>
-                        {i + 1}
+                    {/* POS */}
+                    <span className={cn("text-lg font-black italic", isTop1 ? "text-black" : "text-white/40")}>
+                      {i + 1}
+                    </span>
+
+                    {/* TEAM */}
+                    <span className="font-black text-lg truncate uppercase italic tracking-tight flex items-center gap-2">
+                      {row.team}
+                      {isTop1 && <Trophy className="w-4 h-4 fill-black text-black ml-1" />}
+                    </span>
+
+                    {/* STATS */}
+                    {([row.p, row.w, row.d, row.l] as number[]).map((val, j) => (
+                      <span
+                        key={j}
+                        className={cn("text-base font-bold italic text-center", isTop1 ? "text-black/70" : "text-white/60")}
+                      >
+                        {val}
                       </span>
+                    ))}
 
-                      {/* TEAM */}
-                      <span className="font-black text-lg truncate uppercase italic tracking-tight flex items-center gap-2">
-                        {row.team}
-                        {isTop1 && <Trophy className="w-4 h-4 fill-black text-black ml-1" />}
-                      </span>
-
-                      {/* STATS */}
-                      {([row.p, row.w, row.d, row.l] as number[]).map((val, j) => (
-                        <span key={j} className={cn("text-base font-bold italic text-center", isTop1 ? "text-black/70" : "text-white/60")}>
-                          {val}
-                        </span>
-                      ))}
-
-                      {/* GD */}
-                      <span className={cn(
+                    {/* GD */}
+                    <span
+                      className={cn(
                         "text-base font-black italic text-center",
-                        row.gd > 0 ? (isTop1 ? "text-green-700" : "fc-volt") : 
-                        row.gd < 0 ? "text-red-500" : (isTop1 ? "text-black/50" : "text-white/30")
-                      )}>
-                        {row.gd > 0 ? `+${row.gd}` : row.gd}
-                      </span>
+                        row.gd > 0
+                          ? isTop1
+                            ? "text-green-700"
+                            : "text-[var(--overlay-primary)]"
+                          : row.gd < 0
+                          ? "text-red-500"
+                          : isTop1
+                          ? "text-black/50"
+                          : "text-white/30"
+                      )}
+                    >
+                      {row.gd > 0 ? `+${row.gd}` : row.gd}
+                    </span>
 
-                      {/* GF */}
-                      <span className={cn("text-base font-bold italic text-center", isTop1 ? "text-black/70" : "text-white/40")}>
-                        {row.gf}
-                      </span>
+                    {/* GF */}
+                    <span className={cn("text-base font-bold italic text-center", isTop1 ? "text-black/70" : "text-white/40")}>
+                      {row.gf}
+                    </span>
 
-                      {/* PTS */}
-                      <span className={cn(
-                        "text-2xl font-black italic text-right",
-                        isTop1 ? "text-black" : "fc-volt"
-                      )}>
-                        {row.pts}
-                      </span>
-                    </div>
+                    {/* PTS */}
+                    <span
+                      className={cn(
+                        "text-2xl font-black italic text-right tabular-nums",
+                        isTop1 ? "text-black" : "text-[var(--overlay-primary)]"
+                      )}
+                    >
+                      {row.pts}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/** Live timer showing how long the break has been running - FC Style */
+/** Live timer showing how long the break has been running - Clean Design System */
 function BreakTimer() {
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
@@ -449,138 +439,57 @@ function BreakTimer() {
   const s = elapsed % 60;
 
   return (
-    <div className="flex items-center gap-4 mt-8 stagger-4">
-      <div className="bg-[#111] border-l-4 border-[var(--fc-primary)] fc-skew px-6 py-3 shadow-xl">
-        <div className="fc-unskew flex items-center gap-4">
-          <Clock className="w-5 h-5 text-[var(--fc-primary)]" />
+    <div className="flex items-center gap-4 mt-8 volt-anim-4">
+      <SlantedCard className="px-6 py-3">
+        <div className="flex items-center gap-4">
+          <Clock className="w-5 h-5 text-[var(--overlay-primary)]" />
           <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em] italic mr-2">Break Elapsed</span>
           <span className="font-black text-2xl text-white tabular-nums tracking-tighter italic">
             {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
           </span>
         </div>
-      </div>
+      </SlantedCard>
       <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[var(--fc-primary)] animate-pulse" />
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--fc-primary)] italic">On Break</span>
+        <span className="w-2 h-2 rounded-full bg-[var(--overlay-primary)] animate-pulse" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--overlay-primary)] italic">On Break</span>
       </div>
     </div>
   );
 }
 
-/** Full-screen Intermission Scene - FC Style */
+/** Full-screen Intermission Scene - Clean Design System */
 function IntermissionView({ tournamentName, matches }: { tournamentName: string; matches: Match[] }) {
   const nextMatch = matches.find(m => m.status === "SCHEDULED") || (matches.length > 1 ? matches[1] : null);
 
   return (
-    <div className="fixed inset-0 bg-[var(--fc-bg)] flex flex-col items-center justify-center overflow-hidden font-heading select-none text-white">
-      <style>{`
-        @keyframes stagger-up { 0%{opacity:0;transform:translateY(32px) skewX(-12deg)} 100%{opacity:1;transform:translateY(0) skewX(-12deg)} }
-        .fc-bg-pattern { background-image: repeating-linear-gradient( 45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 12px ); }
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-        .stagger-1 { animation: stagger-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.05s; }
-        .stagger-2 { animation: stagger-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.15s; }
-        .stagger-3 { animation: stagger-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.25s; }
-        .stagger-4 { animation: stagger-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: 0.35s; }
-      `}</style>
+    <div className="relative z-10 w-full max-w-6xl mx-auto px-10 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center my-auto">
+      {/* Left: DualToneHeader with BreakTimer */}
+      <DualToneHeader
+        badgeText={tournamentName || "ICON EAFC TOURNAMENT 2026"}
+        line1="HALF TIME"
+        line2="INTERMISSION"
+        subtitle="We're taking a short break. Stay tuned — the action resumes shortly!"
+      >
+        <BreakTimer />
+      </DualToneHeader>
 
-      {/* FC Esports Style Background */}
-      <div className="absolute inset-0 fc-bg-pattern opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[var(--fc-bg)] via-transparent to-transparent opacity-80" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--fc-primary)] opacity-[0.03] blur-[150px] rounded-full" />
+      {/* Right: Up Next MatchPreviewCard + 2 Metric Cards */}
+      <div className="space-y-4 volt-anim-3">
+        <MatchPreviewCard match={nextMatch} label="UP NEXT" />
 
-      {/* Main Grid */}
-      <div className="relative z-10 w-full max-w-6xl px-10 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-
-        {/* Left: BRB Text */}
-        <div className="fc-skew">
-          <div className="fc-unskew">
-            
-            <div className="bg-[var(--fc-primary)] px-6 py-2 fc-skew mb-8 inline-block shadow-lg stagger-1">
-              <div className="fc-unskew flex items-center gap-3">
-                <Shield className="w-4 h-4 text-black fill-black" />
-                <span className="text-xs font-black uppercase tracking-[0.4em] text-black italic">{tournamentName || "ADWA ARENA Championship"}</span>
-              </div>
-            </div>
-
-            <h1 className="text-[clamp(5rem,8vw,8rem)] font-black text-white tracking-tighter leading-[0.85] uppercase italic drop-shadow-2xl stagger-2 mb-6">
-              Half Time <br />
-              <span className="text-[var(--fc-primary)]">Intermission</span>
-            </h1>
-
-            <p className="text-xl text-white/50 font-bold max-w-md italic stagger-3">
-              We're taking a short break. Stay tuned — the action resumes shortly!
-            </p>
-
-            <BreakTimer />
-          </div>
-        </div>
-
-        {/* Right: Up Next card + stats */}
-        <div className="space-y-4">
-          {nextMatch ? (
-            <div className="bg-[#111] border-l-8 border-[var(--fc-primary)] fc-skew shadow-2xl p-8 relative overflow-hidden stagger-3">
-              <div className="fc-unskew">
-                
-                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--fc-primary)] mb-6 flex items-center gap-2 italic">
-                  <span className="w-2 h-2 rounded-full bg-[var(--fc-primary)] animate-pulse inline-block" />
-                  Up Next
-                </span>
-
-                <div className="flex items-center justify-between gap-4 mb-6">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-1 italic">Club</p>
-                    <p className="text-3xl font-black text-white truncate uppercase italic tracking-tight">{nextMatch.team1Name}</p>
-                  </div>
-                  <span className="text-white/20 font-black text-3xl italic px-4">VS</span>
-                  <div className="flex-1 min-w-0 text-right">
-                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-1 italic">Club</p>
-                    <p className="text-3xl font-black text-white truncate uppercase italic tracking-tight">{nextMatch.team2Name}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] border-t border-white/10 pt-4 italic">
-                  <span className="flex items-center gap-1.5">
-                    <Timer className="w-3 h-3 text-[var(--fc-primary)]" />
-                    {nextMatch.roundLabel}
-                  </span>
-                  <span>
-                    {nextMatch.scheduledAt
-                      ? new Date(nextMatch.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : "TBD"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-[#111] border-l-4 border-white/10 fc-skew p-8 text-center stagger-3">
-              <div className="fc-unskew text-white/30 italic text-sm font-black uppercase tracking-widest">
-                No upcoming matches scheduled
-              </div>
-            </div>
-          )}
-
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-[#1a1a1a] fc-skew p-5 border-l-4 border-transparent hover:border-white/20 transition-colors stagger-4">
-              <div className="fc-unskew flex flex-col">
-                <div className="flex items-center gap-2 mb-2 text-white/40">
-                  <Users className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Viewers</span>
-                </div>
-                <span className="text-3xl font-black text-white tracking-tighter italic">1,248</span>
-              </div>
-            </div>
-            <div className="bg-[#1a1a1a] fc-skew p-5 border-l-4 border-transparent hover:border-[var(--fc-primary)]/50 transition-colors stagger-4">
-              <div className="fc-unskew flex flex-col">
-                <div className="flex items-center gap-2 mb-2 text-white/40">
-                  <Activity className="w-4 h-4 text-[var(--fc-primary)]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">Stream Delay</span>
-                </div>
-                <span className="text-3xl font-black text-white tracking-tighter italic">15s</span>
-              </div>
-            </div>
-          </div>
+        {/* Stat cards */}
+        <div className="grid grid-cols-2 gap-4 volt-anim-4">
+          <MetricCard
+            icon={<Users className="w-4 h-4 text-white/40" />}
+            label="VIEWERS"
+            value="1,248"
+          />
+          <MetricCard
+            icon={<Activity className="w-4 h-4 text-[var(--overlay-primary)]" />}
+            label="STREAM DELAY"
+            value="15s"
+            accentColor="var(--overlay-primary)"
+          />
         </div>
       </div>
     </div>
@@ -1216,9 +1125,9 @@ export default function BroadcastOverlay() {
 
   if (activeSceneComponent) {
     return (
-      <div style={{ '--fc-primary': `#${primaryColor}`, '--fc-bg': `#${bgColor}` } as any}>
+      <OverlayTheme primaryColor={primaryColor} bgColor={bgColor}>
         {activeSceneComponent}
-      </div>
+      </OverlayTheme>
     );
   }
 
@@ -1229,54 +1138,39 @@ export default function BroadcastOverlay() {
   const isUpdating = match ? updatedMatchId === match.id : false;
 
   return (
-    <div 
-      className="fixed inset-0 bg-transparent pointer-events-none overflow-hidden font-heading select-none text-white"
-      style={{ '--fc-primary': `#${primaryColor}`, '--fc-bg': `#${bgColor}` } as any}
+    <OverlayTheme
+      primaryColor={primaryColor}
+      bgColor={bgColor}
+      transparent={true}
     >
-      <style>{`
-        .fc-skew { transform: skewX(-12deg); }
-        .fc-unskew { transform: skewX(12deg); }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        .animate-shimmer {
-          background: linear-gradient(90deg, transparent 0%, rgba(210,255,13,0.3) 50%, transparent 100%);
-          background-size: 200% 100%;
-          animation: shimmer 0.8s ease-in-out;
-        }
-      `}</style>
-
       {/* ── Alerts ── */}
       <WinnerAlert event={winnerEvent} visible={winnerAlertVisible} />
       <ScoreAlert event={scoreEvent} visible={scoreAlertVisible} />
 
       {/* ── Top-Left FC Scoreboard ── */}
       <div className={cn(
-        "absolute top-10 left-10 transition-opacity duration-500",
+        "absolute top-10 left-10 transition-opacity duration-500 pointer-events-auto",
         isTransitioning ? "opacity-0" : "opacity-100"
       )}>
-        
         {/* Tournament Badge */}
-        <div className="bg-[var(--fc-primary)] px-4 py-1 inline-flex fc-skew mb-[-5px] shadow-[0_0_20px_rgba(210,255,13,0.15)] border-t-[3px] border-l-[3px] border-white/20">
-          <div className="fc-unskew flex items-center gap-2">
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-black italic">
-              {tournament?.title || "ADWA ARENA"}
-            </span>
-          </div>
+        <div className="mb-[-5px]">
+          <SlantedBadge text={tournament?.title || "ADWA ARENA"} />
         </div>
 
         {/* Main Score Bar */}
         <div className="flex">
-          <div className="bg-[#111] border-l-[6px] border-[var(--fc-primary)] fc-skew shadow-2xl overflow-visible relative flex items-stretch">
+          <div className="bg-[#111] border-l-[6px] border-[var(--overlay-primary)] volt-skew shadow-2xl overflow-visible relative flex items-stretch">
             
             {/* Score update shimmer sweep */}
-            {isUpdating && <div className="absolute inset-0 animate-shimmer pointer-events-none z-10" />}
+            {isUpdating && <div className="absolute inset-0 volt-shimmer pointer-events-none z-10" />}
 
             {match ? (
-              <div className="fc-unskew flex items-center h-12">
+              <div className="volt-unskew flex items-center h-12">
                 
                 {/* Team 1 Abbreviation */}
                 <div className={cn(
                   "flex items-center justify-center w-16 px-3 h-full transition-all duration-300",
-                  isT1Winner ? "bg-[var(--fc-primary)] text-black" : isT2Winner ? "opacity-30" : "bg-[#111] text-white"
+                  isT1Winner ? "bg-[var(--overlay-primary)] text-black" : isT2Winner ? "opacity-30" : "bg-[#111] text-white"
                 )}>
                   <span className="font-black text-xl italic uppercase tracking-tighter truncate">
                     {match.team1Name.substring(0, 3)}
@@ -1284,17 +1178,17 @@ export default function BroadcastOverlay() {
                 </div>
 
                 {/* Scores */}
-                <div className="flex items-center justify-center bg-[#222] h-full px-4 border-x border-[#333]">
+                <div className="flex items-center justify-center bg-[#1a1a1a] h-full px-4 border-x border-[#262626]">
                   <span className={cn(
                     "font-black text-2xl tabular-nums italic w-6 text-center",
-                    isUpdating && updatedMatchId === match.id ? "text-[var(--fc-primary)]" : "text-white"
+                    isUpdating && updatedMatchId === match.id ? "text-[var(--overlay-primary)]" : "text-white"
                   )}>
                     {match.team1Score}
                   </span>
                   <span className="text-white/20 font-black text-lg italic mx-1">–</span>
                   <span className={cn(
                     "font-black text-2xl tabular-nums italic w-6 text-center",
-                    isUpdating && updatedMatchId === match.id ? "text-[var(--fc-primary)]" : "text-white"
+                    isUpdating && updatedMatchId === match.id ? "text-[var(--overlay-primary)]" : "text-white"
                   )}>
                     {match.team2Score}
                   </span>
@@ -1303,7 +1197,7 @@ export default function BroadcastOverlay() {
                 {/* Team 2 Abbreviation */}
                 <div className={cn(
                   "flex items-center justify-center w-16 px-3 h-full transition-all duration-300",
-                  isT2Winner ? "bg-[var(--fc-primary)] text-black" : isT1Winner ? "opacity-30" : "bg-[#111] text-white"
+                  isT2Winner ? "bg-[var(--overlay-primary)] text-black" : isT1Winner ? "opacity-30" : "bg-[#111] text-white"
                 )}>
                   <span className="font-black text-xl italic uppercase tracking-tighter truncate">
                     {match.team2Name.substring(0, 3)}
@@ -1312,7 +1206,7 @@ export default function BroadcastOverlay() {
 
               </div>
             ) : (
-              <div className="fc-unskew flex items-center px-6 h-12">
+              <div className="volt-unskew flex items-center px-6 h-12">
                 <span className="text-white/40 font-black text-sm uppercase tracking-widest italic">
                   Standby
                 </span>
@@ -1322,8 +1216,8 @@ export default function BroadcastOverlay() {
 
           {/* Match Clock & Round Indicator */}
           {match && (
-            <div className="bg-[var(--fc-primary)] text-black fc-skew px-4 shadow-xl flex items-center ml-1 border-r-[3px] border-b-[3px] border-white/20">
-              <div className="fc-unskew flex items-center gap-3">
+            <div className="bg-[var(--overlay-primary)] text-black volt-skew px-4 shadow-xl flex items-center ml-1 border-r-[3px] border-b-[3px] border-white/20">
+              <div className="volt-unskew flex items-center gap-3">
                 <span className="font-black text-lg tabular-nums tracking-tighter italic">
                   45:00
                 </span>
@@ -1340,14 +1234,14 @@ export default function BroadcastOverlay() {
         {match && (
           <div className="absolute top-[100%] right-0 mt-2">
             <div className={cn(
-              "fc-skew px-4 py-1 text-[9px] font-black uppercase tracking-[0.3em] italic shadow-lg",
+              "volt-skew px-4 py-1 text-[9px] font-black uppercase tracking-[0.3em] italic shadow-lg",
               match.status === "LIVE" || match.status === "IN_PROGRESS"
                 ? "bg-red-600 text-white"
                 : isCompleted
-                ? "bg-white/10 text-[var(--fc-primary)] backdrop-blur-md"
+                ? "bg-white/10 text-[var(--overlay-primary)] backdrop-blur-md"
                 : "bg-white/5 text-white/50 backdrop-blur-md"
             )}>
-              <div className="fc-unskew flex items-center gap-2">
+              <div className="volt-unskew flex items-center gap-2">
                 {(match.status === "LIVE" || match.status === "IN_PROGRESS") && <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
                 {isCompleted ? "Full Time" : match.status}
               </div>
@@ -1356,6 +1250,6 @@ export default function BroadcastOverlay() {
         )}
 
       </div>
-    </div>
+    </OverlayTheme>
   );
 }

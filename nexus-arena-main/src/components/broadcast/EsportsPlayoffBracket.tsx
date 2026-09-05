@@ -2,14 +2,15 @@ import React, { useMemo } from "react";
 import { Trophy, Crown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MatchReport } from "@/lib/api";
+import { SlantedBadge } from "@/components/broadcast/design-system";
 
 export interface EsportsPlayoffBracketProps {
   tournamentId: string;
   tournamentTitle?: string;
   gameTitle?: string;
   matches?: MatchReport[];
-  primaryColor?: string; // hex string without #, defaults to "e62429" (crimson)
-  bgColor?: string; // hex string without #, defaults to "0d0b10"
+  primaryColor?: string; // hex string without #, defaults to "d2ff0d" (electric volt)
+  bgColor?: string; // hex string without #, defaults to "050505"
   onMatchClick?: (match: MatchReport) => void;
 }
 
@@ -211,8 +212,8 @@ export function EsportsPlayoffBracket({
   tournamentTitle = "ICON EAFC TOURNAMENT",
   gameTitle = "EA SPORTS FC 25",
   matches = [],
-  primaryColor = "e62429",
-  bgColor = "0d0b10",
+  primaryColor = "d2ff0d",
+  bgColor = "050505",
   onMatchClick,
 }: EsportsPlayoffBracketProps) {
   // Determine rounds in the tournament
@@ -404,21 +405,21 @@ export function EsportsPlayoffBracket({
       </svg>
 
       {/* TOP CHAMPIONSHIP HEADER */}
-      <div className="relative z-10 pt-6 flex flex-col items-center">
-        {/* Small top category */}
-        <span className="text-white/70 font-black text-xs sm:text-sm tracking-[0.5em] uppercase italic">
-          THE
-        </span>
+      <div className="relative z-10 pt-5 flex flex-col items-center">
+        {/* Slanted Tournament Badge */}
+        <div className="mb-2 volt-anim-1">
+          <SlantedBadge text={tournamentTitle || "ICON EAFC TOURNAMENT"} />
+        </div>
 
-        {/* Big metallic Playoff title */}
-        <h1 className="text-4xl sm:text-6xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 drop-shadow-[0_8px_20px_rgba(0,0,0,0.9)] leading-none my-1">
-          PLAYOFFS
+        {/* Dual-Tone Playoff Title */}
+        <h1 className="text-4xl sm:text-6xl font-black italic tracking-tighter uppercase text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.9)] leading-none my-1 volt-anim-2">
+          THE <span style={{ color: `#${primaryColor}` }}>PLAYOFFS</span>
         </h1>
 
-        {/* Glowing tapered red horizontal divider line */}
-        <div className="flex items-center gap-3 w-full max-w-xl justify-center mt-1">
+        {/* Glowing tapered horizontal divider line */}
+        <div className="flex items-center gap-3 w-full max-w-xl justify-center mt-1 volt-anim-3">
           <div
-            className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#e62429] to-[#e62429]"
+            className="h-[2px] flex-1"
             style={{
               background: `linear-gradient(to right, transparent, #${primaryColor}, #${primaryColor})`,
             }}
@@ -428,7 +429,7 @@ export function EsportsPlayoffBracket({
             style={{ backgroundColor: `#${primaryColor}` }}
           />
           <div
-            className="h-[2px] flex-1 bg-gradient-to-l from-transparent via-[#e62429] to-[#e62429]"
+            className="h-[2px] flex-1"
             style={{
               background: `linear-gradient(to left, transparent, #${primaryColor}, #${primaryColor})`,
             }}
