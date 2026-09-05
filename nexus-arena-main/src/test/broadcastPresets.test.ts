@@ -34,8 +34,8 @@ describe("broadcastPresets", () => {
     expect(preset.presetThemeHex).toBe("00e5ff");
   });
 
-  it("lists all 6 broadcast scenes", () => {
-    expect(ALL_BROADCAST_SCENES).toHaveLength(6);
+  it("lists all 7 broadcast scenes", () => {
+    expect(ALL_BROADCAST_SCENES).toHaveLength(7);
   });
 
   describe("getFilteredScenesForGame", () => {

@@ -20,6 +20,7 @@ interface TeamSlotProps {
   isWinner?: boolean;
   isLoser?: boolean;
   isLive?: boolean;
+  isUpcoming?: boolean;
   align?: "left" | "right" | "center";
   width?: number;
   height?: number;
@@ -27,7 +28,7 @@ interface TeamSlotProps {
   isFinal?: boolean;
 }
 
-/** 
+/**
  * Clean Modern Esports Team Card matching the Half-Time Intermission Design System
  */
 function CleanTeamCard({
@@ -36,6 +37,7 @@ function CleanTeamCard({
   isWinner,
   isLoser,
   isLive,
+  isUpcoming,
   align = "left",
   width = 175,
   height = 36,
@@ -55,29 +57,49 @@ function CleanTeamCard({
       }}
       className={cn(
         "relative select-none transition-all duration-300 group flex items-center font-heading",
-        isLoser && "opacity-35"
+        isLoser && "opacity-30"
       )}
     >
       {/* Slanted Card Container (-12deg) */}
       <div
         className={cn(
-          "absolute inset-0 bracket-skew transition-all duration-200 border-t border-b shadow-lg",
+          "absolute inset-0 bracket-skew transition-all duration-300 border-t border-b shadow-lg",
           align === "right" ? "border-r-4 border-l-0" : "border-l-4 border-r-0",
           isTbd
             ? "bg-[#0d0d0d] border-white/5"
             : isWinner
-            ? "bg-[#161616] border-t-white/15 border-b-white/5 shadow-[0_0_15px_rgba(210,255,13,0.12)]"
+            ? "bg-[#161616] border-t-white/15 border-b-white/5 shadow-[0_0_15px_rgba(210,255,13,0.18)]"
             : isLive
-            ? "bg-[#161616] border-t-red-500/20 border-b-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+            ? "bg-[#161616] border-t-red-500/25 border-b-red-500/10 shadow-[0_0_18px_rgba(239,68,68,0.25)]"
+            : isUpcoming
+            ? "bg-[#141414] border-t-white/15 border-b-white/5 shadow-[0_0_14px_rgba(210,255,13,0.12)]"
             : "bg-[#111111] border-white/10 hover:bg-[#151515]"
         )}
         style={{
-          borderLeftColor: align !== "right" 
-            ? (isWinner ? voltHex : isLive ? "#ef4444" : isTbd ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.2)")
-            : undefined,
-          borderRightColor: align === "right" 
-            ? (isWinner ? voltHex : isLive ? "#ef4444" : isTbd ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.2)")
-            : undefined,
+          borderLeftColor:
+            align !== "right"
+              ? isWinner
+                ? voltHex
+                : isLive
+                ? "#ef4444"
+                : isUpcoming
+                ? voltHex
+                : isTbd
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.2)"
+              : undefined,
+          borderRightColor:
+            align === "right"
+              ? isWinner
+                ? voltHex
+                : isLive
+                ? "#ef4444"
+                : isUpcoming
+                ? voltHex
+                : isTbd
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(255,255,255,0.2)"
+              : undefined,
         }}
       />
 
@@ -95,6 +117,9 @@ function CleanTeamCard({
           {isLive && (
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
           )}
+          {isUpcoming && !isWinner && !isLive && (
+            <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: voltHex }} />
+          )}
           <span
             className={cn(
               "font-black tracking-tight uppercase italic truncate",
@@ -107,7 +132,7 @@ function CleanTeamCard({
           </span>
         </div>
 
-        {/* Clean Score Badge */}
+        {/* Clean Score Badge / Status */}
         {isNumericScore ? (
           <div
             className={cn(
@@ -126,6 +151,13 @@ function CleanTeamCard({
           <span className="text-[9px] font-black uppercase tracking-wider bg-red-600 px-1.5 py-0.2 rounded text-white italic animate-pulse">
             LIVE
           </span>
+        ) : isUpcoming && !isTbd ? (
+          <span
+            className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded italic text-black"
+            style={{ backgroundColor: voltHex }}
+          >
+            NEXT
+          </span>
         ) : null}
       </div>
     </div>
@@ -140,7 +172,7 @@ function MatchPair({
   align = "left",
   width = 175,
   height = 36,
-  gap = 8,
+  gap = 6,
   primaryColorHex = "d2ff0d",
   isFinal = false,
   label,
@@ -161,6 +193,14 @@ function MatchPair({
   const isT1Winner = isCompleted && match?.winnerName === match?.team1Name;
   const isT2Winner = isCompleted && match?.winnerName === match?.team2Name;
 
+  // Check if upcoming / next
+  const hasTeams =
+    match?.team1Name &&
+    match.team1Name !== "TBD" &&
+    match?.team2Name &&
+    match.team2Name !== "TBD";
+  const isUpcoming = !isCompleted && !isLive && Boolean(hasTeams);
+
   return (
     <div
       onClick={onClick}
@@ -176,6 +216,7 @@ function MatchPair({
         isWinner={isT1Winner}
         isLoser={isCompleted && !isT1Winner}
         isLive={isLive}
+        isUpcoming={isUpcoming}
         align={align}
         width={width}
         height={height}
@@ -188,6 +229,7 @@ function MatchPair({
         isWinner={isT2Winner}
         isLoser={isCompleted && !isT2Winner}
         isLive={isLive}
+        isUpcoming={isUpcoming}
         align={align}
         width={width}
         height={height}
@@ -203,10 +245,308 @@ function MatchPair({
   );
 }
 
+/**
+ * Modular Dynamic SVG Fork Connector
+ * Precisely links two feeder matches into a downstream match.
+ * Visualizes:
+ * - Advancing winner lines in solid electric volt
+ * - Live battles in animated flowing dashes
+ * - Upcoming matches with dynamic flowing electricity
+ * - Inactive graphite tracks
+ */
+interface ForkConnectorProps {
+  y1: number;
+  y2: number;
+  yTarget: number;
+  direction: "ltr" | "rtl";
+  width?: number;
+  height?: number;
+  mTop?: MatchReport | null;
+  mBottom?: MatchReport | null;
+  mTarget?: MatchReport | null;
+  primaryColorHex: string;
+}
+
+function ForkConnector({
+  y1,
+  y2,
+  yTarget,
+  direction,
+  width = 40,
+  height = 640,
+  mTop,
+  mBottom,
+  mTarget,
+  primaryColorHex,
+}: ForkConnectorProps) {
+  const voltHex = primaryColorHex.startsWith("#") ? primaryColorHex : `#${primaryColorHex}`;
+  const midX = width / 2;
+
+  // Status flags
+  const isTopCompleted = mTop?.status === "COMPLETED";
+  const isTopLive = mTop?.status === "IN_PROGRESS" || mTop?.status === "LIVE";
+  const isTopWinner = isTopCompleted && Boolean(mTop?.winnerName);
+
+  const isBottomCompleted = mBottom?.status === "COMPLETED";
+  const isBottomLive = mBottom?.status === "IN_PROGRESS" || mBottom?.status === "LIVE";
+  const isBottomWinner = isBottomCompleted && Boolean(mBottom?.winnerName);
+
+  const isTargetCompleted = mTarget?.status === "COMPLETED";
+  const isTargetLive = mTarget?.status === "IN_PROGRESS" || mTarget?.status === "LIVE";
+  const isTargetUpcoming =
+    !isTargetCompleted &&
+    (isTargetLive ||
+      (Boolean(mTarget?.team1Name) &&
+        mTarget?.team1Name !== "TBD" &&
+        Boolean(mTarget?.team2Name) &&
+        mTarget?.team2Name !== "TBD") ||
+      isTopWinner ||
+      isBottomWinner);
+
+  // Path coordinates
+  // LTR: from 0 (left) to width (right)
+  // RTL: from width (right) to 0 (left)
+  const isLtr = direction === "ltr";
+  const xStart = isLtr ? 0 : width;
+  const xEnd = isLtr ? width : 0;
+
+  const topPath = `M ${xStart} ${y1} H ${midX} V ${yTarget}`;
+  const bottomPath = `M ${xStart} ${y2} H ${midX} V ${yTarget}`;
+  const stemPath = `M ${midX} ${yTarget} H ${xEnd}`;
+
+  return (
+    <g>
+      {/* 1. Base Graphite Inactive Tracks */}
+      <path d={topPath} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth="1.5" />
+      <path d={bottomPath} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth="1.5" />
+      <path d={stemPath} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth="1.5" />
+
+      {/* 2. Top Feeder Active Path */}
+      {isTopWinner ? (
+        <path
+          d={topPath}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: `drop-shadow(0 0 4px ${voltHex}80)` }}
+        />
+      ) : isTopLive ? (
+        <path
+          d={topPath}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth="2.5"
+          strokeDasharray="6 3"
+          className="volt-flow"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: "drop-shadow(0 0 5px rgba(239,68,68,0.7))" }}
+        />
+      ) : null}
+
+      {/* 3. Bottom Feeder Active Path */}
+      {isBottomWinner ? (
+        <path
+          d={bottomPath}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: `drop-shadow(0 0 4px ${voltHex}80)` }}
+        />
+      ) : isBottomLive ? (
+        <path
+          d={bottomPath}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth="2.5"
+          strokeDasharray="6 3"
+          className="volt-flow"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: "drop-shadow(0 0 5px rgba(239,68,68,0.7))" }}
+        />
+      ) : null}
+
+      {/* 4. Target Stem Path (What is coming and next) */}
+      {isTargetCompleted ? (
+        <path
+          d={stemPath}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          style={{ filter: `drop-shadow(0 0 5px ${voltHex}80)` }}
+        />
+      ) : isTargetLive ? (
+        <path
+          d={stemPath}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeDasharray="6 3"
+          className="volt-flow-fast volt-glow-pulse"
+          strokeLinecap="round"
+        />
+      ) : isTargetUpcoming ? (
+        <path
+          d={stemPath}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2"
+          strokeDasharray="5 3"
+          className="volt-flow"
+          strokeLinecap="round"
+          style={{ filter: `drop-shadow(0 0 4px ${voltHex}70)` }}
+        />
+      ) : null}
+
+      {/* 5. Dynamic Junction Node / Pulse */}
+      {(isTargetUpcoming || isTargetLive || isTopWinner || isBottomWinner) && (
+        <g>
+          {isTargetLive && (
+            <circle
+              cx={midX}
+              cy={yTarget}
+              r={6}
+              fill="none"
+              stroke="#ef4444"
+              strokeWidth="1.5"
+              className="animate-ping"
+            />
+          )}
+          <circle
+            cx={midX}
+            cy={yTarget}
+            r={isTargetLive ? 3.5 : 2.5}
+            fill={isTargetLive ? "#ef4444" : voltHex}
+            style={{ filter: `drop-shadow(0 0 4px ${voltHex})` }}
+          />
+        </g>
+      )}
+
+      {/* 6. Arrival Marker into Target Match */}
+      {(isTargetUpcoming || isTargetLive) && (
+        <circle
+          cx={xEnd}
+          cy={yTarget}
+          r={2.5}
+          fill={voltHex}
+          className="animate-pulse"
+          style={{ filter: `drop-shadow(0 0 5px ${voltHex})` }}
+        />
+      )}
+    </g>
+  );
+}
+
+/**
+ * Connector between Semifinal and Grand Final Slot
+ */
+interface FinalConnectorProps {
+  ySF: number;
+  yFinal: number;
+  direction: "ltr" | "rtl";
+  width?: number;
+  height?: number;
+  mSF?: MatchReport | null;
+  mFinal?: MatchReport | null;
+  primaryColorHex: string;
+}
+
+function FinalConnector({
+  ySF,
+  yFinal,
+  direction,
+  width = 48,
+  height = 640,
+  mSF,
+  mFinal,
+  primaryColorHex,
+}: FinalConnectorProps) {
+  const voltHex = primaryColorHex.startsWith("#") ? primaryColorHex : `#${primaryColorHex}`;
+  const midX = width / 2;
+
+  const isLtr = direction === "ltr";
+  const xStart = isLtr ? 0 : width;
+  const xEnd = isLtr ? width : 0;
+
+  const isSFCompleted = mSF?.status === "COMPLETED";
+  const isSFWinner = isSFCompleted && Boolean(mSF?.winnerName);
+  const isFinalCompleted = mFinal?.status === "COMPLETED";
+  const isFinalLive = mFinal?.status === "IN_PROGRESS" || mFinal?.status === "LIVE";
+  const isFinalUpcoming =
+    !isFinalCompleted &&
+    (isFinalLive ||
+      Boolean(mFinal?.team1Name && mFinal?.team1Name !== "TBD") ||
+      Boolean(mFinal?.team2Name && mFinal?.team2Name !== "TBD") ||
+      isSFWinner);
+
+  const path = `M ${xStart} ${ySF} H ${midX} V ${yFinal} H ${xEnd}`;
+
+  return (
+    <g>
+      {/* Base Graphite Track */}
+      <path d={path} fill="none" stroke="rgba(255, 255, 255, 0.12)" strokeWidth="1.5" />
+
+      {/* Active Line */}
+      {isFinalCompleted ? (
+        <path
+          d={path}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: `drop-shadow(0 0 5px ${voltHex}90)` }}
+        />
+      ) : isFinalLive ? (
+        <path
+          d={path}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2.5"
+          strokeDasharray="6 3"
+          className="volt-flow-fast volt-glow-pulse"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : isSFWinner || isFinalUpcoming ? (
+        <path
+          d={path}
+          fill="none"
+          stroke={voltHex}
+          strokeWidth="2"
+          strokeDasharray="5 3"
+          className="volt-flow"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: `drop-shadow(0 0 4px ${voltHex}70)` }}
+        />
+      ) : null}
+
+      {/* Arrival Marker */}
+      {isFinalUpcoming && (
+        <circle
+          cx={xEnd}
+          cy={yFinal}
+          r={3}
+          fill={voltHex}
+          className="animate-pulse"
+          style={{ filter: `drop-shadow(0 0 6px ${voltHex})` }}
+        />
+      )}
+    </g>
+  );
+}
+
 export function EsportsPlayoffBracket({
   tournamentId,
-  tournamentTitle = "ICON EAFC TOURNAMENT",
-  gameTitle = "EA SPORTS FC 25",
+  tournamentTitle = "",
+  gameTitle = "",
   matches = [],
   primaryColor = "d2ff0d",
   bgColor = "050505",
@@ -222,7 +562,8 @@ export function EsportsPlayoffBracket({
     const maxRound = roundNumbers[roundNumbers.length - 1] ?? 1;
 
     // Identify final (highest round)
-    const finalM = matches.find((m) => m.roundNumber === maxRound && (m.positionInRound === 1 || !m.positionInRound)) || null;
+    const finalM =
+      matches.find((m) => m.roundNumber === maxRound && (m.positionInRound === 1 || !m.positionInRound)) || null;
 
     // Identify semifinals (maxRound - 1)
     const sfM = matches
@@ -258,129 +599,116 @@ export function EsportsPlayoffBracket({
   const rightQF = [qfMatches[2], qfMatches[3]];
   const rightSF = sfMatches[1] || null;
 
+  const voltHex = primaryColor.startsWith("#") ? primaryColor : `#${primaryColor}`;
+
   return (
     <div
       className="relative w-screen h-screen overflow-hidden font-heading select-none flex flex-col justify-between bg-[#050505] text-white"
-      style={{
-        "--overlay-primary": `#${primaryColor}`,
-        "--overlay-bg": `#${bgColor}`,
-      } as React.CSSProperties}
+      style={
+        {
+          "--overlay-primary": voltHex,
+          "--overlay-bg": `#${bgColor}`,
+        } as React.CSSProperties
+      }
     >
       <style>{`
         .volt-pattern {
           background-image: repeating-linear-gradient(
             45deg,
-            rgba(255, 255, 255, 0.018) 0px,
-            rgba(255, 255, 255, 0.018) 2px,
+            rgba(255, 255, 255, 0.015) 0px,
+            rgba(255, 255, 255, 0.015) 2px,
             transparent 2px,
             transparent 12px
           );
         }
         .volt-glow {
           position: absolute;
-          width: 700px;
-          height: 700px;
+          width: 750px;
+          height: 750px;
           background: radial-gradient(circle, var(--overlay-primary) 0%, transparent 70%);
           opacity: 0.035;
-          filter: blur(120px);
+          filter: blur(140px);
           pointer-events: none;
           border-radius: 9999px;
         }
         .bracket-skew { transform: skewX(-12deg); }
         .bracket-unskew { transform: skewX(12deg); }
+
+        /* Dynamic Line Flow Animations */
+        @keyframes voltLineFlow {
+          0% { stroke-dashoffset: 24; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes voltPulseGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 2px var(--overlay-primary)) drop-shadow(0 0 6px var(--overlay-primary));
+            opacity: 0.85;
+          }
+          50% {
+            filter: drop-shadow(0 0 5px var(--overlay-primary)) drop-shadow(0 0 14px var(--overlay-primary));
+            opacity: 1;
+          }
+        }
+        @keyframes slideInLeft {
+          0% { opacity: 0; transform: translateX(-35px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideInRight {
+          0% { opacity: 0; transform: translateX(35px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes scaleUpCenter {
+          0% { opacity: 0; transform: scale(0.93); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes trophyPulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 25px rgba(210, 255, 13, 0.2);
+          }
+          50% {
+            transform: scale(1.04);
+            box-shadow: 0 0 35px rgba(210, 255, 13, 0.45);
+          }
+        }
+
+        .volt-flow {
+          animation: voltLineFlow 1.2s linear infinite;
+        }
+        .volt-flow-fast {
+          animation: voltLineFlow 0.8s linear infinite;
+        }
+        .volt-glow-pulse {
+          animation: voltPulseGlow 2s ease-in-out infinite;
+        }
+        .trophy-glow {
+          animation: trophyPulse 3s ease-in-out infinite;
+        }
+
+        /* Staggered Entrance Animations */
+        .anim-col-r16-l { animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+        .anim-col-qf-l { animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+        .anim-col-sf-l { animation: slideInLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+        .anim-col-final { animation: scaleUpCenter 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both; }
+        .anim-col-sf-r { animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both; }
+        .anim-col-qf-r { animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+        .anim-col-r16-r { animation: slideInRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
       `}</style>
 
       {/* Subtle geometric pattern & ambient volt glow */}
       <div className="absolute inset-0 volt-pattern opacity-40 pointer-events-none" />
       <div className="volt-glow top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
 
-      {/* SVG Canvas for Brackets & Connecting Lines (1920x1080 normalized) */}
-      <svg
-        className="absolute inset-0 w-full h-full pointer-events-none"
-        viewBox="0 0 1920 1080"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {/* LEFT WING CONNECTOR LINES */}
-        {/* 1. Left R16 Match 1 & 2 -> Upper QF */}
-        <path
-          d="M 315 260 H 350 V 400 H 315 M 350 330 H 425"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 2. Left R16 Match 3 & 4 -> Lower QF */}
-        <path
-          d="M 315 630 H 350 V 770 H 315 M 350 700 H 425"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 3. Left Upper QF & Lower QF -> Left Semifinal */}
-        <path
-          d="M 600 330 H 640 V 495 H 700 M 600 700 H 640 V 535 H 700"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 4. Left Semifinal -> Grand Final Top Slot */}
-        <path
-          d="M 875 515 H 900 V 440 H 940"
-          fill="none"
-          stroke={`#${primaryColor}`}
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          strokeOpacity="0.6"
-        />
-
-        {/* RIGHT WING CONNECTOR LINES (Mirrored) */}
-        {/* 1. Right R16 Match 5 & 6 -> Upper QF */}
-        <path
-          d="M 1605 260 H 1570 V 400 H 1605 M 1570 330 H 1495"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 2. Right R16 Match 7 & 8 -> Lower QF */}
-        <path
-          d="M 1605 630 H 1570 V 770 H 1605 M 1570 700 H 1495"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 3. Right Upper QF & Lower QF -> Right Semifinal */}
-        <path
-          d="M 1320 330 H 1280 V 495 H 1220 M 1320 700 H 1280 V 535 H 1220"
-          fill="none"
-          stroke="rgba(255,255,255,0.18)"
-          strokeWidth="1.5"
-        />
-
-        {/* 4. Right Semifinal -> Grand Final Bottom Slot */}
-        <path
-          d="M 1045 515 H 1020 V 590 H 980"
-          fill="none"
-          stroke={`#${primaryColor}`}
-          strokeWidth="2"
-          strokeDasharray="4 2"
-          strokeOpacity="0.6"
-        />
-      </svg>
-
       {/* TOP CHAMPIONSHIP HEADER */}
       <div className="relative z-10 pt-5 flex flex-col items-center">
         {/* Slanted Tournament Badge */}
         <div className="mb-2 volt-anim-1">
-          <SlantedBadge text={tournamentTitle || "ICON EAFC TOURNAMENT"} />
+          <SlantedBadge text={tournamentTitle || "OFFICIAL TOURNAMENT"} />
         </div>
 
         {/* Dual-Tone Playoff Title */}
         <h1 className="text-4xl sm:text-6xl font-black italic tracking-tighter uppercase text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.9)] leading-none my-1 volt-anim-2">
-          THE <span style={{ color: `#${primaryColor}` }}>PLAYOFFS</span>
+          THE <span style={{ color: voltHex }}>PLAYOFFS</span>
         </h1>
 
         {/* Glowing tapered horizontal divider line */}
@@ -388,80 +716,138 @@ export function EsportsPlayoffBracket({
           <div
             className="h-[2px] flex-1"
             style={{
-              background: `linear-gradient(to right, transparent, #${primaryColor}, #${primaryColor})`,
+              background: `linear-gradient(to right, transparent, ${voltHex}, ${voltHex})`,
             }}
           />
-          <div
-            className="w-2.5 h-2.5 rotate-45 shrink-0"
-            style={{ backgroundColor: `#${primaryColor}` }}
-          />
+          <div className="w-2.5 h-2.5 rotate-45 shrink-0" style={{ backgroundColor: voltHex }} />
           <div
             className="h-[2px] flex-1"
             style={{
-              background: `linear-gradient(to left, transparent, #${primaryColor}, #${primaryColor})`,
+              background: `linear-gradient(to left, transparent, ${voltHex}, ${voltHex})`,
             }}
           />
         </div>
       </div>
 
-      {/* MAIN BRACKET ARENA (Symmetric convergence) */}
-      <div className="relative z-10 flex-1 w-full max-w-[1840px] mx-auto px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        
-        {/* LEFT WING: R16 (Col 1) -> QF (Col 2) -> SF (Col 3) */}
-        <div className="grid grid-cols-[180px_180px_180px] items-center justify-between h-[700px]">
+      {/* MAIN BRACKET ARENA - Modular Integrated Precision Architecture */}
+      <div className="relative z-10 flex-1 w-full max-w-[1720px] mx-auto px-4 flex items-center justify-center">
+        <div className="flex items-center justify-between w-full h-[640px]">
           
-          {/* Col 1: Left Round of 16 (4 Matches) */}
-          <div className="flex flex-col justify-around h-full">
-            <MatchPair
-              match={leftR16[0]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftR16[0] && onMatchClick?.(leftR16[0])}
-            />
-            <MatchPair
-              match={leftR16[1]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftR16[1] && onMatchClick?.(leftR16[1])}
-            />
-            <MatchPair
-              match={leftR16[2]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftR16[2] && onMatchClick?.(leftR16[2])}
-            />
-            <MatchPair
-              match={leftR16[3]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftR16[3] && onMatchClick?.(leftR16[3])}
-            />
+          {/* 1. LEFT R16 COLUMN (4 Matches, Centers at y = 80, 240, 400, 560) */}
+          <div className="w-[175px] h-full grid grid-rows-4 anim-col-r16-l shrink-0">
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={leftR16[0]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftR16[0] && onMatchClick?.(leftR16[0])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={leftR16[1]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftR16[1] && onMatchClick?.(leftR16[1])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={leftR16[2]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftR16[2] && onMatchClick?.(leftR16[2])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={leftR16[3]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftR16[3] && onMatchClick?.(leftR16[3])}
+              />
+            </div>
           </div>
 
-          {/* Col 2: Left Quarterfinals (2 Matches) */}
-          <div className="flex flex-col justify-around h-[70%]">
-            <MatchPair
-              match={leftQF[0]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftQF[0] && onMatchClick?.(leftQF[0])}
-            />
-            <MatchPair
-              match={leftQF[1]}
-              align="left"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => leftQF[1] && onMatchClick?.(leftQF[1])}
-            />
+          {/* 2. LEFT CONNECTOR 1: R16 -> QF (Width 40, Height 640) */}
+          <div className="w-[40px] h-full shrink-0">
+            <svg viewBox="0 0 40 640" className="w-full h-full" preserveAspectRatio="none">
+              {/* Upper Fork: R16 (80, 240) -> QF (160) */}
+              <ForkConnector
+                y1={80}
+                y2={240}
+                yTarget={160}
+                direction="ltr"
+                width={40}
+                height={640}
+                mTop={leftR16[0]}
+                mBottom={leftR16[1]}
+                mTarget={leftQF[0]}
+                primaryColorHex={primaryColor}
+              />
+              {/* Lower Fork: R16 (400, 560) -> QF (480) */}
+              <ForkConnector
+                y1={400}
+                y2={560}
+                yTarget={480}
+                direction="ltr"
+                width={40}
+                height={640}
+                mTop={leftR16[2]}
+                mBottom={leftR16[3]}
+                mTarget={leftQF[1]}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
           </div>
 
-          {/* Col 3: Left Semifinal (1 Match) */}
-          <div className="flex flex-col justify-center items-center h-full">
+          {/* 3. LEFT QF COLUMN (2 Matches, Centers at y = 160, 480) */}
+          <div className="w-[175px] h-full grid grid-rows-2 anim-col-qf-l shrink-0">
+            <div className="h-[320px] flex items-center justify-center">
+              <MatchPair
+                match={leftQF[0]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftQF[0] && onMatchClick?.(leftQF[0])}
+              />
+            </div>
+            <div className="h-[320px] flex items-center justify-center">
+              <MatchPair
+                match={leftQF[1]}
+                align="left"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => leftQF[1] && onMatchClick?.(leftQF[1])}
+              />
+            </div>
+          </div>
+
+          {/* 4. LEFT CONNECTOR 2: QF -> SF (Width 40, Height 640) */}
+          <div className="w-[40px] h-full shrink-0">
+            <svg viewBox="0 0 40 640" className="w-full h-full" preserveAspectRatio="none">
+              {/* Fork: QF (160, 480) -> SF (320) */}
+              <ForkConnector
+                y1={160}
+                y2={480}
+                yTarget={320}
+                direction="ltr"
+                width={40}
+                height={640}
+                mTop={leftQF[0]}
+                mBottom={leftQF[1]}
+                mTarget={leftSF}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
+          </div>
+
+          {/* 5. LEFT SF COLUMN (1 Match, Center at y = 320) */}
+          <div className="w-[175px] h-full flex items-center justify-center anim-col-sf-l shrink-0">
             <MatchPair
               match={leftSF}
               align="left"
@@ -472,72 +858,99 @@ export function EsportsPlayoffBracket({
             />
           </div>
 
-        </div>
-
-        {/* CENTERPIECE: Trophy + Grand Final */}
-        <div className="flex flex-col items-center justify-center px-4 w-[240px]">
-          
-          {/* Trophy Emblem */}
-          <div className="relative mb-3 flex flex-col items-center">
-            <div className="relative w-14 h-14 rounded-full bg-[#141414] border-2 border-[var(--overlay-primary)] shadow-[0_0_25px_rgba(210,255,13,0.2)] flex items-center justify-center">
-              <Trophy className="w-7 h-7 text-[var(--overlay-primary)]" />
-            </div>
-
-            {/* Final Title */}
-            <span className="mt-2 text-xs font-black tracking-[0.3em] uppercase italic text-white/70">
-              GRAND <span className="text-[var(--overlay-primary)]">FINAL</span>
-            </span>
+          {/* 6. LEFT CONNECTOR 3: SF -> Final Top Slot (Width 48, Height 640) */}
+          <div className="w-[48px] h-full shrink-0">
+            <svg viewBox="0 0 48 640" className="w-full h-full" preserveAspectRatio="none">
+              <FinalConnector
+                ySF={320}
+                yFinal={277}
+                direction="ltr"
+                width={48}
+                height={640}
+                mSF={leftSF}
+                mFinal={finalMatch}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
           </div>
 
-          {/* Grand Final Match Pair (2 Cards) */}
-          <div className="w-full flex flex-col items-center gap-2">
-            <CleanTeamCard
-              name={finalMatch?.team1Name}
-              score={finalMatch?.team1Score}
-              isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team1Name}
-              isLoser={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName !== finalMatch?.team1Name}
-              isLive={finalMatch?.status === "IN_PROGRESS" || finalMatch?.status === "LIVE"}
-              align="center"
-              width={215}
-              height={44}
-              primaryColorHex={primaryColor}
-              isFinal={true}
-            />
-
-            {/* VS or Score badge */}
-            <div className="flex items-center gap-2 my-1">
-              <div className="h-[1px] w-8 bg-white/10" />
-              <span className="text-[10px] font-black italic tracking-widest text-[var(--overlay-primary)] bg-[#141414] px-3 py-0.5 bracket-skew border-l-2 border-[var(--overlay-primary)]">
-                <span className="bracket-unskew inline-block">
-                  {finalMatch?.team1Score !== undefined && finalMatch?.team2Score !== undefined && finalMatch.status !== "SCHEDULED"
-                    ? `${finalMatch.team1Score} – ${finalMatch.team2Score}`
-                    : "VS"}
-                </span>
+          {/* 7. GRAND FINAL CENTERPIECE (Width 240, Height 640) */}
+          <div className="w-[240px] h-full relative flex flex-col items-center justify-center anim-col-final shrink-0">
+            {/* Floating Trophy Emblem above cards */}
+            <div className="absolute top-[135px] flex flex-col items-center pointer-events-none">
+              <div className="relative w-14 h-14 rounded-full bg-[#141414] border-2 border-[var(--overlay-primary)] flex items-center justify-center trophy-glow">
+                <Trophy className="w-7 h-7 text-[var(--overlay-primary)]" />
+              </div>
+              <span className="mt-2 text-[11px] font-black tracking-[0.3em] uppercase italic text-white/70">
+                GRAND <span className="text-[var(--overlay-primary)]">FINAL</span>
               </span>
-              <div className="h-[1px] w-8 bg-white/10" />
             </div>
 
-            <CleanTeamCard
-              name={finalMatch?.team2Name}
-              score={finalMatch?.team2Score}
-              isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team2Name}
-              isLoser={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName !== finalMatch?.team2Name}
-              isLive={finalMatch?.status === "IN_PROGRESS" || finalMatch?.status === "LIVE"}
-              align="center"
-              width={215}
-              height={44}
-              primaryColorHex={primaryColor}
-              isFinal={true}
-            />
+            {/* Exactly centered Cards Block (Center at y = 320, Top card at 277, Bottom card at 363) */}
+            <div className="w-full flex flex-col items-center">
+              {/* Top Card (Team 1) */}
+              <CleanTeamCard
+                name={finalMatch?.team1Name}
+                score={finalMatch?.team1Score}
+                isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team1Name}
+                isLoser={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName !== finalMatch?.team1Name}
+                isLive={finalMatch?.status === "IN_PROGRESS" || finalMatch?.status === "LIVE"}
+                align="center"
+                width={220}
+                height={44}
+                primaryColorHex={primaryColor}
+                isFinal={true}
+              />
+
+              {/* VS Badge */}
+              <div className="flex items-center gap-2 my-2">
+                <div className="h-[1px] w-8 bg-white/10" />
+                <span className="text-[10px] font-black italic tracking-widest text-[var(--overlay-primary)] bg-[#141414] px-3 py-0.5 bracket-skew border-l-2 border-[var(--overlay-primary)]">
+                  <span className="bracket-unskew inline-block">
+                    {finalMatch?.team1Score !== undefined &&
+                    finalMatch?.team2Score !== undefined &&
+                    finalMatch.status !== "SCHEDULED"
+                      ? `${finalMatch.team1Score} – ${finalMatch.team2Score}`
+                      : "VS"}
+                  </span>
+                </span>
+                <div className="h-[1px] w-8 bg-white/10" />
+              </div>
+
+              {/* Bottom Card (Team 2) */}
+              <CleanTeamCard
+                name={finalMatch?.team2Name}
+                score={finalMatch?.team2Score}
+                isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team2Name}
+                isLoser={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName !== finalMatch?.team2Name}
+                isLive={finalMatch?.status === "IN_PROGRESS" || finalMatch?.status === "LIVE"}
+                align="center"
+                width={220}
+                height={44}
+                primaryColorHex={primaryColor}
+                isFinal={true}
+              />
+            </div>
           </div>
 
-        </div>
+          {/* 8. RIGHT CONNECTOR 3: Final Bottom Slot <- SF (Width 48, Height 640) */}
+          <div className="w-[48px] h-full shrink-0">
+            <svg viewBox="0 0 48 640" className="w-full h-full" preserveAspectRatio="none">
+              <FinalConnector
+                ySF={320}
+                yFinal={363}
+                direction="rtl"
+                width={48}
+                height={640}
+                mSF={rightSF}
+                mFinal={finalMatch}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
+          </div>
 
-        {/* RIGHT WING: SF (Col 1) -> QF (Col 2) -> R16 (Col 3) [Mirrored] */}
-        <div className="grid grid-cols-[180px_180px_180px] items-center justify-between h-[700px]">
-          
-          {/* Col 1: Right Semifinal (1 Match) */}
-          <div className="flex flex-col justify-center items-center h-full">
+          {/* 9. RIGHT SF COLUMN (1 Match, Center at y = 320) */}
+          <div className="w-[175px] h-full flex items-center justify-center anim-col-sf-r shrink-0">
             <MatchPair
               match={rightSF}
               align="right"
@@ -548,87 +961,146 @@ export function EsportsPlayoffBracket({
             />
           </div>
 
-          {/* Col 2: Right Quarterfinals (2 Matches) */}
-          <div className="flex flex-col justify-around h-[70%]">
-            <MatchPair
-              match={rightQF[0]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightQF[0] && onMatchClick?.(rightQF[0])}
-            />
-            <MatchPair
-              match={rightQF[1]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightQF[1] && onMatchClick?.(rightQF[1])}
-            />
+          {/* 10. RIGHT CONNECTOR 2: SF <- QF (Width 40, Height 640) */}
+          <div className="w-[40px] h-full shrink-0">
+            <svg viewBox="0 0 40 640" className="w-full h-full" preserveAspectRatio="none">
+              {/* Fork: QF (160, 480) -> SF (320) */}
+              <ForkConnector
+                y1={160}
+                y2={480}
+                yTarget={320}
+                direction="rtl"
+                width={40}
+                height={640}
+                mTop={rightQF[0]}
+                mBottom={rightQF[1]}
+                mTarget={rightSF}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
           </div>
 
-          {/* Col 3: Right Round of 16 (4 Matches) */}
-          <div className="flex flex-col justify-around h-full">
-            <MatchPair
-              match={rightR16[0]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightR16[0] && onMatchClick?.(rightR16[0])}
-            />
-            <MatchPair
-              match={rightR16[1]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightR16[1] && onMatchClick?.(rightR16[1])}
-            />
-            <MatchPair
-              match={rightR16[2]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightR16[2] && onMatchClick?.(rightR16[2])}
-            />
-            <MatchPair
-              match={rightR16[3]}
-              align="right"
-              width={175}
-              primaryColorHex={primaryColor}
-              onClick={() => rightR16[3] && onMatchClick?.(rightR16[3])}
-            />
+          {/* 11. RIGHT QF COLUMN (2 Matches, Centers at y = 160, 480) */}
+          <div className="w-[175px] h-full grid grid-rows-2 anim-col-qf-r shrink-0">
+            <div className="h-[320px] flex items-center justify-center">
+              <MatchPair
+                match={rightQF[0]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightQF[0] && onMatchClick?.(rightQF[0])}
+              />
+            </div>
+            <div className="h-[320px] flex items-center justify-center">
+              <MatchPair
+                match={rightQF[1]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightQF[1] && onMatchClick?.(rightQF[1])}
+              />
+            </div>
+          </div>
+
+          {/* 12. RIGHT CONNECTOR 1: QF <- R16 (Width 40, Height 640) */}
+          <div className="w-[40px] h-full shrink-0">
+            <svg viewBox="0 0 40 640" className="w-full h-full" preserveAspectRatio="none">
+              {/* Upper Fork: R16 (80, 240) -> QF (160) */}
+              <ForkConnector
+                y1={80}
+                y2={240}
+                yTarget={160}
+                direction="rtl"
+                width={40}
+                height={640}
+                mTop={rightR16[0]}
+                mBottom={rightR16[1]}
+                mTarget={rightQF[0]}
+                primaryColorHex={primaryColor}
+              />
+              {/* Lower Fork: R16 (400, 560) -> QF (480) */}
+              <ForkConnector
+                y1={400}
+                y2={560}
+                yTarget={480}
+                direction="rtl"
+                width={40}
+                height={640}
+                mTop={rightR16[2]}
+                mBottom={rightR16[3]}
+                mTarget={rightQF[1]}
+                primaryColorHex={primaryColor}
+              />
+            </svg>
+          </div>
+
+          {/* 13. RIGHT R16 COLUMN (4 Matches, Centers at y = 80, 240, 400, 560) */}
+          <div className="w-[175px] h-full grid grid-rows-4 anim-col-r16-r shrink-0">
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={rightR16[0]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightR16[0] && onMatchClick?.(rightR16[0])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={rightR16[1]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightR16[1] && onMatchClick?.(rightR16[1])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={rightR16[2]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightR16[2] && onMatchClick?.(rightR16[2])}
+              />
+            </div>
+            <div className="h-[160px] flex items-center justify-center">
+              <MatchPair
+                match={rightR16[3]}
+                align="right"
+                width={175}
+                primaryColorHex={primaryColor}
+                onClick={() => rightR16[3] && onMatchClick?.(rightR16[3])}
+              />
+            </div>
           </div>
 
         </div>
-
       </div>
 
       {/* BOTTOM FOOTER / TITLE */}
       <div className="relative z-10 pb-6 flex flex-col items-center">
-        {/* Glowing tapered red horizontal divider line */}
+        {/* Glowing tapered horizontal divider line */}
         <div className="flex items-center gap-3 w-full max-w-xl justify-center mb-2">
           <div
-            className="h-[2px] flex-1 bg-gradient-to-r from-transparent via-[#e62429] to-[#e62429]"
+            className="h-[2px] flex-1"
             style={{
-              background: `linear-gradient(to right, transparent, #${primaryColor}, #${primaryColor})`,
+              background: `linear-gradient(to right, transparent, ${voltHex}, ${voltHex})`,
             }}
           />
+          <div className="w-2.5 h-2.5 rotate-45 shrink-0" style={{ backgroundColor: voltHex }} />
           <div
-            className="w-2.5 h-2.5 rotate-45 shrink-0"
-            style={{ backgroundColor: `#${primaryColor}` }}
-          />
-          <div
-            className="h-[2px] flex-1 bg-gradient-to-l from-transparent via-[#e62429] to-[#e62429]"
+            className="h-[2px] flex-1"
             style={{
-              background: `linear-gradient(to left, transparent, #${primaryColor}, #${primaryColor})`,
+              background: `linear-gradient(to left, transparent, ${voltHex}, ${voltHex})`,
             }}
           />
         </div>
 
         <h2 className="text-lg sm:text-2xl font-black italic tracking-widest uppercase text-white/90 drop-shadow-md">
-          {tournamentTitle || "WORLD CHAMPIONSHIP"}
+          {tournamentTitle || "OFFICIAL BROADCAST"}
         </h2>
         <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] text-white/50 italic mt-0.5">
-          {gameTitle} • OFFICIAL BROADCAST BRACKET
+          {gameTitle ? `${gameTitle} • ` : ""}OFFICIAL BROADCAST BRACKET
         </span>
       </div>
     </div>

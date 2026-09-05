@@ -113,8 +113,7 @@ function MatchStatsWidget({ match }: { match?: MatchReport }) {
 
   const statRows = [
     { label: "Score", t1: match.team1Score, t2: match.team2Score, icon: Target },
-    // Mocking other stats for now as they aren't in DB yet
-    { label: "Rounds", t1: Math.floor(match.team1Score * 1.2), t2: Math.floor(match.team2Score * 1.2), icon: Trophy },
+    { label: "Round", t1: match.roundNumber ?? 1, t2: match.roundNumber ?? 1, icon: Trophy },
   ];
 
   return (
