@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Zap, Timer, ChevronRight, Activity, Users, Shield, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EsportsPlayoffBracket } from "@/components/broadcast/EsportsPlayoffBracket";
+import { EsportsRoundRobinOverlay } from "@/components/broadcast/EsportsRoundRobinOverlay";
 import {
   OverlayTheme,
   SlantedBadge,
@@ -1210,8 +1211,17 @@ export default function BroadcastOverlay() {
     if (scene === "intermission") {
       return <IntermissionView tournamentName={tournament?.title || ""} matches={matches} />;
     }
-    if (scene === "table") {
-      return <GroupStageTableView tournamentName={tournament?.title || ""} tournamentId={tournamentId!} />;
+    if (scene === "table" || scene === "round-robin") {
+      return (
+        <EsportsRoundRobinOverlay
+          tournamentId={tournamentId!}
+          tournamentTitle={tournament?.title}
+          gameTitle={tournament?.gameTitle}
+          matches={matches}
+          primaryColor={primaryColor}
+          bgColor={bgColor}
+        />
+      );
     }
     if (scene === "pubg") {
       return <PubgLeaderboardView tournamentName={tournament?.title || ""} tournamentId={tournamentId} />;

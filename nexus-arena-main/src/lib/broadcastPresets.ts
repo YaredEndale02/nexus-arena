@@ -55,8 +55,8 @@ export const ALL_BROADCAST_SCENES: BroadcastSceneConfig[] = [
   },
   {
     id: "table",
-    label: "Live Standings Table",
-    description: "Full-screen standings table showing team wins, losses, score diff, and points. Perfect for Round Robin & Swiss formats.",
+    label: "Round Robin Standings & Fixtures",
+    description: "Full-screen dual-panel broadcast overlay featuring live league table standings, qualification zones, and round fixtures with real-time score updates.",
     category: "GENERAL",
     recommendedGames: [],
     sceneParam: "table",
