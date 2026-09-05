@@ -28,9 +28,9 @@ interface TeamSlotProps {
 }
 
 /** 
- * Trapezoidal 3D Beveled Team Card matching the reference esports graphic
+ * Clean Modern Esports Team Card matching the Half-Time Intermission Design System
  */
-function BeveledTeamCard({
+function CleanTeamCard({
   name,
   score,
   isWinner,
@@ -39,14 +39,13 @@ function BeveledTeamCard({
   align = "left",
   width = 175,
   height = 36,
-  primaryColorHex = "e62429",
+  primaryColorHex = "d2ff0d",
   isFinal = false,
 }: TeamSlotProps) {
   const isTbd = !name || name === "TBD" || name === "BYE";
   const displayName = isTbd ? (name === "BYE" ? "BYE • Advances" : "TBD") : name;
   const isNumericScore = score !== undefined && score !== null && !isTbd;
-
-  const primaryBg = `#${primaryColorHex}`;
+  const voltHex = primaryColorHex.startsWith("#") ? primaryColorHex : `#${primaryColorHex}`;
 
   return (
     <div
@@ -55,59 +54,52 @@ function BeveledTeamCard({
         height: `${height}px`,
       }}
       className={cn(
-        "relative select-none transition-all duration-300 group flex items-center px-3 font-heading",
-        isLoser && "opacity-50 grayscale-[30%]"
+        "relative select-none transition-all duration-300 group flex items-center font-heading",
+        isLoser && "opacity-35"
       )}
     >
-      <style>{`
-        .esport-skew {
-          transform: skewX(-12deg);
-        }
-        .esport-unskew {
-          transform: skewX(12deg);
-        }
-      `}</style>
-
-      {/* Trapezoidal / Skewed Card Body with 3D Bevel */}
+      {/* Slanted Card Container (-12deg) */}
       <div
         className={cn(
-          "absolute inset-0 esport-skew rounded-sm overflow-hidden transition-all duration-200 border",
+          "absolute inset-0 bracket-skew transition-all duration-200 border-t border-b shadow-lg",
+          align === "right" ? "border-r-4 border-l-0" : "border-l-4 border-r-0",
           isTbd
-            ? "bg-[#14121a]/85 border-white/10"
-            : "border-white/25 shadow-lg",
-          isWinner && "ring-1 ring-amber-400/80 border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.3)]",
-          isLive && "border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+            ? "bg-[#0d0d0d] border-white/5"
+            : isWinner
+            ? "bg-[#161616] border-t-white/15 border-b-white/5 shadow-[0_0_15px_rgba(210,255,13,0.12)]"
+            : isLive
+            ? "bg-[#161616] border-t-red-500/20 border-b-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+            : "bg-[#111111] border-white/10 hover:bg-[#151515]"
         )}
         style={{
-          background: isTbd
-            ? "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(0,0,0,0.4) 100%)"
-            : `linear-gradient(180deg, rgba(255,255,255,0.25) 0%, ${primaryBg} 28%, #8a0e12 100%)`,
-          boxShadow: isTbd
-            ? "inset 0 1px 0 rgba(255,255,255,0.05)"
-            : `inset 0 1px 1px rgba(255,255,255,0.6), inset 0 -2px 4px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.6)`,
+          borderLeftColor: align !== "right" 
+            ? (isWinner ? voltHex : isLive ? "#ef4444" : isTbd ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.2)")
+            : undefined,
+          borderRightColor: align === "right" 
+            ? (isWinner ? voltHex : isLive ? "#ef4444" : isTbd ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.2)")
+            : undefined,
         }}
-      >
-        {/* Subtle glossy top shine reflection */}
-        <div className="absolute top-0 inset-x-0 h-[40%] bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-      </div>
+      />
 
-      {/* Card Content (Unskewed) */}
-      <div className={cn(
-        "relative z-10 w-full esport-unskew flex items-center justify-between gap-1.5",
-        align === "right" && "flex-row-reverse"
-      )}>
+      {/* Card Content (Unskewed +12deg) */}
+      <div
+        className={cn(
+          "relative z-10 w-full px-3 bracket-unskew flex items-center justify-between gap-2",
+          align === "right" && "flex-row-reverse"
+        )}
+      >
         <div className={cn("flex items-center gap-1.5 min-w-0 flex-1", align === "right" && "flex-row-reverse")}>
           {isWinner && (
-            <Crown className="w-3.5 h-3.5 text-amber-300 shrink-0 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)] animate-pulse" />
+            <Crown className="w-3.5 h-3.5 shrink-0" style={{ color: voltHex }} />
           )}
           {isLive && (
-            <span className="w-2 h-2 rounded-full bg-white shrink-0 animate-ping" />
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 animate-pulse" />
           )}
           <span
             className={cn(
-              "font-black tracking-tight text-white uppercase italic truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]",
-              isFinal ? "text-sm sm:text-base" : "text-[11px] sm:text-xs",
-              isTbd ? "text-white/40 font-bold" : "text-white"
+              "font-black tracking-tight uppercase italic truncate",
+              isFinal ? "text-sm sm:text-base" : "text-xs",
+              isWinner ? "text-white" : isTbd ? "text-white/25 font-bold" : "text-white/90"
             )}
             title={name || ""}
           >
@@ -115,19 +107,23 @@ function BeveledTeamCard({
           </span>
         </div>
 
-        {/* Score pill */}
+        {/* Clean Score Badge */}
         {isNumericScore ? (
           <div
             className={cn(
-              "bg-black/60 border border-white/20 px-1.5 py-0.5 rounded text-center min-w-[22px] shrink-0 text-white font-black tabular-nums italic text-[11px] drop-shadow-md",
-              isWinner && "bg-amber-950/80 border-amber-400/50 text-amber-300 font-black",
-              isLive && "bg-red-950 border-red-500 text-red-100"
+              "px-2 py-0.5 rounded-xs text-center min-w-[22px] shrink-0 font-black tabular-nums italic text-xs transition-colors",
+              isWinner
+                ? "text-black font-black shadow-sm"
+                : "bg-[#1c1c1c] text-white/80 border border-white/10"
             )}
+            style={{
+              backgroundColor: isWinner ? voltHex : undefined,
+            }}
           >
             {score}
           </div>
         ) : isLive ? (
-          <span className="text-[9px] font-black uppercase tracking-wider bg-red-600 px-1 py-0.2 rounded text-white italic animate-pulse">
+          <span className="text-[9px] font-black uppercase tracking-wider bg-red-600 px-1.5 py-0.2 rounded text-white italic animate-pulse">
             LIVE
           </span>
         ) : null}
@@ -145,7 +141,7 @@ function MatchPair({
   width = 175,
   height = 36,
   gap = 8,
-  primaryColorHex = "e62429",
+  primaryColorHex = "d2ff0d",
   isFinal = false,
   label,
   onClick,
@@ -174,7 +170,7 @@ function MatchPair({
       )}
       style={{ gap: `${gap}px` }}
     >
-      <BeveledTeamCard
+      <CleanTeamCard
         name={match?.team1Name}
         score={match?.team1Score}
         isWinner={isT1Winner}
@@ -186,7 +182,7 @@ function MatchPair({
         primaryColorHex={primaryColorHex}
         isFinal={isFinal}
       />
-      <BeveledTeamCard
+      <CleanTeamCard
         name={match?.team2Name}
         score={match?.team2Score}
         isWinner={isT2Winner}
@@ -264,100 +260,69 @@ export function EsportsPlayoffBracket({
 
   return (
     <div
-      className="relative w-screen h-screen overflow-hidden font-heading select-none flex flex-col justify-between"
+      className="relative w-screen h-screen overflow-hidden font-heading select-none flex flex-col justify-between bg-[#050505] text-white"
       style={{
-        backgroundColor: `#${bgColor}`,
-        backgroundImage: `radial-gradient(ellipse at 50% 38%, rgba(${parseInt(primaryColor.slice(0, 2), 16) || 230}, ${parseInt(primaryColor.slice(2, 4), 16) || 36}, ${parseInt(primaryColor.slice(4, 6), 16) || 41}, 0.18) 0%, transparent 65%)`,
-      }}
+        "--overlay-primary": `#${primaryColor}`,
+        "--overlay-bg": `#${bgColor}`,
+      } as React.CSSProperties}
     >
-      {/* Subtle scanline / cyber texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-20"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px)",
-          backgroundSize: "32px 32px",
-        }}
-      />
+      <style>{`
+        .volt-pattern {
+          background-image: repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.018) 0px,
+            rgba(255, 255, 255, 0.018) 2px,
+            transparent 2px,
+            transparent 12px
+          );
+        }
+        .volt-glow {
+          position: absolute;
+          width: 700px;
+          height: 700px;
+          background: radial-gradient(circle, var(--overlay-primary) 0%, transparent 70%);
+          opacity: 0.035;
+          filter: blur(120px);
+          pointer-events: none;
+          border-radius: 9999px;
+        }
+        .bracket-skew { transform: skewX(-12deg); }
+        .bracket-unskew { transform: skewX(12deg); }
+      `}</style>
 
-      {/* SVG Canvas for Brackets, Corners & Connecting Lines (1920x1080 normalized) */}
+      {/* Subtle geometric pattern & ambient volt glow */}
+      <div className="absolute inset-0 volt-pattern opacity-40 pointer-events-none" />
+      <div className="volt-glow top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+
+      {/* SVG Canvas for Brackets & Connecting Lines (1920x1080 normalized) */}
       <svg
         className="absolute inset-0 w-full h-full pointer-events-none"
         viewBox="0 0 1920 1080"
         preserveAspectRatio="xMidYMid meet"
       >
-        <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="rgba(255,255,255,0.1)" />
-            <stop offset="50%" stopColor="rgba(255,255,255,0.4)" />
-            <stop offset="100%" stopColor="rgba(255,255,255,0.1)" />
-          </linearGradient>
-          <linearGradient id="redGlowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={`#${primaryColor}`} stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#ff4d4d" stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-
-        {/* Outer Sci-Fi Angular Corner Brackets (matching reference graphic) */}
-        {/* Top-Left Corner Bracket */}
-        <path
-          d="M 60 140 L 140 60 L 260 60"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.35)"
-          strokeWidth="3"
-        />
-        <line x1="140" y1="60" x2="135" y2="45" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <line x1="60" y1="140" x2="45" y2="135" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-
-        {/* Top-Right Corner Bracket */}
-        <path
-          d="M 1860 140 L 1780 60 L 1660 60"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.35)"
-          strokeWidth="3"
-        />
-        <line x1="1780" y1="60" x2="1785" y2="45" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-        <line x1="1860" y1="140" x2="1875" y2="135" stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
-
-        {/* Bottom-Left Corner Bracket */}
-        <path
-          d="M 60 940 L 140 1020 L 260 1020"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.35)"
-          strokeWidth="3"
-        />
-
-        {/* Bottom-Right Corner Bracket */}
-        <path
-          d="M 1860 940 L 1780 1020 L 1660 1020"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.35)"
-          strokeWidth="3"
-        />
-
         {/* LEFT WING CONNECTOR LINES */}
         {/* 1. Left R16 Match 1 & 2 -> Upper QF */}
         <path
           d="M 315 260 H 350 V 400 H 315 M 350 330 H 425"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 2. Left R16 Match 3 & 4 -> Lower QF */}
         <path
           d="M 315 630 H 350 V 770 H 315 M 350 700 H 425"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 3. Left Upper QF & Lower QF -> Left Semifinal */}
         <path
           d="M 600 330 H 640 V 495 H 700 M 600 700 H 640 V 535 H 700"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 4. Left Semifinal -> Grand Final Top Slot */}
@@ -365,8 +330,9 @@ export function EsportsPlayoffBracket({
           d="M 875 515 H 900 V 440 H 940"
           fill="none"
           stroke={`#${primaryColor}`}
-          strokeWidth="2.5"
+          strokeWidth="2"
           strokeDasharray="4 2"
+          strokeOpacity="0.6"
         />
 
         {/* RIGHT WING CONNECTOR LINES (Mirrored) */}
@@ -374,24 +340,24 @@ export function EsportsPlayoffBracket({
         <path
           d="M 1605 260 H 1570 V 400 H 1605 M 1570 330 H 1495"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 2. Right R16 Match 7 & 8 -> Lower QF */}
         <path
           d="M 1605 630 H 1570 V 770 H 1605 M 1570 700 H 1495"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 3. Right Upper QF & Lower QF -> Right Semifinal */}
         <path
           d="M 1320 330 H 1280 V 495 H 1220 M 1320 700 H 1280 V 535 H 1220"
           fill="none"
-          stroke="rgba(255,255,255,0.35)"
-          strokeWidth="2.5"
+          stroke="rgba(255,255,255,0.18)"
+          strokeWidth="1.5"
         />
 
         {/* 4. Right Semifinal -> Grand Final Bottom Slot */}
@@ -399,8 +365,9 @@ export function EsportsPlayoffBracket({
           d="M 1045 515 H 1020 V 590 H 980"
           fill="none"
           stroke={`#${primaryColor}`}
-          strokeWidth="2.5"
+          strokeWidth="2"
           strokeDasharray="4 2"
+          strokeOpacity="0.6"
         />
       </svg>
 
@@ -510,26 +477,21 @@ export function EsportsPlayoffBracket({
         {/* CENTERPIECE: Trophy + Grand Final */}
         <div className="flex flex-col items-center justify-center px-4 w-[240px]">
           
-          {/* Golden Trophy Emblem */}
+          {/* Trophy Emblem */}
           <div className="relative mb-3 flex flex-col items-center">
-            {/* Ambient gold halo glow */}
-            <div className="absolute -inset-4 bg-amber-400/20 rounded-full blur-xl animate-pulse" />
-            
-            <div className="relative w-16 h-16 rounded-full bg-gradient-to-b from-amber-300 via-amber-500 to-amber-700 p-0.5 shadow-2xl flex items-center justify-center">
-              <div className="w-full h-full rounded-full bg-[#120f18] flex items-center justify-center">
-                <Trophy className="w-9 h-9 text-amber-400 drop-shadow-[0_2px_8px_rgba(251,191,36,0.8)]" />
-              </div>
+            <div className="relative w-14 h-14 rounded-full bg-[#141414] border-2 border-[var(--overlay-primary)] shadow-[0_0_25px_rgba(210,255,13,0.2)] flex items-center justify-center">
+              <Trophy className="w-7 h-7 text-[var(--overlay-primary)]" />
             </div>
 
             {/* Final Title */}
-            <span className="mt-2 text-base sm:text-lg font-black tracking-[0.3em] uppercase italic text-amber-300 drop-shadow-[0_2px_10px_rgba(251,191,36,0.6)]">
-              FINAL
+            <span className="mt-2 text-xs font-black tracking-[0.3em] uppercase italic text-white/70">
+              GRAND <span className="text-[var(--overlay-primary)]">FINAL</span>
             </span>
           </div>
 
           {/* Grand Final Match Pair (2 Cards) */}
-          <div className="w-full flex flex-col items-center gap-3">
-            <BeveledTeamCard
+          <div className="w-full flex flex-col items-center gap-2">
+            <CleanTeamCard
               name={finalMatch?.team1Name}
               score={finalMatch?.team1Score}
               isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team1Name}
@@ -543,17 +505,19 @@ export function EsportsPlayoffBracket({
             />
 
             {/* VS or Score badge */}
-            <div className="flex items-center gap-2">
-              <div className="h-[1px] w-8 bg-white/20" />
-              <span className="text-xs font-black italic tracking-widest text-white/50 bg-black/60 px-2.5 py-0.5 rounded border border-white/10">
-                {finalMatch?.team1Score !== undefined && finalMatch?.team2Score !== undefined && finalMatch.status !== "SCHEDULED"
-                  ? `${finalMatch.team1Score} - ${finalMatch.team2Score}`
-                  : "VS"}
+            <div className="flex items-center gap-2 my-1">
+              <div className="h-[1px] w-8 bg-white/10" />
+              <span className="text-[10px] font-black italic tracking-widest text-[var(--overlay-primary)] bg-[#141414] px-3 py-0.5 bracket-skew border-l-2 border-[var(--overlay-primary)]">
+                <span className="bracket-unskew inline-block">
+                  {finalMatch?.team1Score !== undefined && finalMatch?.team2Score !== undefined && finalMatch.status !== "SCHEDULED"
+                    ? `${finalMatch.team1Score} – ${finalMatch.team2Score}`
+                    : "VS"}
+                </span>
               </span>
-              <div className="h-[1px] w-8 bg-white/20" />
+              <div className="h-[1px] w-8 bg-white/10" />
             </div>
 
-            <BeveledTeamCard
+            <CleanTeamCard
               name={finalMatch?.team2Name}
               score={finalMatch?.team2Score}
               isWinner={finalMatch?.status === "COMPLETED" && finalMatch?.winnerName === finalMatch?.team2Name}
