@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Trophy, Clock, Zap, Timer, ChevronRight, Activity, Users, Shield, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { EsportsPlayoffBracket } from "@/components/broadcast/EsportsPlayoffBracket";
 
 interface Match {
   id: string;
@@ -939,7 +940,7 @@ export default function BroadcastOverlay() {
   const scene = searchParams.get("scene") || "live";
   
   const [matches, setMatches] = useState<Match[]>([]);
-  const [tournament, setTournament] = useState<{ title: string; startDate: string } | null>(null);
+  const [tournament, setTournament] = useState<{ title: string; startDate: string; gameTitle?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedMatchId, setUpdatedMatchId] = useState<string | null>(null);
   const [displayIndex, setDisplayIndex] = useState(0);
@@ -990,17 +991,24 @@ export default function BroadcastOverlay() {
     const fetchData = async () => {
       const { data: tournamentData } = await supabase
         .from("tournaments")
-        .select("title, start_date")
+        .select("title, start_date, game_title")
         .eq("id", tournamentId)
         .single();
-      if (tournamentData) setTournament({ title: tournamentData.title, startDate: tournamentData.start_date });
+      if (tournamentData) {
+        setTournament({
+          title: tournamentData.title,
+          startDate: tournamentData.start_date,
+          gameTitle: (tournamentData as any).game_title,
+        });
+      }
 
       const { data: matchData } = await supabase
         .from("matches")
         .select("*")
         .eq("tournament_id", tournamentId)
-        .order("scheduled_at", { ascending: false })
-        .limit(20);
+        .order("round_number", { ascending: true })
+        .order("position_in_round", { ascending: true })
+        .limit(100);
 
       if (matchData) {
         const matchesArray = (matchData as any[]).map(row => ({
@@ -1191,10 +1199,13 @@ export default function BroadcastOverlay() {
     }
     if (scene === "bracket") {
       return (
-        <iframe
-          src={`/bracket?tournament=${tournamentId}&stream=true&primary=${primaryColor}&bg=${bgColor}`}
-          className="w-screen h-screen border-0 bg-transparent"
-          title="OBS Live Bracket Stream"
+        <EsportsPlayoffBracket
+          tournamentId={tournamentId!}
+          tournamentTitle={tournament?.title}
+          gameTitle={tournament?.gameTitle}
+          matches={matches as any}
+          primaryColor={primaryColor}
+          bgColor={bgColor}
         />
       );
     }

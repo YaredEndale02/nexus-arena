@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { X, Clock, ExternalLink, Swords, Loader2, RefreshCw, Wifi, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { X, Clock, ExternalLink, Swords, Loader2, RefreshCw, Wifi, ZoomIn, ZoomOut, Maximize2, Trophy } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { SEOHead } from "@/components/SEOHead";
+import { EsportsPlayoffBracket } from "@/components/broadcast/EsportsPlayoffBracket";
 import { cn } from "@/lib/utils";
 import { api, type MatchReport, type Tournament } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,7 +197,10 @@ export default function Bracket() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [hoveredTeam, setHoveredTeam] = useState<string | null>(null);
-  const [activeStage, setActiveStage] = useState<"ALL" | "UPPER" | "LOWER" | "GRAND_FINAL">("ALL");
+  const [activeStage, setActiveStage] = useState<"ALL" | "UPPER" | "LOWER" | "GRAND_FINAL" | "PLAYOFF_ARENA">(
+    isStreamMode ? "PLAYOFF_ARENA" : "ALL"
+  );
+  const [rawMatches, setRawMatches] = useState<MatchReport[]>([]);
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [foldedRounds, setFoldedRounds] = useState<Set<number>>(new Set());
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -252,6 +256,7 @@ export default function Bracket() {
     else setIsRefreshing(true);
     try {
       const matchData = await api.getTournamentMatches(selectedTournamentId);
+      setRawMatches(matchData);
       setMatches(matchData.map(mapMatchToNode));
       setLastUpdated(new Date());
     } catch (error) {
@@ -462,12 +467,14 @@ export default function Bracket() {
           {/* Stage Tabs */}
           <div className="flex flex-wrap p-1 bg-white/5 border border-white/10 rounded-xl w-full sm:w-fit">
             {[
+              { id: "PLAYOFF_ARENA", label: "Playoff Arena", icon: Trophy },
               { id: "ALL", label: isGroupFormat ? "All Rounds" : "Full View", icon: Wifi },
               { id: "UPPER", label: "Upper", icon: Swords },
               { id: "LOWER", label: "Lower", icon: Swords },
               { id: "GRAND_FINAL", label: "Finals", icon: Clock },
             ].map((stage) => {
               if (isGroupFormat && stage.id !== "ALL") return null;
+              if (stage.id === "PLAYOFF_ARENA" && isGroupFormat) return null;
               if (stage.id === "LOWER" && lowerRounds.length === 0) return null;
               if (stage.id === "GRAND_FINAL" && grandFinalRounds.length === 0) return null;
               
@@ -616,7 +623,17 @@ export default function Bracket() {
         </div>
       )}
 
-      <div className="flex flex-col xl:flex-row gap-6 relative">
+      {activeStage === "PLAYOFF_ARENA" ? (
+        <div className="w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black/80 my-2">
+          <EsportsPlayoffBracket
+            tournamentId={selectedTournamentId}
+            tournamentTitle={selectedTournament?.title}
+            gameTitle={selectedTournament?.gameTitle}
+            matches={rawMatches}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-col xl:flex-row gap-6 relative">
         <div className="flex-1 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
           {/* Mobile Scroll Hint */}
           <div className="md:hidden flex items-center justify-center gap-2 mb-4 text-[10px] font-bold text-primary/40 uppercase tracking-widest animate-pulse">
@@ -997,6 +1014,7 @@ export default function Bracket() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 
